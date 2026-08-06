@@ -48,6 +48,18 @@ commands:
     description: Send a server-wide announcement
     usage: /broadcast <message>
     aliases: [bc, announce, alert]
+  playtime:
+    description: View your own or another player's playtime
+    usage: /playtime [player]
+    aliases: [ ptime ]
+    playtimetop:
+      description: Show the playtime leaderboard
+      usage: /playtimetop
+      aliases: [ ptop, playtimelb ]
+    lastseen:
+      description: Check when a player was last online
+      usage: /lastseen <player>
+      aliases: [ seen ]
 
 permissions:
   chatsync.bypass_cooldown:
@@ -77,3 +89,12 @@ permissions:
   chatsync.broadcast:
     description: Access to /broadcast
     default: op
+  chatsync.playtime:
+    description: Access to /playtime (yourself and other players)
+    default: true
+    chatsync.playtimetop:
+      description: Access to /playtimetop
+      default: true
+    chatsync.lastseen:
+      description: Access to /lastseen
+      default: true

@@ -137,7 +137,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return getConfig().getString("language", "en");
     }
 
-    private String t(Player player, String key) { return t(getLang(player), key); }
+    String t(Player player, String key) { return t(getLang(player), key); }
 
     private String t(String lang, String key) {
         YamlConfiguration cfg = langConfigs.get(lang);
@@ -871,7 +871,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return getConfig().getBoolean("toggles." + key, true);
     }
 
-    private Component color(String text) {
+    Component color(String text) {
         return LegacyComponentSerializer.legacyAmpersand().deserialize(text);
     }
 }

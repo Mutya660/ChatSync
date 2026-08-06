@@ -4,7 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -15,22 +18,29 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Переводит ванильные сообщения о смерти на русский, включая вложенные
- * имена мобов/предметов (например "Zombie" внутри "%1$s был убит %2$s"),
- * используя официальные строки Mojang из death_messages_ru.json и entity_names_ru.json.
+ * имена мобов/предметов, используя официальные строки Mojang из
+ * death_messages_ru.json и entity_names_ru.json. Также делает ник жертвы
+ * (и убийцы, если это игрок) кликабельным для быстрого /msg.
  *
- * Оба файла должны лежать в src/main/resources/
+ * Translates vanilla death messages to Russian, including nested mob/item
+ * names, using official Mojang strings from death_messages_ru.json and
+ * entity_names_ru.json. Also makes the victim's name (and the killer's,
+ * if a player) clickable for a quick /msg.
  */
 public class DeathMessageTranslator implements Listener {
 
-    private final JavaPlugin plugin;
+    private final ChatSync plugin;
     private final Map<String, String> translations;
 
-    public DeathMessageTranslator(JavaPlugin plugin) {
+    public DeathMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
         this.translations = loadAllTranslations(plugin);
     }
@@ -65,19 +75,65 @@ public class DeathMessageTranslator implements Listener {
         Component deathMessage = event.deathMessage();
         if (deathMessage == null) return;
 
-        Component translated = translateRoot(deathMessage);
-        if (translated != null) {
-            event.deathMessage(translated);
-        }
+        if (!(deathMessage instanceof TranslatableComponent translatable)) return;
+        String translatedText = translateTranslatable(translatable);
+        if (translatedText == null) return;
+
+        boolean clickable = plugin.getConfig().getBoolean("toggles.clickable_death_name", true);
+        Component finalMessage = clickable
+                ? buildClickableMessage(translatedText, collectClickableTargets(event))
+                : Component.text(translatedText);
+
+        event.deathMessage(finalMessage);
     }
 
-    /** Переводит корневой компонент сообщения о смерти. Возвращает null, если перевод невозможен. */
-    private Component translateRoot(Component component) {
-        if (!(component instanceof TranslatableComponent translatable)) {
-            return null;
+    /** Собирает игроков, чьи ники встречаются в сообщении о смерти и должны стать кликабельными. */
+    private Map<String, Player> collectClickableTargets(PlayerDeathEvent event) {
+        Map<String, Player> map = new LinkedHashMap<>();
+        Player victim = event.getEntity();
+        map.put(victim.getName(), victim);
+
+        Player killer = victim.getKiller();
+        if (killer != null && !killer.equals(victim)) map.put(killer.getName(), killer);
+        return map;
+    }
+
+    /** Оборачивает вхождения имён игроков в тексте в кликабельные компоненты (клик = /msg <игрок>). */
+    private Component buildClickableMessage(String text, Map<String, Player> clickable) {
+        if (clickable.isEmpty()) return Component.text(text);
+
+        List<String> names = new ArrayList<>(clickable.keySet());
+        names.sort((a, b) -> b.length() - a.length()); // сначала более длинные имена, чтобы избежать частичных совпадений
+
+        net.kyori.adventure.text.TextComponent.@org.jetbrains.annotations.NotNull Builder builder = Component.text();
+        StringBuilder plain = new StringBuilder();
+        int i = 0;
+        while (i < text.length()) {
+            String matched = null;
+            for (String name : names) {
+                if (text.regionMatches(i, name, 0, name.length())) {
+                    matched = name;
+                    break;
+                }
+            }
+            if (matched != null) {
+                if (plain.length() > 0) {
+                    builder.append(Component.text(plain.toString()));
+                    plain.setLength(0);
+                }
+                Player p = clickable.get(matched);
+                String hover = plugin.t(p, "messages.join_hover").replace("%player%", p.getName());
+                builder.append(Component.text(matched)
+                        .clickEvent(ClickEvent.suggestCommand("/msg " + p.getName() + " "))
+                        .hoverEvent(HoverEvent.showText(plugin.color(hover))));
+                i += matched.length();
+            } else {
+                plain.append(text.charAt(i));
+                i++;
+            }
         }
-        String translatedText = translateTranslatable(translatable);
-        return translatedText != null ? Component.text(translatedText) : null;
+        if (plain.length() > 0) builder.append(Component.text(plain.toString()));
+        return builder.build();
     }
 
     /**
@@ -90,7 +146,6 @@ public class DeathMessageTranslator implements Listener {
         if (component instanceof TranslatableComponent nested) {
             String translated = translateTranslatable(nested);
             if (translated != null) return translated;
-            // ключа нет в таблице (редкий моб/предмет) — берём английский текст как запасной вариант
         }
         return PlainTextComponentSerializer.plainText().serialize(component);
     }
@@ -108,7 +163,6 @@ public class DeathMessageTranslator implements Listener {
         try {
             return String.format(template, args);
         } catch (Exception e) {
-            // несовпадение количества %s — не ломаем сообщение
             return null;
         }
     }

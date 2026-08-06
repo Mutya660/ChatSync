@@ -121,7 +121,12 @@ commands:
     permission_others: "chatsync.chatstats.others"
   broadcast:
     permission: "chatsync.broadcast"
-
+  playtime:
+    permission: "chatsync.playtime"
+    playtimetop:
+      permission: "chatsync.playtimetop"
+    lastseen:
+      permission: "chatsync.lastseen"
 # ── /clear ───────────────────────────────────────────────────
 clear:
   # [EN] How many blank lines to push into chat when clearing
@@ -147,7 +152,17 @@ stats:
   # [EN] Number of entries shown by the /chatstats leaderboard
   # [RU] Количество записей, показываемых в топе /chatstats
   top_size: 10
-
+# ── Playtime tracking (/playtime, /playtimetop, /lastseen) ─────
+playtime:
+  # [EN] Whether playtime is tracked and periodically saved to playtime.yml
+  # [RU] Отслеживать ли playtime и периодически сохранять его в playtime.yml
+  enabled: true
+  # [EN] How often (in seconds) to asynchronously flush playtime to disk. Minimum 30.
+  # [RU] Как часто (в секундах) асинхронно сохранять playtime на диск. Минимум 30.
+  save_interval: 300
+  # [EN] Number of entries shown by the /playtimetop leaderboard
+  # [RU] Количество записей, показываемых в топе /playtimetop
+  top_size: 10
 # ── Chat logging (async files in the "logs" folder) ─────────────
 logging:
   # [EN] Whether global/local chat, PMs, /me and /broadcast are written to log files
@@ -241,3 +256,11 @@ toggles:
   # [EN] Console logging for local chat
   # [RU] Логирование локального чата в консоль
   local_console_log: true
+
+  # [EN] Make the victim's (and killer's, if a player) name clickable in death messages, to quickly /msg them
+  # [RU] Делать ник погибшего (и убийцы, если это игрок) кликабельным в сообщениях о смерти для быстрого /msg
+  clickable_death_name: true
+
+  # [EN] Make the player's name clickable in advancement-announcement messages, to quickly /msg them
+  # [RU] Делать ник игрока кликабельным в сообщениях о получении достижений для быстрого /msg
+  clickable_advancement_name: true

@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.command.*;
@@ -30,6 +31,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private final Map<UUID, Long>      globalCooldown = new HashMap<>();
     private final Map<String, YamlConfiguration> langConfigs = new HashMap<>();
 
+    /** Ожидающие подтверждения запросы /clear: ключ отправителя → цель + время истечения. */
+    private final Map<UUID, PendingClear> pendingClears = new HashMap<>();
+    private static final UUID CONSOLE_UUID = new UUID(0L, 0L);
+
+    private ChatStatsManager statsManager;
+    private ChatLogger       chatLogger;
+    private LuckPermsHook    luckPermsHook;
+    private CoreProtectHook  coreProtectHook;
+
     private static final List<String> SUPPORTED_LANGS = List.of("en", "ru", "de", "fr");
 
     private static final Map<String, String> LOCALE_MAP = Map.ofEntries(
@@ -41,6 +51,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         Map.entry("fr_be", "fr"), Map.entry("fr_ch", "fr")
     );
 
+    /** Ожидающая подтверждения заявка на очистку чата. target == null означает "очистить всем". */
+    private record PendingClear(UUID target, long expiresAt) {}
+
     // ──────────────────────────────────────────────────────────────
     //  Lifecycle
     // ──────────────────────────────────────────────────────────────
@@ -49,6 +62,14 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     public void onEnable() {
         saveDefaultConfig();
         loadLangFiles();
+
+        this.statsManager    = new ChatStatsManager(this);
+        this.chatLogger      = new ChatLogger(this,
+                getConfig().getString("logging.folder", "logs"),
+                getConfig().getBoolean("logging.async", true));
+        this.luckPermsHook   = new LuckPermsHook(this);
+        this.coreProtectHook = new CoreProtectHook(this);
+
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new DeathMessageTranslator(this), this);
 
@@ -58,8 +79,29 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         registerCmd("ignorelist", this);
         registerCmd("socialspy",  this);
         registerCmd("chatsync",   this);
+        registerCmd("me",         this);
+        registerCmd("clear",      this);
+        registerCmd("chatstats",  this);
+        registerCmd("broadcast",  this);
+
+        if (getConfig().getBoolean("stats.enabled", true)) {
+            long intervalTicks = 20L * Math.max(30, getConfig().getInt("stats.save_interval", 300));
+            Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                    () -> statsManager.saveIfDirty(), intervalTicks, intervalTicks);
+        }
+
+        // Периодическая очистка просроченных заявок /clear, чтобы карта не росла бесконечно.
+        Bukkit.getScheduler().runTaskTimer(this, this::purgeExpiredClears, 20L * 60, 20L * 60);
 
         getLogger().info("ChatSync v" + getDescription().getVersion() + " enabled!");
+        if (luckPermsHook.isAvailable()) getLogger().info("LuckPerms detected: direct API fallback enabled.");
+        if (coreProtectHook.isAvailable()) getLogger().info("CoreProtect detected: /clear will be logged for /co lookup.");
+    }
+
+    @Override
+    public void onDisable() {
+        if (statsManager != null) statsManager.save();
+        if (chatLogger != null) chatLogger.flushNow();
     }
 
     private void registerCmd(String name, CommandExecutor exec) {
@@ -109,6 +151,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return t(getConfig().getString("language", "en"), key);
     }
 
+    /** Возвращает локализованную строку для любого CommandSender (игрок или консоль). */
+    private String tAny(CommandSender sender, String key) {
+        return sender instanceof Player p ? t(p, key) : tDefault(key);
+    }
+
     // ──────────────────────────────────────────────────────────────
     //  Join / Quit
     // ──────────────────────────────────────────────────────────────
@@ -130,6 +177,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         lastMessaged.remove(player.getUniqueId());
         socialSpy.remove(player.getUniqueId());
         globalCooldown.remove(player.getUniqueId());
+        pendingClears.remove(player.getUniqueId());
     }
 
     private Component buildJoinQuitMessage(String template, Player player) {
@@ -191,6 +239,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
             logToConsole("[GlobalChat] " + sender.getName() + ": " + rawMessage);
             sendToDiscord(sender, rawMessage, "global");
+            statsManager.record(sender.getUniqueId(), sender.getName(), ChatStatsManager.MessageType.GLOBAL);
+            logChat("[GLOBAL] " + sender.getName() + ": " + stripColorCodes(rawMessage));
         } else {
             double radius     = getConfig().getDouble("chat.local.radius", 100.0);
             int    recipients = 0;
@@ -223,6 +273,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     spy.sendMessage(color(spyLocalFmt));
                 }
             }
+            statsManager.record(sender.getUniqueId(), sender.getName(), ChatStatsManager.MessageType.LOCAL);
+            logChat("[LOCAL] " + sender.getName() + ": " + stripColorCodes(rawMessage));
         }
     }
 
@@ -239,21 +291,25 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             case "ignore"      -> { return cmdIgnore(sender, args); }
             case "ignorelist"  -> { return cmdIgnoreList(sender); }
             case "socialspy"   -> { return cmdSocialSpy(sender, args); }
+            case "me"          -> { return cmdMe(sender, args); }
+            case "clear"       -> { return cmdClear(sender, args); }
+            case "chatstats"   -> { return cmdChatStats(sender, args); }
+            case "broadcast"   -> { return cmdBroadcast(sender, args); }
         }
         return false;
     }
 
     private boolean cmdChatSync(CommandSender sender, String[] args) {
         if (!sender.hasPermission(getConfig().getString("commands.reload.permission", "chatsync.admin"))) {
-            sender.sendMessage(color(sender instanceof Player p ? t(p, "commands.reload.no_permission") : tDefault("commands.reload.no_permission")));
+            sender.sendMessage(color(tAny(sender, "commands.reload.no_permission")));
             return true;
         }
         if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
             reloadConfig();
             loadLangFiles();
-            sender.sendMessage(color(sender instanceof Player p ? t(p, "commands.reload.success") : tDefault("commands.reload.success")));
+            sender.sendMessage(color(tAny(sender, "commands.reload.success")));
         } else {
-            sender.sendMessage(color(sender instanceof Player p ? t(p, "commands.reload.usage") : tDefault("commands.reload.usage")));
+            sender.sendMessage(color(tAny(sender, "commands.reload.usage")));
         }
         return true;
     }
@@ -366,6 +422,229 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return true;
     }
 
+    // ── /me ──────────────────────────────────────────────────────
+
+    private boolean cmdMe(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player pSender)) { sender.sendMessage("Players only."); return true; }
+
+        String permission = getConfig().getString("commands.me.permission", "chatsync.me");
+        if (!pSender.hasPermission(permission)) {
+            pSender.sendMessage(color(t(pSender, "me.no_permission")));
+            return true;
+        }
+        if (args.length < 1) { pSender.sendMessage(color(t(pSender, "me.usage"))); return true; }
+
+        String rawMessage = joinArgs(args, 0);
+        if (!pSender.hasPermission("chatsync.color")) rawMessage = stripColorCodes(rawMessage);
+
+        String format = getConfig().getString("chat.me.format", "&7* %player% %message%");
+        double radius = getConfig().getDouble("chat.me.radius", -1);
+
+        if (radius < 0) {
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (!p.equals(pSender) && isIgnoring(p, pSender)) continue;
+                p.sendMessage(buildChatComponent(format, pSender, rawMessage, p));
+            }
+        } else {
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (!p.getWorld().equals(pSender.getWorld())) continue;
+                if (p.getLocation().distance(pSender.getLocation()) > radius) continue;
+                if (!p.equals(pSender) && isIgnoring(p, pSender)) continue;
+                p.sendMessage(buildChatComponent(format, pSender, rawMessage, p));
+            }
+        }
+
+        logToConsole("[Me] " + pSender.getName() + " " + rawMessage);
+        logChat("[ME] " + pSender.getName() + " " + stripColorCodes(rawMessage));
+        statsManager.record(pSender.getUniqueId(), pSender.getName(), ChatStatsManager.MessageType.ME);
+        sendToDiscord(pSender, "* " + pSender.getName() + " " + rawMessage, "me");
+        return true;
+    }
+
+    // ── /clear ───────────────────────────────────────────────────
+
+    private boolean cmdClear(CommandSender sender, String[] args) {
+        String permission = getConfig().getString("commands.clear.permission", "chatsync.clear");
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage(color(tAny(sender, "clear.no_permission")));
+            return true;
+        }
+
+        int  lines     = getConfig().getInt("clear.lines", 150);
+        long timeoutMs = Math.max(5, getConfig().getInt("clear.confirm_timeout", 15)) * 1000L;
+
+        // /clear confirm   или   /clear <player> confirm
+        if (args.length >= 1 && args[args.length - 1].equalsIgnoreCase("confirm")) {
+            UUID key = senderKey(sender);
+            PendingClear pending = pendingClears.get(key);
+            if (pending == null || pending.expiresAt() < System.currentTimeMillis()) {
+                pendingClears.remove(key);
+                sender.sendMessage(color(tAny(sender, "clear.expired")));
+                return true;
+            }
+            pendingClears.remove(key);
+            performClear(sender, pending.target(), lines);
+            return true;
+        }
+
+        // Первый запуск — запрашиваем подтверждение
+        UUID   targetUuid = null;
+        String targetName = null;
+        if (args.length >= 1) {
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage(color(tAny(sender, "pm.player_not_found").replace("%player%", args[0])));
+                return true;
+            }
+            targetUuid = target.getUniqueId();
+            targetName = target.getName();
+        }
+
+        pendingClears.put(senderKey(sender), new PendingClear(targetUuid, System.currentTimeMillis() + timeoutMs));
+
+        String confirmCommand = targetName != null ? "/clear " + targetName + " confirm" : "/clear confirm";
+        String hintKey        = targetName != null ? "clear.confirm_hint_player" : "clear.confirm_hint";
+        String hintText       = tAny(sender, hintKey).replace("%target%", targetName != null ? targetName : "");
+
+        Component hint = color(hintText).clickEvent(ClickEvent.runCommand(confirmCommand));
+        sender.sendMessage(hint);
+        return true;
+    }
+
+    private void performClear(CommandSender sender, UUID target, int lines) {
+        Component blank        = Component.text(" ");
+        String    executorName = sender instanceof Player p ? p.getName() : "Console";
+
+        if (target == null) {
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                for (int i = 0; i < lines; i++) p.sendMessage(blank);
+            }
+            String msg = tAny(sender, "clear.done_all").replace("%player%", executorName);
+            if (getConfig().getBoolean("clear.broadcast_notice", true)) {
+                for (Player p : Bukkit.getOnlinePlayers()) p.sendMessage(color(t(p, "clear.done_all").replace("%player%", executorName)));
+            } else {
+                sender.sendMessage(color(msg));
+            }
+            if (sender instanceof Player p2) coreProtectHook.logClear(p2, "all");
+            logToConsole("[Clear] " + executorName + " cleared the chat for everyone.");
+        } else {
+            Player targetPlayer = Bukkit.getPlayer(target);
+            if (targetPlayer == null) {
+                sender.sendMessage(color(tAny(sender, "clear.expired")));
+                return;
+            }
+            for (int i = 0; i < lines; i++) targetPlayer.sendMessage(blank);
+            String msg = tAny(sender, "clear.done_player")
+                    .replace("%target%", targetPlayer.getName())
+                    .replace("%player%", executorName);
+            sender.sendMessage(color(msg));
+            if (sender instanceof Player p2) coreProtectHook.logClear(p2, targetPlayer.getName());
+            logToConsole("[Clear] " + executorName + " cleared the chat for " + targetPlayer.getName() + ".");
+        }
+    }
+
+    private void purgeExpiredClears() {
+        long now = System.currentTimeMillis();
+        pendingClears.entrySet().removeIf(e -> e.getValue().expiresAt() < now);
+    }
+
+    private UUID senderKey(CommandSender sender) {
+        return sender instanceof Player p ? p.getUniqueId() : CONSOLE_UUID;
+    }
+
+    // ── /chatstats ───────────────────────────────────────────────
+
+    private boolean cmdChatStats(CommandSender sender, String[] args) {
+        String permission = getConfig().getString("commands.chatstats.permission", "chatsync.chatstats");
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage(color(tAny(sender, "chatstats.no_permission")));
+            return true;
+        }
+
+        if (args.length == 0) {
+            int topSize = getConfig().getInt("stats.top_size", 10);
+            List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top = statsManager.top(topSize);
+            sender.sendMessage(color(tAny(sender, "chatstats.top_header").replace("%count%", String.valueOf(top.size()))));
+            int rank = 1;
+            for (Map.Entry<UUID, ChatStatsManager.PlayerStats> entry : top) {
+                String line = tAny(sender, "chatstats.top_entry")
+                        .replace("%rank%", String.valueOf(rank++))
+                        .replace("%player%", statsManager.nameOf(entry.getKey()))
+                        .replace("%total%", String.valueOf(entry.getValue().total()));
+                sender.sendMessage(color(line));
+            }
+            return true;
+        }
+
+        String  targetName = args[0];
+        boolean isSelf     = sender instanceof Player p0 && p0.getName().equalsIgnoreCase(targetName);
+        if (!isSelf) {
+            String othersPermission = getConfig().getString("commands.chatstats.permission_others", "chatsync.chatstats.others");
+            if (!sender.hasPermission(othersPermission)) {
+                sender.sendMessage(color(tAny(sender, "chatstats.no_permission_others")));
+                return true;
+            }
+        }
+
+        @SuppressWarnings("deprecation")
+        org.bukkit.OfflinePlayer off = Bukkit.getOfflinePlayer(targetName);
+        UUID uuid = off.getUniqueId();
+        ChatStatsManager.PlayerStats stats = statsManager.get(uuid);
+        if (stats == null) {
+            sender.sendMessage(color(tAny(sender, "chatstats.no_data").replace("%player%", targetName)));
+            return true;
+        }
+
+        sender.sendMessage(color(tAny(sender, "chatstats.player_header").replace("%player%", statsManager.nameOf(uuid))));
+        sender.sendMessage(color(tAny(sender, "chatstats.player_line")
+                .replace("%global%", String.valueOf(stats.global))
+                .replace("%local%", String.valueOf(stats.local))
+                .replace("%pm%", String.valueOf(stats.pm))
+                .replace("%me%", String.valueOf(stats.me))
+                .replace("%total%", String.valueOf(stats.total()))));
+        return true;
+    }
+
+    // ── /broadcast ───────────────────────────────────────────────
+
+    private boolean cmdBroadcast(CommandSender sender, String[] args) {
+        String permission = getConfig().getString("commands.broadcast.permission", "chatsync.broadcast");
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage(color(tAny(sender, "broadcast.no_permission")));
+            return true;
+        }
+        if (args.length < 1) {
+            sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+            return true;
+        }
+
+        String rawMessage = joinArgs(args, 0);
+        if (sender instanceof Player pSender && !pSender.hasPermission("chatsync.color")) {
+            rawMessage = stripColorCodes(rawMessage);
+        }
+
+        String    format    = getConfig().getString("broadcast.format", "&6&l[Announcement] &e%message%").replace("%message%", rawMessage);
+        Component component = color(format);
+
+        boolean actionbar   = getConfig().getBoolean("broadcast.actionbar", false);
+        boolean titleEnable = getConfig().getBoolean("broadcast.title.enable", false);
+        String  titleText   = getConfig().getString("broadcast.title.text", "%message%").replace("%message%", rawMessage);
+        String  subtitle    = getConfig().getString("broadcast.title.subtitle", "").replace("%message%", rawMessage);
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(component);
+            if (actionbar) p.sendActionBar(component);
+            if (titleEnable) p.showTitle(Title.title(color(titleText), color(subtitle)));
+            playCustomSound(p, "broadcast.sound");
+        }
+
+        String executorName = sender instanceof Player p ? p.getName() : "Console";
+        logToConsole("[Broadcast] " + executorName + ": " + rawMessage);
+        logChat("[BROADCAST] " + executorName + ": " + stripColorCodes(rawMessage));
+        if (sender instanceof Player p) sendToDiscord(p, rawMessage, "broadcast");
+        return true;
+    }
+
     // ──────────────────────────────────────────────────────────────
     //  Tab complete
     // ──────────────────────────────────────────────────────────────
@@ -373,13 +652,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         String name = command.getName().toLowerCase();
-        if (args.length == 1 && (name.equals("msg") || name.equals("ignore"))) {
+        if (args.length == 1 && (name.equals("msg") || name.equals("ignore") || name.equals("clear") || name.equals("chatstats"))) {
             List<String> names = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers())
                 if (p.getName().toLowerCase().startsWith(args[0].toLowerCase()))
                     names.add(p.getName());
+            if (name.equals("clear")) names.add("confirm");
             return names;
         }
+        if (name.equals("clear") && args.length == 2) return List.of("confirm");
         if (name.equals("chatsync") && args.length == 1) return List.of("reload");
         return List.of();
     }
@@ -416,6 +697,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
         }
         logToConsole("[PM] " + from.getName() + " → " + to.getName() + ": " + message);
+        statsManager.record(from.getUniqueId(), from.getName(), ChatStatsManager.MessageType.PM);
+        logChat("[PM] " + from.getName() + " -> " + to.getName() + ": " + stripColorCodes(message));
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -517,12 +800,23 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private String resolvePlaceholders(String text, Player player) {
         if (text == null) return "";
         text = text.replace("%player%", player.getName());
+
+        boolean papiHandled = false;
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             try {
                 Class<?> papi = Class.forName("me.clip.placeholderapi.PlaceholderAPI");
                 java.lang.reflect.Method m = papi.getMethod("setPlaceholders", Player.class, String.class);
                 text = (String) m.invoke(null, player, text);
+                papiHandled = true;
             } catch (Exception ignored) {}
+        }
+
+        // Фолбэк на прямой LuckPerms API, если PlaceholderAPI не установлен
+        if (!papiHandled
+                && getConfig().getBoolean("integrations.luckperms.use_api_directly", true)
+                && luckPermsHook != null && luckPermsHook.isAvailable()) {
+            text = text.replace("%luckperms_prefix%", luckPermsHook.getPrefix(player));
+            text = text.replace("%luckperms_suffix%", luckPermsHook.getSuffix(player));
         }
         return text;
     }
@@ -542,6 +836,13 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private void logToConsole(String message) {
         Bukkit.getConsoleSender().sendMessage(
                 LegacyComponentSerializer.legacyAmpersand().deserialize(message));
+    }
+
+    /** Пишет строку в асинхронный файловый лог чата, если это включено в config.yml. */
+    private void logChat(String line) {
+        if (chatLogger != null && getConfig().getBoolean("logging.enabled", true)) {
+            chatLogger.log(line);
+        }
     }
 
     private String extractTrailingColor(String text) {

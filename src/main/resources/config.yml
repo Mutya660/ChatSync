@@ -1,82 +1,243 @@
 # ═══════════════════════════════════════════════════════════════
 #  ChatSync - Configuration by mutya660
 #  Modrinth: https://modrinth.com/plugin/chatsync
+#
+#  Every setting below has a bilingual comment:
+#  [EN] English explanation
+#  [RU] Пояснение на русском
+#
+#  NOTE / ПРИМЕЧАНИЕ:
+#  [EN] The actual localized text shown to players (usage hints, errors,
+#       success messages) lives in lang/<code>.yml so it can be translated
+#       per-locale. This file only holds FORMATS, PERMISSIONS, COLORS,
+#       TOGGLES and other non-localized behaviour settings.
+#  [RU] Локализованный текст, который видят игроки (подсказки, ошибки,
+#       сообщения об успехе), хранится в lang/<code>.yml, чтобы его можно
+#       было переводить под каждый язык. Этот файл содержит только ФОРМАТЫ,
+#       ПРАВА, ЦВЕТА, ПЕРЕКЛЮЧАТЕЛИ и прочие нелокализуемые настройки поведения.
 # ═══════════════════════════════════════════════════════════════
 
-# Default language for console and unsupported locales. Supported: en, ru, de, fr
+# [EN] Default language for console and unsupported client locales. Supported: en, ru, de, fr
+# [RU] Язык по умолчанию для консоли и неподдерживаемых локалей клиента. Поддерживается: en, ru, de, fr
 language: "en"
 
 # ── Chat ──────────────────────────────────────────────────────
 chat:
   global:
+    # [EN] Whether a message must start with the symbol below to be sent to global chat
+    # [RU] Должно ли сообщение начинаться с символа ниже, чтобы попасть в глобальный чат
     require_symbol: true
+    # [EN] The symbol that marks a message as global (e.g. "!hello")
+    # [RU] Символ, который делает сообщение глобальным (например, "!привет")
     symbol: "!"
+    # [EN] Global chat format. Placeholders: %player%, %message%, %luckperms_prefix%, %luckperms_suffix%
+    # [RU] Формат глобального чата. Плейсхолдеры: %player%, %message%, %luckperms_prefix%, %luckperms_suffix%
     format: "&8[&aG&8] %luckperms_prefix% &7%player% %luckperms_suffix%&7 > &7%message%"
-    # Cooldown in seconds between global messages per player. 0 = disabled.
-    # Players with chatsync.bypass_cooldown permission are exempt.
+    # [EN] Cooldown in seconds between global messages per player. 0 = disabled.
+    #      Players with chatsync.bypass_cooldown permission are exempt.
+    # [RU] Кулдаун в секундах между глобальными сообщениями одного игрока. 0 = отключено.
+    #      Игроки с правом chatsync.bypass_cooldown освобождены от кулдауна.
     cooldown: 3
   local:
+    # [EN] Radius (in blocks) within which local chat messages are visible
+    # [RU] Радиус (в блоках), в пределах которого видны сообщения локального чата
     radius: 100.0
+    # [EN] Local chat format shown to players
+    # [RU] Формат локального чата, который видят игроки
     format: "&8[&fL&8] %luckperms_prefix% &f%player% %luckperms_suffix%&f > &f%message%"
+    # [EN] Whether to also print local chat messages to the console log
+    # [RU] Дублировать ли сообщения локального чата в лог консоли
     log_to_console: true
+    # [EN] Format used when printing local chat to console
+    # [RU] Формат, используемый при выводе локального чата в консоль
     console_format: "[LocalChat] %player%: %message%"
+  # [EN] Settings for the /me roleplay command
+  # [RU] Настройки команды /me (сообщения от третьего лица)
+  me:
+    # [EN] Format of /me messages. Placeholders: %player%, %message%
+    # [RU] Формат сообщений /me. Плейсхолдеры: %player%, %message%
+    format: "&7* %player% %message%"
+    # [EN] Radius in blocks for who can see /me messages. -1 = visible to everyone on the server
+    # [RU] Радиус в блоках для видимости сообщений /me. -1 = видно всем на сервере
+    radius: -1
 
 # ── Private messages ──────────────────────────────────────────
 pm:
+  # [EN] Format shown to staff with /socialspy for private messages
+  # [RU] Формат, который видят администраторы через /socialspy для личных сообщений
   format_spy: "&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%"
-  # Format for local chat messages shown to admins with /socialspy
+  # [EN] Format for local chat messages shown to admins with /socialspy (out-of-radius listeners)
+  # [RU] Формат для сообщений локального чата, которые видят администраторы через /socialspy (вне радиуса)
   format_spy_local: "&8[SPY-L] &7%player%&8: &7%message%"
   sound:
+    # [EN] Whether to play a sound to the receiver of a private message
+    # [RU] Проигрывать ли звук получателю личного сообщения
     enable: true
+    # [EN] Bukkit Sound enum name
+    # [RU] Название звука из перечисления Bukkit Sound
     name: "ENTITY_EXPERIENCE_ORB_PICKUP"
     volume: 1.0
     pitch: 1.2
 
 # ── Discord (DiscordSRV) ───────────────────────────────────────
 discord:
+  # [EN] Master switch for forwarding chat/me/broadcast messages to Discord via DiscordSRV
+  # [RU] Общий переключатель отправки сообщений чата/me/broadcast в Discord через DiscordSRV
   enabled: true
 
 # ── Death messages ──────────────────────────────────────────────
 death_messages:
-  # Переводить ванильные сообщения о смерти на русский (death.attack.*, death.fell.*)
-  # Работает независимо от языка клиента игрока — важно для консоли, логов и DiscordSRV,
-  # которые всегда получают английский текст без этого перевода.
+  # [EN] Translate vanilla death messages (death.attack.*, death.fell.*) to Russian.
+  #      Works regardless of the player's client locale — important for console,
+  #      logs and DiscordSRV, which otherwise always receive English text.
+  # [RU] Переводить ванильные сообщения о смерти (death.attack.*, death.fell.*) на русский.
+  #      Работает независимо от языка клиента игрока — важно для консоли, логов и
+  #      DiscordSRV, которые всегда получают английский текст без этого перевода.
   translate_to_russian: true
 
 # ── Join / Quit messages ──────────────────────────────────────
 messages:
+  # [EN] Join message format. Placeholder: %player%
+  # [RU] Формат сообщения о входе. Плейсхолдер: %player%
   join: "&a+ &f%player%"
+  # [EN] Quit message format. Placeholder: %player%
+  # [RU] Формат сообщения о выходе. Плейсхолдер: %player%
   quit: "&c- &f%player%"
 
-# ── Admin command ─────────────────────────────────────────────
+# ── Commands: configurable permission nodes ────────────────────
+# [EN] Lets you rename which permission node each command checks,
+#      without touching plugin.yml or the Java code.
+# [RU] Позволяет переопределить право, которое проверяет каждая команда,
+#      без изменения plugin.yml или Java-кода.
 commands:
   reload:
     permission: "chatsync.admin"
+  me:
+    permission: "chatsync.me"
+  clear:
+    permission: "chatsync.clear"
+  chatstats:
+    permission: "chatsync.chatstats"
+    permission_others: "chatsync.chatstats.others"
+  broadcast:
+    permission: "chatsync.broadcast"
+
+# ── /clear ───────────────────────────────────────────────────
+clear:
+  # [EN] How many blank lines to push into chat when clearing
+  # [RU] Сколько пустых строк отправлять в чат при очистке
+  lines: 150
+  # [EN] Seconds a pending /clear confirmation stays valid before expiring
+  # [RU] Сколько секунд действует запрос на подтверждение /clear, прежде чем он истечёт
+  confirm_timeout: 15
+  # [EN] When clearing chat for everyone, notify all players who did it (true)
+  #      or only notify the command sender (false)
+  # [RU] При очистке чата для всех — уведомлять всех игроков, кто это сделал (true),
+  #      или уведомлять только того, кто выполнил команду (false)
+  broadcast_notice: true
+
+# ── Chat statistics (/chatstats) ────────────────────────────────
+stats:
+  # [EN] Whether message statistics are tracked and periodically saved to stats.yml
+  # [RU] Собирать ли статистику сообщений и периодически сохранять её в stats.yml
+  enabled: true
+  # [EN] How often (in seconds) to asynchronously flush stats to disk. Minimum 30.
+  # [RU] Как часто (в секундах) асинхронно сохранять статистику на диск. Минимум 30.
+  save_interval: 300
+  # [EN] Number of entries shown by the /chatstats leaderboard
+  # [RU] Количество записей, показываемых в топе /chatstats
+  top_size: 10
+
+# ── Chat logging (async files in the "logs" folder) ─────────────
+logging:
+  # [EN] Whether global/local chat, PMs, /me and /broadcast are written to log files
+  # [RU] Записывать ли глобальный/локальный чат, ЛС, /me и /broadcast в файлы лога
+  enabled: true
+  # [EN] Sub-folder (inside the plugin's data folder) where daily log files are stored
+  # [RU] Подпапка (внутри папки данных плагина), куда сохраняются ежедневные файлы лога
+  folder: "logs"
+  # [EN] Write logs asynchronously (recommended — avoids blocking the main server thread)
+  # [RU] Писать логи асинхронно (рекомендуется — не блокирует основной поток сервера)
+  async: true
+
+# ── Optional integrations ───────────────────────────────────────
+integrations:
+  luckperms:
+    # [EN] Master switch for LuckPerms-related behaviour
+    # [RU] Общий переключатель поведения, связанного с LuckPerms
+    enabled: true
+    # [EN] If PlaceholderAPI is NOT installed but LuckPerms is, resolve
+    #      %luckperms_prefix% / %luckperms_suffix% directly via the LuckPerms API
+    # [RU] Если PlaceholderAPI НЕ установлен, но LuckPerms есть — обрабатывать
+    #      %luckperms_prefix% / %luckperms_suffix% напрямую через API LuckPerms
+    use_api_directly: true
+  coreprotect:
+    # [EN] Master switch for CoreProtect-related behaviour
+    # [RU] Общий переключатель поведения, связанного с CoreProtect
+    enabled: true
+    # [EN] Log every confirmed /clear execution into CoreProtect for /co lookup
+    # [RU] Записывать каждое подтверждённое выполнение /clear в CoreProtect для /co lookup
+    log_clear: true
+
+# ── /broadcast (server-wide announcements) ──────────────────────
+broadcast:
+  # [EN] Chat format for the announcement. Placeholder: %message%
+  # [RU] Формат чата для объявления. Плейсхолдер: %message%
+  format: "&6&l[Объявление] &e%message%"
+  # [EN] Also show the announcement in the action bar
+  # [RU] Также показывать объявление в панели действий (action bar)
+  actionbar: false
+  sound:
+    # [EN] Play a sound to everyone when an announcement is sent
+    # [RU] Проигрывать звук всем при отправке объявления
+    enable: true
+    name: "ENTITY_PLAYER_LEVELUP"
+    volume: 1.0
+    pitch: 1.0
+  title:
+    # [EN] Also show the announcement as an on-screen title
+    # [RU] Также показывать объявление как заголовок на экране
+    enable: false
+    # [EN] Title text. Placeholder: %message%
+    # [RU] Текст заголовка. Плейсхолдер: %message%
+    text: "&6&l%message%"
+    # [EN] Subtitle text. Placeholder: %message%
+    # [RU] Текст подзаголовка. Плейсхолдер: %message%
+    subtitle: ""
 
 # ══════════════════════════════════════════════════════════════
 #  Message toggles
-#  Set any to false to completely disable that message/event.
+#  [EN] Set any to false to completely disable that message/event.
+#  [RU] Установите false, чтобы полностью отключить это сообщение/событие.
 # ══════════════════════════════════════════════════════════════
 toggles:
-  # "Nobody can hear you" hint when local chat has no recipients
+  # [EN] "Nobody can hear you" hint when local chat has no recipients
+  # [RU] Подсказка "тебя никто не слышит", когда локальный чат без получателей
   local_noone: true
 
-  # Join / quit messages shown to all players
+  # [EN] Join / quit messages shown to all players
+  # [RU] Сообщения о входе / выходе, видимые всем игрокам
   join_message: true
   quit_message: true
 
-  # "[Player] is ignoring you" notification when messaging someone who ignored you
+  # [EN] "[Player] is ignoring you" notification when messaging someone who ignored you
+  # [RU] Уведомление "[Игрок] игнорирует вас" при попытке написать тому, кто вас игнорирует
   ignore_notify_sender: true
 
-  # Notification to the player who gets ignored/unignored
-  # (the person running /ignore always sees confirmation — this controls the TARGET's notification)
+  # [EN] Notification to the player who gets ignored/unignored
+  #      (the person running /ignore always sees confirmation — this controls the TARGET's notification)
+  # [RU] Уведомление игроку, которого добавили/удалили из игнора
+  #      (тот, кто выполняет /ignore, всегда видит подтверждение — это управляет уведомлением ЦЕЛИ)
   ignore_notify_target: false
 
-  # Sound played on private message receive
+  # [EN] Sound played on private message receive
+  # [RU] Звук при получении личного сообщения
   pm_sound: true
 
-  # SocialSpy messages for admins
+  # [EN] SocialSpy messages for admins
+  # [RU] Сообщения SocialSpy для администраторов
   socialspy: true
 
-  # Console logging for local chat
+  # [EN] Console logging for local chat
+  # [RU] Логирование локального чата в консоль
   local_console_log: true

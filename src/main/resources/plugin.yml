@@ -1,9 +1,9 @@
 name: ChatSync
-version: 1.0
+version: 1.1
 main: chatsync.ChatSync
 api-version: '1.21'
-softdepend: [PlaceholderAPI, DiscordSRV]
-description: "Chat plugin with global/local chat, private messages, ignore, socialspy and multi-language support."
+softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect]
+description: "Chat plugin with global/local chat, private messages, ignore, socialspy, /me, /clear, /chatstats, /broadcast and multi-language support."
 authors: [YourName]
 website: "https://modrinth.com/plugin/chatsync"
 
@@ -32,6 +32,22 @@ commands:
     usage: /chatsync reload
     aliases: [csync]
     permission: chatsync.admin
+  me:
+    description: Send a roleplay-style message in the third person
+    usage: /me <action>
+    aliases: [action]
+  clear:
+    description: Clear the chat for everyone or a specific player (asks for confirmation)
+    usage: /clear [player] [confirm]
+    aliases: [clearchat, chatclear]
+  chatstats:
+    description: View chat message statistics (top players or a specific player)
+    usage: /chatstats [player]
+    aliases: [cstats]
+  broadcast:
+    description: Send a server-wide announcement
+    usage: /broadcast <message>
+    aliases: [bc, announce, alert]
 
 permissions:
   chatsync.bypass_cooldown:
@@ -44,5 +60,20 @@ permissions:
     description: Access to /socialspy
     default: op
   chatsync.color:
-    description: Use & color codes in chat
+    description: Use & color codes in chat, /me and /broadcast
+    default: op
+  chatsync.me:
+    description: Access to /me
+    default: true
+  chatsync.clear:
+    description: Access to /clear
+    default: op
+  chatsync.chatstats:
+    description: View the chat statistics leaderboard and your own stats
+    default: true
+  chatsync.chatstats.others:
+    description: View other players' chat statistics via /chatstats <player>
+    default: op
+  chatsync.broadcast:
+    description: Access to /broadcast
     default: op

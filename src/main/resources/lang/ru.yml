@@ -42,3 +42,28 @@ pm:
   format_receiver: "&e%sender% &e→ &eВы&e: &e%message%"
   player_not_found: "&cИгрок &f%player% &cне в сети."
   no_reply_target: "&cНет никого, кому можно ответить."
+
+me:
+  usage: "&7Использование: &f/me <действие>"
+  no_permission: "&cУ вас нет прав на использование /me."
+
+clear:
+  no_permission: "&cУ вас нет прав на очистку чата."
+  confirm_hint: "&eЭто очистит чат для &fвсех&e. Нажмите здесь или напишите &f/clear confirm &eдля подтверждения."
+  confirm_hint_player: "&eЭто очистит чат для &f%target%&e. Нажмите здесь или напишите &f/clear %target% confirm &eдля подтверждения."
+  expired: "&cНет действия для подтверждения, или время истекло. Выполните команду снова."
+  done_all: "&aЧат был очищен игроком &f%player%&a."
+  done_player: "&aЧат для &f%target% &aочищен игроком &f%player%&a."
+
+chatstats:
+  no_permission: "&cУ вас нет прав на просмотр статистики чата."
+  no_permission_others: "&cУ вас нет прав на просмотр статистики других игроков."
+  no_data: "&cСтатистика для &f%player% &cне найдена."
+  top_header: "&6&lТоп по активности &8(&fтоп %count%&8)&6:"
+  top_entry: "&7#%rank% &f%player% &8— &e%total% &7сообщений"
+  player_header: "&6&lСтатистика чата: &f%player%"
+  player_line: "&7Глобальный: &f%global%  &7Локальный: &f%local%  &7ЛС: &f%pm%  &7/me: &f%me%  &7Всего: &e%total%"
+
+broadcast:
+  usage: "&7Использование: &f/broadcast <сообщение>"
+  no_permission: "&cУ вас нет прав на отправку объявлений."

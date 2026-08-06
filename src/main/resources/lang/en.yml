@@ -42,3 +42,28 @@ pm:
   format_receiver: "&e%sender% &e→ &eYou&e: &e%message%"
   player_not_found: "&cPlayer &f%player% &cis not online."
   no_reply_target: "&cYou have nobody to reply to."
+
+me:
+  usage: "&7Usage: &f/me <action>"
+  no_permission: "&cYou don't have permission to use /me."
+
+clear:
+  no_permission: "&cYou don't have permission to clear the chat."
+  confirm_hint: "&eThis will clear the chat for &feveryone&e. Click here or type &f/clear confirm &eto proceed."
+  confirm_hint_player: "&eThis will clear the chat view of &f%target%&e. Click here or type &f/clear %target% confirm &eto proceed."
+  expired: "&cNothing to confirm, or the confirmation expired. Run the command again."
+  done_all: "&aChat cleared by &f%player%&a."
+  done_player: "&aChat cleared for &f%target% &aby &f%player%&a."
+
+chatstats:
+  no_permission: "&cYou don't have permission to view chat statistics."
+  no_permission_others: "&cYou don't have permission to view other players' statistics."
+  no_data: "&cNo chat statistics found for &f%player%&c."
+  top_header: "&6&lTop chatters &8(&ftop %count%&8)&6:"
+  top_entry: "&7#%rank% &f%player% &8— &e%total% &7messages"
+  player_header: "&6&lChat stats: &f%player%"
+  player_line: "&7Global: &f%global%  &7Local: &f%local%  &7PMs: &f%pm%  &7/me: &f%me%  &7Total: &e%total%"
+
+broadcast:
+  usage: "&7Usage: &f/broadcast <message>"
+  no_permission: "&cYou don't have permission to broadcast announcements."

@@ -6,7 +6,7 @@
 
     <groupId>io.github.chatsync</groupId>
     <artifactId>chatsync</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -27,6 +27,12 @@
             <id>scarsz</id>
             <url>https://nexus.scarsz.me/content/groups/public/</url>
         </repository>
+        <!-- Needed for the optional LuckPerms API fallback (net.luckperms.api.*) -->
+        <!-- Нужен для опциональной интеграции с LuckPerms API (net.luckperms.api.*) -->
+        <repository>
+            <id>luckperms</id>
+            <url>https://repo.lucko.me/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -46,6 +52,16 @@
             <groupId>com.discordsrv</groupId>
             <artifactId>discordsrv</artifactId>
             <version>1.29.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Optional: only needed at compile-time for the LuckPerms API fallback hook.
+             CoreProtect integration uses pure reflection, so no dependency is needed for it. -->
+        <!-- Опционально: нужен только на этапе компиляции для запасной интеграции с LuckPerms API.
+             Интеграция с CoreProtect работает через рефлексию, поэтому для неё зависимость не нужна. -->
+        <dependency>
+            <groupId>net.luckperms</groupId>
+            <artifactId>api</artifactId>
+            <version>5.4</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

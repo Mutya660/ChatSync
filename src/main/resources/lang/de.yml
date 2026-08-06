@@ -42,3 +42,28 @@ pm:
   format_receiver: "&e%sender% &e→ &eDir&e: &e%message%"
   player_not_found: "&cSpieler &f%player% &cist nicht online."
   no_reply_target: "&cNiemand zum Antworten vorhanden."
+
+me:
+  usage: "&7Verwendung: &f/me <Aktion>"
+  no_permission: "&cDu hast keine Berechtigung für /me."
+
+clear:
+  no_permission: "&cDu hast keine Berechtigung, den Chat zu leeren."
+  confirm_hint: "&eDies leert den Chat für &falle&e. Klicke hier oder schreibe &f/clear confirm &ezum Bestätigen."
+  confirm_hint_player: "&eDies leert den Chat von &f%target%&e. Klicke hier oder schreibe &f/clear %target% confirm &ezum Bestätigen."
+  expired: "&cNichts zu bestätigen, oder die Zeit ist abgelaufen. Führe den Befehl erneut aus."
+  done_all: "&aChat wurde von &f%player% &ageleert."
+  done_player: "&aChat für &f%target% &awurde von &f%player% &ageleert."
+
+chatstats:
+  no_permission: "&cDu hast keine Berechtigung, Chat-Statistiken anzusehen."
+  no_permission_others: "&cDu hast keine Berechtigung, Statistiken anderer Spieler anzusehen."
+  no_data: "&cKeine Chat-Statistiken für &f%player% &cgefunden."
+  top_header: "&6&lAktivste Spieler &8(&fTop %count%&8)&6:"
+  top_entry: "&7#%rank% &f%player% &8— &e%total% &7Nachrichten"
+  player_header: "&6&lChat-Statistik: &f%player%"
+  player_line: "&7Global: &f%global%  &7Lokal: &f%local%  &7PN: &f%pm%  &7/me: &f%me%  &7Gesamt: &e%total%"
+
+broadcast:
+  usage: "&7Verwendung: &f/broadcast <Nachricht>"
+  no_permission: "&cDu hast keine Berechtigung, Ankündigungen zu senden."

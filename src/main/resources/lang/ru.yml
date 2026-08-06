@@ -1,0 +1,44 @@
+# ChatSync - Русский язык
+# Коды локали: ru_ru
+
+commands:
+  reload:
+    success: "&a[ChatSync] Конфигурация успешно перезагружена!"
+    no_permission: "&c[!] У вас нет прав на выполнение этой команды."
+    usage: "&7Использование: &f/chatsync reload"
+  msg:
+    usage: "&7Использование: &f/msg <игрок> <сообщение>"
+    self: "&cНельзя написать самому себе."
+  reply:
+    usage: "&7Использование: &f/reply <сообщение>"
+    no_target: "&cНет никого, кому можно ответить."
+    offline: "&cЭтот игрок уже вышел с сервера."
+  ignore:
+    usage: "&7Использование: &f/ignore <игрок>"
+    added: "&eВы игнорируете &f%player%&e."
+    removed: "&aВы больше не игнорируете &f%player%&a."
+    ignores_you: "&c%player% игнорирует вас."
+    self: "&cНельзя игнорировать самого себя."
+    target_added: "&7%player% &7теперь игнорирует вас."
+    target_removed: "&7%player% &7больше не игнорирует вас."
+  ignorelist:
+    empty: "&7Ваш список игнора пуст."
+    header: "&7Игнорируемые игроки &8(&f%count%&8)&7:"
+    entry_prefix: "&f"
+  socialspy:
+    enabled: "&eSocialSpy &aвключён&e."
+    disabled: "&eSocialSpy &cвыключен&e."
+    no_permission: "&cУ вас нет прав для использования SocialSpy."
+
+chat:
+  local_noone: "&7[!] Тебя никто не слышит. Напиши &f!<сообщение>&7 для глобального чата."
+  cooldown: "&c[!] Подожди ещё &f%seconds%с &cперед следующим глобальным сообщением."
+
+messages:
+  join_hover: "&7Нажми, чтобы написать игроку %player%"
+
+pm:
+  format_sender:   "&eВы &e→ &e%receiver%&e: &e%message%"
+  format_receiver: "&e%sender% &e→ &eВы&e: &e%message%"
+  player_not_found: "&cИгрок &f%player% &cне в сети."
+  no_reply_target: "&cНет никого, кому можно ответить."

@@ -1,0 +1,44 @@
+# ChatSync - Français
+# Codes de langue : fr_fr, fr_ca, fr_be, fr_ch
+
+commands:
+  reload:
+    success: "&a[ChatSync] Configuration rechargée avec succès !"
+    no_permission: "&c[!] Vous n'avez pas la permission d'exécuter cette commande."
+    usage: "&7Utilisation : &f/chatsync reload"
+  msg:
+    usage: "&7Utilisation : &f/msg <joueur> <message>"
+    self: "&cVous ne pouvez pas vous envoyer un message."
+  reply:
+    usage: "&7Utilisation : &f/reply <message>"
+    no_target: "&cPersonne à qui répondre."
+    offline: "&cCe joueur s'est déconnecté."
+  ignore:
+    usage: "&7Utilisation : &f/ignore <joueur>"
+    added: "&eVous ignorez maintenant &f%player%&e."
+    removed: "&aVous n'ignorez plus &f%player%&a."
+    ignores_you: "&c%player% vous ignore."
+    self: "&cVous ne pouvez pas vous ignorer vous-même."
+    target_added: "&7%player% &7vous ignore maintenant."
+    target_removed: "&7%player% &7ne vous ignore plus."
+  ignorelist:
+    empty: "&7Votre liste d'ignorés est vide."
+    header: "&7Joueurs ignorés &8(&f%count%&8)&7 :"
+    entry_prefix: "&f"
+  socialspy:
+    enabled: "&eSocialSpy &aactivé&e."
+    disabled: "&eSocialSpy &cdésactivé&e."
+    no_permission: "&cVous n'avez pas la permission d'utiliser SocialSpy."
+
+chat:
+  local_noone: "&7[!] Personne ne vous entend. Écrivez &f!<message>&7 pour le chat global."
+  cooldown: "&c[!] Attendez encore &f%seconds%s &cavant d'envoyer un autre message global."
+
+messages:
+  join_hover: "&7Cliquez pour écrire à %player%"
+
+pm:
+  format_sender:   "&eVous &e→ &e%receiver%&e: &e%message%"
+  format_receiver: "&e%sender% &e→ &eVous&e: &e%message%"
+  player_not_found: "&cLe joueur &f%player% &cn'est pas en ligne."
+  no_reply_target: "&cPersonne à qui répondre."

@@ -1,0 +1,82 @@
+# ═══════════════════════════════════════════════════════════════
+#  ChatSync - Configuration by mutya660
+#  Modrinth: https://modrinth.com/plugin/chatsync
+# ═══════════════════════════════════════════════════════════════
+
+# Default language for console and unsupported locales. Supported: en, ru, de, fr
+language: "en"
+
+# ── Chat ──────────────────────────────────────────────────────
+chat:
+  global:
+    require_symbol: true
+    symbol: "!"
+    format: "&8[&aG&8] %luckperms_prefix% &7%player% %luckperms_suffix%&7 > &7%message%"
+    # Cooldown in seconds between global messages per player. 0 = disabled.
+    # Players with chatsync.bypass_cooldown permission are exempt.
+    cooldown: 3
+  local:
+    radius: 100.0
+    format: "&8[&fL&8] %luckperms_prefix% &f%player% %luckperms_suffix%&f > &f%message%"
+    log_to_console: true
+    console_format: "[LocalChat] %player%: %message%"
+
+# ── Private messages ──────────────────────────────────────────
+pm:
+  format_spy: "&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%"
+  # Format for local chat messages shown to admins with /socialspy
+  format_spy_local: "&8[SPY-L] &7%player%&8: &7%message%"
+  sound:
+    enable: true
+    name: "ENTITY_EXPERIENCE_ORB_PICKUP"
+    volume: 1.0
+    pitch: 1.2
+
+# ── Discord (DiscordSRV) ───────────────────────────────────────
+discord:
+  enabled: true
+
+# ── Death messages ──────────────────────────────────────────────
+death_messages:
+  # Переводить ванильные сообщения о смерти на русский (death.attack.*, death.fell.*)
+  # Работает независимо от языка клиента игрока — важно для консоли, логов и DiscordSRV,
+  # которые всегда получают английский текст без этого перевода.
+  translate_to_russian: true
+
+# ── Join / Quit messages ──────────────────────────────────────
+messages:
+  join: "&a+ &f%player%"
+  quit: "&c- &f%player%"
+
+# ── Admin command ─────────────────────────────────────────────
+commands:
+  reload:
+    permission: "chatsync.admin"
+
+# ══════════════════════════════════════════════════════════════
+#  Message toggles
+#  Set any to false to completely disable that message/event.
+# ══════════════════════════════════════════════════════════════
+toggles:
+  # "Nobody can hear you" hint when local chat has no recipients
+  local_noone: true
+
+  # Join / quit messages shown to all players
+  join_message: true
+  quit_message: true
+
+  # "[Player] is ignoring you" notification when messaging someone who ignored you
+  ignore_notify_sender: true
+
+  # Notification to the player who gets ignored/unignored
+  # (the person running /ignore always sees confirmation — this controls the TARGET's notification)
+  ignore_notify_target: false
+
+  # Sound played on private message receive
+  pm_sound: true
+
+  # SocialSpy messages for admins
+  socialspy: true
+
+  # Console logging for local chat
+  local_console_log: true

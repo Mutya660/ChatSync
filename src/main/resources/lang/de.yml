@@ -1,0 +1,44 @@
+# ChatSync - Deutsch
+# Sprachcodes: de_de, de_at, de_ch
+
+commands:
+  reload:
+    success: "&a[ChatSync] Konfiguration erfolgreich neu geladen!"
+    no_permission: "&c[!] Du hast keine Berechtigung für diesen Befehl."
+    usage: "&7Verwendung: &f/chatsync reload"
+  msg:
+    usage: "&7Verwendung: &f/msg <Spieler> <Nachricht>"
+    self: "&cDu kannst dir selbst keine Nachricht schicken."
+  reply:
+    usage: "&7Verwendung: &f/reply <Nachricht>"
+    no_target: "&cNiemand zum Antworten gefunden."
+    offline: "&cDieser Spieler ist nicht mehr online."
+  ignore:
+    usage: "&7Verwendung: &f/ignore <Spieler>"
+    added: "&eDu ignorierst jetzt &f%player%&e."
+    removed: "&aDu ignorierst &f%player%&a nicht mehr."
+    ignores_you: "&c%player% ignoriert dich."
+    self: "&cDu kannst dich nicht selbst ignorieren."
+    target_added: "&7%player% &7ignoriert dich jetzt."
+    target_removed: "&7%player% &7ignoriert dich nicht mehr."
+  ignorelist:
+    empty: "&7Deine Ignore-Liste ist leer."
+    header: "&7Ignorierte Spieler &8(&f%count%&8)&7:"
+    entry_prefix: "&f"
+  socialspy:
+    enabled: "&eSocialSpy &aaktiviert&e."
+    disabled: "&eSocialSpy &cdeaktiviert&e."
+    no_permission: "&cDu hast keine Berechtigung für SocialSpy."
+
+chat:
+  local_noone: "&7[!] Niemand kann dich hören. Schreibe &f!<Nachricht>&7 für den globalen Chat."
+  cooldown: "&c[!] Warte noch &f%seconds%s &cvor der nächsten globalen Nachricht."
+
+messages:
+  join_hover: "&7Klicke, um %player% eine Nachricht zu schreiben"
+
+pm:
+  format_sender:   "&eDu &e→ &e%receiver%&e: &e%message%"
+  format_receiver: "&e%sender% &e→ &eDir&e: &e%message%"
+  player_not_found: "&cSpieler &f%player% &cist nicht online."
+  no_reply_target: "&cNiemand zum Antworten vorhanden."

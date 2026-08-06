@@ -1,0 +1,48 @@
+name: ChatSync
+version: 1.0
+main: chatsync.ChatSync
+api-version: '1.21'
+softdepend: [PlaceholderAPI, DiscordSRV]
+description: "Chat plugin with global/local chat, private messages, ignore, socialspy and multi-language support."
+authors: [YourName]
+website: "https://modrinth.com/plugin/chatsync"
+
+commands:
+  msg:
+    description: Send a private message to a player
+    usage: /msg <player> <message>
+    aliases: [m, tell, t, w]
+  reply:
+    description: Reply to your last private message
+    usage: /reply <message>
+    aliases: [r]
+  ignore:
+    description: Toggle ignoring a player
+    usage: /ignore <player>
+  ignorelist:
+    description: Show your ignore list
+    usage: /ignorelist
+    aliases: [ignoredlist, ignored]
+  socialspy:
+    description: Toggle viewing all private messages (staff only)
+    usage: /socialspy
+    permission: chatsync.spy
+  chatsync:
+    description: ChatSync admin commands
+    usage: /chatsync reload
+    aliases: [csync]
+    permission: chatsync.admin
+
+permissions:
+  chatsync.bypass_cooldown:
+    description: Bypass the global chat cooldown
+    default: op
+  chatsync.admin:
+    description: Access to /chatsync reload
+    default: op
+  chatsync.spy:
+    description: Access to /socialspy
+    default: op
+  chatsync.color:
+    description: Use & color codes in chat
+    default: op

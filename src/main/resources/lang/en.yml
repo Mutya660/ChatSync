@@ -1,0 +1,44 @@
+# ChatSync - English language file
+# Locale codes: en_us, en_gb, en_au, en_ca, en_nz
+
+commands:
+  reload:
+    success: "&a[ChatSync] Configuration reloaded successfully!"
+    no_permission: "&c[!] You don't have permission to run this command."
+    usage: "&7Usage: &f/chatsync reload"
+  msg:
+    usage: "&7Usage: &f/msg <player> <message>"
+    self: "&cYou can't message yourself."
+  reply:
+    usage: "&7Usage: &f/reply <message>"
+    no_target: "&cNo one to reply to."
+    offline: "&cThat player has gone offline."
+  ignore:
+    usage: "&7Usage: &f/ignore <player>"
+    added: "&eYou are now ignoring &f%player%&e."
+    removed: "&aYou are no longer ignoring &f%player%&a."
+    ignores_you: "&c%player% is ignoring you."
+    self: "&cYou can't ignore yourself."
+    target_added: "&7%player% &7is now ignoring you."
+    target_removed: "&7%player% &7is no longer ignoring you."
+  ignorelist:
+    empty: "&7Your ignore list is empty."
+    header: "&7Ignored players &8(&f%count%&8)&7:"
+    entry_prefix: "&f"
+  socialspy:
+    enabled: "&eSocialSpy &aenabled&e."
+    disabled: "&eSocialSpy &cdisabled&e."
+    no_permission: "&cYou don't have permission to use SocialSpy."
+
+chat:
+  local_noone: "&7[!] Nobody can hear you. Use &f!<message>&7 for global chat."
+  cooldown: "&c[!] Wait &f%seconds%s &cbefore sending another global message."
+
+messages:
+  join_hover: "&7Click to message %player%"
+
+pm:
+  format_sender:   "&eYou &e→ &e%receiver%&e: &e%message%"
+  format_receiver: "&e%sender% &e→ &eYou&e: &e%message%"
+  player_not_found: "&cPlayer &f%player% &cis not online."
+  no_reply_target: "&cYou have nobody to reply to."

@@ -3,8 +3,6 @@ package chatsync;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.TranslationArgument;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,10 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Делает ник игрока кликабельным (клик = /msg) в сообщении о получении достижения.
- * Перевод не трогаем — TranslatableComponent локализуется на клиенте.
- *
- * Adventure 4.15+: arguments() возвращает List&lt;TranslationArgument&gt;, не Component.
+ * Делает ник игрока кликабельным в анонсе достижения.
+ * Текст достижения (название) локализуется клиентом / датапаком сервера —
+ * ChatSync его не подменяет. Hover — единый (с playtime, если включено).
  */
 public class AdvancementMessageTranslator implements Listener {
 
@@ -29,37 +26,45 @@ public class AdvancementMessageTranslator implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onAdvancement(PlayerAdvancementDoneEvent event) {
         if (!plugin.getConfig().getBoolean("toggles.clickable_advancement_name", true)) return;
 
-        Component message = event.message();
-        if (message == null) return; // достижение не анонсируется (рецепт / корневое)
+        // Скрытые достижения (рецепты и т.п.) без display — без анонса
+        if (event.getAdvancement().getDisplay() == null) return;
 
-        Component updated = makeNameClickable(message, event.getPlayer());
-        if (updated != null) event.message(updated);
+        Component message = event.message();
+        if (message == null) return;
+
+        Player player = event.getPlayer();
+        Component updated = makeNameClickable(message, player);
+        if (updated != null) {
+            event.message(updated);
+        }
     }
 
     private Component makeNameClickable(Component component, Player player) {
-        if (!(component instanceof TranslatableComponent translatable)) {
-            return tryReplaceInChildren(component, player);
+        if (component instanceof TranslatableComponent translatable) {
+            return makeTranslatableClickable(translatable, player);
         }
+        return tryReplaceInChildren(component, player);
+    }
 
+    private Component makeTranslatableClickable(TranslatableComponent translatable, Player player) {
         List<TranslationArgument> args = translatable.arguments();
+        if (args.isEmpty()) return null;
+
+        String playerName = player.getName();
         List<TranslationArgument> newArgs = new ArrayList<>(args.size());
         boolean changed = false;
-        String playerName = player.getName();
 
         for (TranslationArgument arg : args) {
             Component argComponent = arg.asComponent();
             String plain = PlainTextComponentSerializer.plainText().serialize(argComponent);
 
             if (!changed && plain.equals(playerName)) {
-                String hover = plugin.t(player, "messages.join_hover").replace("%player%", playerName);
-                Component clickable = argComponent
-                        .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "))
-                        .hoverEvent(HoverEvent.showText(plugin.color(hover)));
-                newArgs.add(TranslationArgument.component(clickable));
+                newArgs.add(TranslationArgument.component(
+                        plugin.clickableName(plain, playerName, player.getUniqueId(), player)));
                 changed = true;
             } else {
                 Component nested = makeNameClickable(argComponent, player);
@@ -80,16 +85,12 @@ public class AdvancementMessageTranslator implements Listener {
                 .build();
     }
 
-    /** Рекурсивный fallback для не-translatable сообщений. */
     private Component tryReplaceInChildren(Component component, Player player) {
         List<Component> children = component.children();
         if (children.isEmpty()) {
             String plain = PlainTextComponentSerializer.plainText().serialize(component);
             if (plain.equals(player.getName())) {
-                String hover = plugin.t(player, "messages.join_hover").replace("%player%", player.getName());
-                return component
-                        .clickEvent(ClickEvent.suggestCommand("/msg " + player.getName() + " "))
-                        .hoverEvent(HoverEvent.showText(plugin.color(hover)));
+                return plugin.clickableName(plain, player.getName(), player.getUniqueId(), player);
             }
             return null;
         }

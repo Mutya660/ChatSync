@@ -75,6 +75,16 @@ chatstats:
   reset_player_done: "&aChat-Statistiken von &f%player% &awurden zurückgesetzt."
 
 broadcast:
+  lines:
+    - " "
+    - "&eAnkündigung &fvon &e%sender%"
+    - "&f%message%"
+    - " "
+  lines_hidden:
+    - " "
+    - "&eAnkündigung"
+    - "&f%message%"
+    - " "
   usage: "&7Verwendung: &f/broadcast <Nachricht|Preset|hide|-h>"
   usage_hide: "&7Autor verbergen: &f/broadcast -h <Nachricht|Preset>"
   no_permission: "&cDu hast keine Berechtigung, Ankündigungen zu senden."

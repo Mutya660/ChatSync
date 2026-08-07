@@ -200,6 +200,33 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return key;
     }
 
+    /** Список строк из lang (например broadcast.lines). Fallback → en → config. */
+    private java.util.List<String> tList(String lang, String key) {
+        YamlConfiguration cfg = langConfigs.get(lang);
+        if (cfg != null) {
+            java.util.List<String> list = cfg.getStringList(key);
+            if (list != null && !list.isEmpty()) return list;
+        }
+        if (!"en".equals(lang)) {
+            YamlConfiguration en = langConfigs.get("en");
+            if (en != null) {
+                java.util.List<String> list = en.getStringList(key);
+                if (list != null && !list.isEmpty()) return list;
+            }
+        }
+        // config.yml fallback (legacy)
+        java.util.List<String> fromCfg = getConfig().getStringList(key);
+        return fromCfg != null ? fromCfg : java.util.List.of();
+    }
+
+    private java.util.List<String> tList(Player player, String key) {
+        return tList(getLang(player), key);
+    }
+
+    private java.util.List<String> tListDefault(String key) {
+        return tList(getConfig().getString("language", "en"), key);
+    }
+
     private String tDefault(String key) {
         return t(getConfig().getString("language", "en"), key);
     }
@@ -354,7 +381,6 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             if (tog("socialspy")) {
                 String spyLocalFmt = getConfig().getString("pm.format_spy_local",
                         "&8[SPY-L] &7%player%&8: &7%message%")
-                        .replace("%player%", sender.getName())
                         .replace("%message%", rawMessage);
                 for (UUID uid : socialSpy) {
                     Player spy = Bukkit.getPlayer(uid);
@@ -362,7 +388,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     // Не дублируем тем, кто уже видел сообщение (был в радиусе)
                     if (spy.getWorld().equals(sender.getWorld()) &&
                             spy.getLocation().distance(sender.getLocation()) <= radius) continue;
-                    spy.sendMessage(color(spyLocalFmt));
+                    spy.sendMessage(buildClickableNameLine(spyLocalFmt, sender.getName(), spy));
                 }
             }
             if (getConfig().getBoolean("stats.enabled", true)) {
@@ -878,47 +904,38 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 || (sender instanceof Player p2 && broadcastHideAuthor.contains(p2.getUniqueId()))
                 || !getConfig().getBoolean("broadcast.show_sender", true);
 
-        // Многострочный дизайн (DwBroadcast-стиль):
-        //   &eОбъявление &fот &eNick
-        //   &fтекст
-        java.util.List<String> lines = hideAuthor
-                ? getConfig().getStringList("broadcast.lines_hidden")
-                : getConfig().getStringList("broadcast.lines");
-        if (lines == null || lines.isEmpty()) {
-            String formatTpl = hideAuthor
-                    ? getConfig().getString("broadcast.format_hidden", "&eОбъявление")
-                    : getConfig().getString("broadcast.format", "&eОбъявление &fот &e%sender%");
-            lines = java.util.List.of(" ", formatTpl, "&f%message%", " ");
-        }
-
-        java.util.List<Component> components = new java.util.ArrayList<>();
-        for (String line : lines) {
-            if (line == null) line = "";
-            String withMsg = line
-                    .replace("%message%", rawMessage)
-                    .replace("%text%", rawMessage);
-            if (!hideAuthor && (withMsg.contains("%sender%") || withMsg.contains("%player%"))) {
-                // Кликабельный ник автора → /msg
-                components.add(buildClickableNameLine(
-                        withMsg.replace("%sender%", "%player%"),
-                        executorName,
-                        sender));
-            } else {
-                components.add(color(withMsg
-                        .replace("%sender%", "")
-                        .replace("%player%", "")));
-            }
-        }
-
-        Component plainMsg = color("&f" + rawMessage);
+        // Оформление из lang/<locale>.yml (broadcast.lines / lines_hidden)
         boolean actionbar   = getConfig().getBoolean("broadcast.actionbar", false);
         boolean titleEnable = getConfig().getBoolean("broadcast.title.enable", false);
         String  titleText   = getConfig().getString("broadcast.title.text", "%message%").replace("%message%", rawMessage);
         String  subtitle    = getConfig().getString("broadcast.title.subtitle", "").replace("%message%", rawMessage);
+        Component plainMsg  = color("&f" + rawMessage);
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            for (Component c : components) {
-                p.sendMessage(c);
+            java.util.List<String> lines = hideAuthor
+                    ? tList(p, "broadcast.lines_hidden")
+                    : tList(p, "broadcast.lines");
+            if (lines == null || lines.isEmpty()) {
+                String formatTpl = hideAuthor
+                        ? getConfig().getString("broadcast.format_hidden", "&eAnnouncement")
+                        : getConfig().getString("broadcast.format", "&eAnnouncement &ffrom &e%sender%");
+                lines = java.util.List.of(" ", formatTpl, "&f%message%", " ");
+            }
+            for (String line : lines) {
+                if (line == null) line = "";
+                String withMsg = line
+                        .replace("%message%", rawMessage)
+                        .replace("%text%", rawMessage);
+                if (!hideAuthor && (withMsg.contains("%sender%") || withMsg.contains("%player%"))) {
+                    p.sendMessage(buildClickableNameLine(
+                            withMsg.replace("%sender%", "%player%"),
+                            executorName,
+                            p));
+                } else {
+                    p.sendMessage(color(withMsg
+                            .replace("%sender%", "")
+                            .replace("%player%", "")));
+                }
             }
             if (actionbar) p.sendActionBar(plainMsg);
             if (titleEnable) p.showTitle(Title.title(color(titleText), color(subtitle)));
@@ -1228,7 +1245,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     /** Кликабельный ник с hover (playtime опционально). */
-    private Component clickableName(String coloredName, String playerName, UUID uuid, CommandSender viewer) {
+    Component clickableName(String coloredName, String playerName, UUID uuid, CommandSender viewer) {
         Component nameComp = color(coloredName)
                 .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "));
         if (getConfig().getBoolean("hover.enabled", true)) {
@@ -1242,7 +1259,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
      * Плейсхолдеры: %player%, %playtime%, %playtime_seconds%
      * Многострочность: \\n в lang-строке.
      */
-    private Component buildHoverComponent(CommandSender viewer, String playerName, UUID uuid) {
+    Component buildHoverComponent(CommandSender viewer, String playerName, UUID uuid) {
         boolean showPt = getConfig().getBoolean("hover.show_playtime", true)
                 && getConfig().getBoolean("playtime.enabled", true)
                 && playtimeManager != null;
@@ -1390,13 +1407,13 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (tog("socialspy")) {
             String spyFmt = getConfig().getString("pm.format_spy",
                     "&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%")
-                    .replace("%sender%",   from.getName())
                     .replace("%receiver%", to.getName())
-                    .replace("%message%",  message);
+                    .replace("%message%",  message)
+                    .replace("%sender%", "%player%");
             for (UUID uid : socialSpy) {
                 Player spy = Bukkit.getPlayer(uid);
                 if (spy != null && !spy.equals(from) && !spy.equals(to))
-                    spy.sendMessage(color(spyFmt));
+                    spy.sendMessage(buildClickableNameLine(spyFmt, from.getName(), spy));
             }
         }
         logToConsole("[PM] " + from.getName() + " → " + to.getName() + ": " + message);

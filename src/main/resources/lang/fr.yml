@@ -75,6 +75,16 @@ chatstats:
   reset_player_done: "&aStatistiques de &f%player% &aréinitialisées."
 
 broadcast:
+  lines:
+    - " "
+    - "&eAnnonce &fde &e%sender%"
+    - "&f%message%"
+    - " "
+  lines_hidden:
+    - " "
+    - "&eAnnonce"
+    - "&f%message%"
+    - " "
   usage: "&7Utilisation : &f/broadcast <message|preset|hide|-h>"
   usage_hide: "&7Masquer l'auteur : &f/broadcast -h <message|preset>"
   no_permission: "&cVous n'avez pas la permission d'envoyer des annonces."

@@ -6,11 +6,11 @@
 
     <groupId>io.github.chatsync</groupId>
     <artifactId>chatsync</artifactId>
-    <version>1.4</version>
+    <version>1.6</version>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <!-- Java 21: builds on common JDKs and runs on Paper 1.21.x … 26.2 -->
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -27,8 +27,6 @@
             <id>scarsz</id>
             <url>https://nexus.scarsz.me/content/groups/public/</url>
         </repository>
-        <!-- Needed for the optional LuckPerms API fallback (net.luckperms.api.*) -->
-        <!-- Нужен для опциональной интеграции с LuckPerms API (net.luckperms.api.*) -->
         <repository>
             <id>luckperms</id>
             <url>https://repo.lucko.me/</url>
@@ -36,10 +34,15 @@
     </repositories>
 
     <dependencies>
+        <!--
+          Compile against Paper 1.21.4 API (Java 21 bytecode).
+          The same JAR runs on newer Paper (1.21.x–26.2) as long as we
+          don't call APIs that only exist on the newest server.
+        -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.1-R0.1-SNAPSHOT</version>
+            <version>1.21.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -54,10 +57,6 @@
             <version>1.29.0</version>
             <scope>provided</scope>
         </dependency>
-        <!-- Optional: only needed at compile-time for the LuckPerms API fallback hook.
-             CoreProtect integration uses pure reflection, so no dependency is needed for it. -->
-        <!-- Опционально: нужен только на этапе компиляции для запасной интеграции с LuckPerms API.
-             Интеграция с CoreProtect работает через рефлексию, поэтому для неё зависимость не нужна. -->
         <dependency>
             <groupId>net.luckperms</groupId>
             <artifactId>api</artifactId>
@@ -67,6 +66,16 @@
     </dependencies>
 
     <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>21</release>
+                </configuration>
+            </plugin>
+        </plugins>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>

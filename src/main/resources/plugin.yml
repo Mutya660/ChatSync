@@ -1,112 +1,112 @@
 name: ChatSync
-version: 1.4
+version: 1.6
 main: chatsync.ChatSync
 api-version: '1.21'
 softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans]
-description: "Chat plugin with global/local chat, private messages, ignore, socialspy, /me, /clear, /chatstats, /broadcast, playtime and multi-language support."
+description: Chat plugin for Paper 26.2 —  "Chat plugin with global/local chat, private messages, ignore, socialspy, /me, /clear, /chatstats, /broadcast, playtime and multi-language support."
 authors: [Mutya660]
 website: "https://modrinth.com/plugin/chatsync"
 
 commands:
   msg:
-    description: Send a private message to a player
+    description: Chat plugin for Paper 26.2 —  Send a private message to a player
     usage: /msg <player> <message>
     aliases: [m, tell, t, w]
   reply:
-    description: Reply to your last private message
+    description: Chat plugin for Paper 26.2 —  Reply to your last private message
     usage: /reply <message>
     aliases: [r]
   ignore:
-    description: Toggle ignoring a player
+    description: Chat plugin for Paper 26.2 —  Toggle ignoring a player
     usage: /ignore <player>
   ignorelist:
-    description: Show your ignore list
+    description: Chat plugin for Paper 26.2 —  Show your ignore list
     usage: /ignorelist
     aliases: [ignoredlist, ignored]
   socialspy:
-    description: Toggle viewing all private messages (staff only)
+    description: Chat plugin for Paper 26.2 —  Toggle viewing all private messages (staff only)
     usage: /socialspy
     permission: chatsync.spy
   chatsync:
-    description: ChatSync admin commands
+    description: Chat plugin for Paper 26.2 —  ChatSync admin commands
     usage: /chatsync reload
     aliases: [csync]
     permission: chatsync.admin
   me:
-    description: Send a roleplay-style message in the third person
+    description: Chat plugin for Paper 26.2 —  Send a roleplay-style message in the third person
     usage: /me <action>
     aliases: [action]
   clear:
-    description: Clear the chat for everyone or a specific player (asks for confirmation)
+    description: Chat plugin for Paper 26.2 —  Clear the chat for everyone or a specific player (asks for confirmation)
     usage: /clear [player] [confirm]
     aliases: [clearchat, chatclear]
   chatstats:
-    description: View chat message statistics (top players or a specific player)
+    description: Chat plugin for Paper 26.2 —  View chat message statistics (top players or a specific player)
     usage: /chatstats [player]
     aliases: [cstats]
   broadcast:
-    description: Send a server-wide announcement
+    description: Chat plugin for Paper 26.2 —  Send a server-wide announcement
     usage: /broadcast <message>
     aliases: [bc, announce, alert]
   playtime:
-    description: View your own or another player's playtime
+    description: Chat plugin for Paper 26.2 —  View your own or another player's playtime
     usage: /playtime [player]
     aliases: [ptime]
   playtimetop:
-    description: Show the playtime leaderboard
+    description: Chat plugin for Paper 26.2 —  Show the playtime leaderboard
     usage: /playtimetop
     aliases: [ptop, playtimelb]
   lastseen:
-    description: Check when a player was last online
+    description: Chat plugin for Paper 26.2 —  Check when a player was last online
     usage: /lastseen <player>
     aliases: [seen]
 
 permissions:
   chatsync.bypass_cooldown:
-    description: Bypass the global chat cooldown
+    description: Chat plugin for Paper 26.2 —  Bypass the global chat cooldown
     default: op
   chatsync.admin:
-    description: Access to /chatsync reload
+    description: Chat plugin for Paper 26.2 —  Access to /chatsync reload
     default: op
   chatsync.spy:
-    description: Access to /socialspy
+    description: Chat plugin for Paper 26.2 —  Access to /socialspy
     default: op
   chatsync.color:
-    description: Use & color codes in chat, /me and /broadcast
+    description: Chat plugin for Paper 26.2 —  Use & color codes in chat, /me and /broadcast
     default: op
   chatsync.me:
-    description: Access to /me
+    description: Chat plugin for Paper 26.2 —  Access to /me
     default: true
   chatsync.clear:
-    description: Access to /clear
+    description: Chat plugin for Paper 26.2 —  Access to /clear
     default: op
   chatsync.chatstats:
-    description: View the chat statistics leaderboard and your own stats
+    description: Chat plugin for Paper 26.2 —  View the chat statistics leaderboard and your own stats
     default: true
   chatsync.chatstats.others:
-    description: View other players' chat statistics via /chatstats <player>
+    description: Chat plugin for Paper 26.2 —  View other players' chat statistics via /chatstats <player>
     default: op
   chatsync.chatstats.reset:
-    description: Reset chat statistics for a player or all (/chatstats reset)
+    description: Chat plugin for Paper 26.2 —  Reset chat statistics for a player or all (/chatstats reset)
     default: op
   chatsync.broadcast:
-    description: Access to /broadcast
+    description: Chat plugin for Paper 26.2 —  Access to /broadcast
     default: op
   chatsync.broadcast.preset:
-    description: Manage broadcast presets in-game (/broadcast preset)
+    description: Chat plugin for Paper 26.2 —  Manage broadcast presets in-game (/broadcast preset)
     default: op
   chatsync.playtime:
-    description: Access to /playtime (yourself and other players)
+    description: Chat plugin for Paper 26.2 —  Access to /playtime (yourself and other players)
     default: true
   chatsync.playtimetop:
-    description: Access to /playtimetop
+    description: Chat plugin for Paper 26.2 —  Access to /playtimetop
     default: true
   chatsync.lastseen:
-    description: Access to /lastseen
+    description: Chat plugin for Paper 26.2 —  Access to /lastseen
     default: true
   chatsync.spam.notify:
-    description: Receive staff alerts when a player is spamming (same message, CAPS, flood)
+    description: Chat plugin for Paper 26.2 —  Receive staff alerts when a player is spamming (same message, CAPS, flood)
     default: op
   chatsync.spam.bypass:
-    description: Bypass spam detection notifications
+    description: Chat plugin for Paper 26.2 —  Bypass spam detection notifications
     default: op

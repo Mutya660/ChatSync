@@ -1,216 +1,118 @@
-# ChatSync 🌐
+# ChatSync
 
-**Многофункциональный плагин чата для Minecraft (Paper / Spigot 1.21)**
+**Multifunctional chat plugin for Minecraft (Paper 1.21.x – 26.2)**
 
-Глобальный и локальный чат, личные сообщения, игнор, socialspy, `/me`, очистка чата с подтверждением, статистика, playtime, объявления, перевод сообщений о смерти, **кликабельные ники** (чат, смерть, достижения, топы) и полная локализация (ru / en / de / fr).
+Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with confirmation, statistics, playtime, announcements, death-message translation, **clickable names** (chat, death, advancements, tops), and full localization (en / ru / de / fr).
 
-[![Paper](https://img.shields.io/badge/Paper-1.21-blue?logo=minecraft)](https://papermc.io/)
-[![Java](https://img.shields.io/badge/Java-17%2B-orange?logo=openjdk)](https://openjdk.org/)
+[![Paper](https://img.shields.io/badge/Paper-1.21%E2%80%9326.2-blue?logo=minecraft)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-21%2B-orange?logo=openjdk)](https://openjdk.org/)
 
 **Modrinth:** [modrinth.com/plugin/chatsync](https://modrinth.com/plugin/chatsync)  
-**Репозиторий:** [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)
+**Repository:** [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)
 
-> Цвета в сообщениях: только `&a` `&c` `&7` `&8` `&f` `&e` и при необходимости `&l`.
+> Color codes used in messages: `&a` `&c` `&7` `&8` `&f` `&e` and `&l` when needed.
+
+**Bug reports / errors:** write on Discord — **mutya660**
 
 ---
 
-## 📌 Основные возможности
+## English
 
-| Возможность | Описание |
+### Features
+
+| Feature | Description |
 | :--- | :--- |
-| **Глобальный / локальный чат** | Префикс `!` → глобальный чат; иначе локальный с радиусом. Кулдаун, `chatsync.bypass_cooldown`. Ники кликабельны (`/msg`). |
-| **Многоязычность** | `ru`, `en`, `de`, `fr` по локали клиента. |
-| **Перевод событий** | Сообщения о смерти и названия сущностей; ники в death-сообщениях кликабельны. |
-| **Достижения** | Ник в анонсе достижения кликабелен → `/msg`. |
-| **Личные сообщения** | `/msg`, `/reply` (+ алиасы), звук, кликабельные ники. |
-| **Ролевой чат** | `/me` с цветами (`chatsync.color`). |
-| **Очистка чата** | `/clear [игрок]` с кликабельным подтверждением. |
-| **Статистика чата** | `/chatstats` — топ и детальная статистика; ники в топе кликабельны. |
-| **Время игры** | `/playtime`, `/playtimetop`, `/lastseen` — онлайн, топ, last seen; ники кликабельны. |
-| **Объявления** | `/broadcast` — чат, action bar, title, звук. Пресеты из `broadcast.presets` без подтверждения (`/broadcast restart_5m`). |
-| **Сброс статистики** | `/chatstats reset <игрок>` и `/chatstats reset all` (с подтверждением). |
-| **PlaceholderAPI** | Свои плейсхолдеры: `%chatsync_playtime%`, `%chatsync_messages_total%` и др. для TAB/scoreboard. |
-| **Антиспам-алерты** | Стаффу с `chatsync.spam.notify` — уведомления о повторах, КАПСе и флуде (чат, /me, ЛС). |
-| **Асинхронные логи** | `logs/chat-YYYY-MM-DD.log` без нагрузки на основной поток. |
-| **Модерация** | `/ignore`, `/ignorelist`, `/socialspy`. |
-| **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV (soft-depend). |
+| **Global / local chat** | Prefix `!` → global; otherwise local with radius. Cooldown & slowmode. Bypass: `chatsync.bypass_cooldown`. Clickable names → `/msg`. |
+| **Localization** | `en`, `ru`, `de`, `fr` by client locale. Default in config: `language: "en"`. |
+| **Death messages** | Optional translation when `language: "ru"` (pack from Minecraft 26.2). Clickable victim/killer names. |
+| **Advancements** | Player name in advancement announcements is clickable. Title text comes from the client or a server datapack. |
+| **Private messages** | `/msg`, `/reply`, sound, clickable names. |
+| **Roleplay** | `/me` with colors (`chatsync.color`). |
+| **Clear chat** | `/clear [player]` with clickable confirmation. |
+| **Chat stats** | `/chatstats` — top & details; `/chatstats reset`. |
+| **Playtime** | `/playtime`, `/playtimetop`, `/lastseen`. |
+| **Broadcasts** | `/broadcast` — multi-line layout from `lang/*.yml`, presets, hide author (`-h` / `hide`). |
+| **PlaceholderAPI** | `%chatsync_playtime%`, `%chatsync_messages_total%`, etc. |
+| **Anti-spam alerts** | Staff with `chatsync.spam.notify` get alerts (repeat, CAPS, flood). |
+| **Integrations** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans (soft-depend). |
 
----
+### Commands & permissions
 
-## ⚙️ Команды и права
-
-| Команда | Описание | Право |
+| Command | Description | Permission |
 | :--- | :--- | :--- |
-| `/chatsync reload` | Перезагрузка конфига и языков | `chatsync.admin` |
-| `/msg <игрок> <текст>` | Личное сообщение | — |
-| `/reply <текст>` | Ответ на последнее ЛС | — |
-| `/ignore <игрок>` | Игнор вкл/выкл | — |
-| `/ignorelist` | Список игнора | — |
-| `/socialspy` | Прослушка ЛС | `chatsync.spy` |
-| `/me <действие>` | От третьего лица | `chatsync.me` |
-| `/clear [игрок]` | Очистка чата (с подтверждением) | `chatsync.clear` |
-| `/chatstats [игрок]` | Топ / статистика | `chatsync.chatstats` / `.others` |
-| `/chatstats reset <игрок\|all>` | Сброс статистики (all — с подтверждением) | `chatsync.chatstats.reset` |
-| `/broadcast <текст\|пресет>` | Объявление или пресет из config | `chatsync.broadcast` |
-| `/playtime [игрок]` | Время игры | `chatsync.playtime` |
-| `/playtimetop` | Топ по времени игры | `chatsync.playtimetop` |
-| `/lastseen <игрок>` | Когда был онлайн | `chatsync.lastseen` |
+| `/chatsync reload` | Reload config & languages | `chatsync.admin` |
+| `/msg <player> <msg>` | Private message | (default true) |
+| `/reply <msg>` | Reply to last PM | (default true) |
+| `/ignore <player>` | Toggle ignore | (default true) |
+| `/ignorelist` | List ignored players | (default true) |
+| `/socialspy` | Spy on PMs / local chat | `chatsync.socialspy` |
+| `/me <action>` | Roleplay message | `chatsync.me` |
+| `/clear [player]` | Clear chat (confirm) | `chatsync.clear` |
+| `/chatstats [player\|top]` | Chat statistics | `chatsync.chatstats` |
+| `/chatstats reset <player\|all>` | Reset stats (confirm for all) | `chatsync.chatstats.reset` |
+| `/playtime [player]` | Playtime | `chatsync.playtime` |
+| `/playtimetop` | Playtime leaderboard | `chatsync.playtimetop` |
+| `/lastseen <player>` | Last online | `chatsync.lastseen` |
+| `/broadcast <msg\|preset>` | Server announcement | `chatsync.broadcast` |
+| `/broadcast -h <msg\|preset>` | Announcement without author | `chatsync.broadcast` |
+| `/broadcast hide` | Toggle hide-author | `chatsync.broadcast` |
+| `/broadcast preset …` | Manage presets in-game | `chatsync.broadcast.preset` |
 
-Дополнительно: `chatsync.color`, `chatsync.bypass_cooldown`, `chatsync.spam.notify`, `chatsync.spam.bypass`.
+### Quick setup
 
-### Кликабельные ники
+1. Put the JAR into `plugins/`.
+2. Start the server once, then edit `plugins/ChatSync/config.yml`.
+3. `/chatsync reload` after changes.
 
-Клик по нику в чате, join/quit, death, **достижениях**, `/chatstats`, `/playtime`, `/playtimetop`, `/lastseen` подставляет в чат:
-
-```text
-/msg <ник> 
-```
-
-(можно сразу дописать сообщение).
-
-Отключение: `toggles.clickable_death_name` / `toggles.clickable_advancement_name` в `config.yml`.
-
-### `/clear`
-
-1. `/clear` — всем, `/clear <игрок>` — одному.
-2. Кликабельное подтверждение (таймаут `clear.confirm_timeout`).
-3. Клик или `/clear confirm`.
-
-### Playtime (как у TAB)
-
-Источник — **ванильная статистика** Minecraft `PLAY_ONE_MINUTE` (та же, что `%statistic_hours_played%` в TAB / PlaceholderAPI).
-
-- Онлайн: живое значение из статистики сервера.
-- Офлайн / топ: кэш в `playtime.yml` (обновляется при выходе и по таймеру).
-- Формат: **часы + минуты** (например `12ч 34м`), при днях — `2д 5ч 12м`.
-- Выключить: `playtime.enabled: false`.
-
-### `/broadcast`, автор и пресеты
-
-Формат по умолчанию показывает **автора** (`%sender%`):
+Key options:
 
 ```yaml
+language: "en"          # default for console / unknown locales
+
+chat:
+  global:
+    symbol: "!"
+    cooldown: 3
+  local:
+    radius: 100.0
+    cooldown: 2         # local slowmode
+
+death_messages:
+  translate: true       # ru pack when language is ru
+
 broadcast:
-  format: "&e&l[Объявление] &8(&7%sender%&8) &e%message%"
   show_sender: true
-```
+  presets:
+    restart_5m: "&c&lServer restarting in 5 minutes!"
+    restart_1m: "&c&lServer restarting in 1 minute!"
+    maintenance: "&e&lServer is under maintenance. Sorry for the inconvenience."
 
-| Команда | Действие |
-| :--- | :--- |
-| `/broadcast <текст>` | Обычное объявление с автором |
-| `/broadcast -h <текст>` | Объявление **без** автора (разово) |
-| `/broadcast hide` | Toggle: всегда скрывать свой автор |
-| `/broadcast <пресет>` | Готовое объявление из config |
-| `/broadcast preset list` | Список пресетов |
-| `/broadcast preset set <ключ> <текст>` | Создать/обновить пресет **в игре** |
-| `/broadcast preset remove <ключ>` | Удалить пресет |
+hover:
+  enabled: true
+  show_playtime: true
 
-Права: `chatsync.broadcast`, `chatsync.broadcast.preset`.
-
-```text
-/broadcast preset set restart_5m &c&lРестарт через 5 минут!
-/broadcast restart_5m
-```
-
-### `/chatstats reset`
-
-| Команда | Действие |
-| :--- | :--- |
-| `/chatstats reset <игрок>` | Сброс статистики одного игрока (сразу) |
-| `/chatstats reset all` | Запрос подтверждения |
-| `/chatstats reset all confirm` | Сброс **всей** статистики |
-
-Право: `chatsync.chatstats.reset`. Таймаут подтверждения: `stats.reset_confirm_timeout` (по умолчанию 15 сек).
-
-### PlaceholderAPI
-
-При установленном PlaceholderAPI плагин регистрирует expansion `chatsync`. Плейсхолдеры можно использовать в **TAB**, scoreboard, hologram, DeluxeMenus и т.п.
-
-| Плейсхолдер | Описание |
-| :--- | :--- |
-| `%chatsync_playtime%` | Время игры (форматированное, напр. `12h 34m`) |
-| `%chatsync_playtime_seconds%` | Время игры в секундах (число) |
-| `%chatsync_messages_total%` | Всего сообщений (global + local + pm + me) |
-| `%chatsync_messages_global%` | Сообщения в глобальном чате |
-| `%chatsync_messages_local%` | Сообщения в локальном чате |
-| `%chatsync_messages_pm%` | Личные сообщения |
-| `%chatsync_messages_me%` | Сообщения `/me` |
-| `%chatsync_messages_broadcast%` | Объявления `/broadcast` |
-
-Алиасы: `%chatsync_messages%` = total, `%chatsync_global%` / `%chatsync_local%` / `%chatsync_pm%` / `%chatsync_me%` / `%chatsync_broadcast%`.
-
-Пример в TAB (scoreboard line):
-
-```text
-&7Сообщений: &e%chatsync_messages_total%
-&7Онлайн: &a%chatsync_playtime%
-```
-
-### Антиспам-алерты
-
-Не блокирует сообщения — только уведомляет стафф в чат.
-
-| Право | Назначение |
-| :--- | :--- |
-| `chatsync.spam.notify` | Получать алерты о спаме |
-| `chatsync.spam.bypass` | Не попадать под детекцию |
-
-Отслеживаются каналы: **глобальный / локальный чат**, `/me`, **ЛС**.
-
-Типы срабатывания:
-
-| Тип | Условие (настраивается в `spam.notify`) |
-| :--- | :--- |
-| **same** | Одно и то же сообщение ≥ `same_message_limit` раз за окно |
-| **caps** | Доля ЗАГЛАВНЫХ ≥ `caps_ratio` при длине ≥ `caps_min_length` |
-| **flood** | ≥ `flood_limit` любых сообщений за `window_seconds` |
-
-Пример алерта:
-
-```text
-[SPAM] Nick повторяет одно сообщение (локальный чат): текст…
-```
-
-Конфиг по умолчанию:
-
-```yaml
-spam:
-  notify:
+integrations:
+  litebans:
     enabled: true
-    permission: "chatsync.spam.notify"
-    window_seconds: 10
-    same_message_limit: 3
-    flood_limit: 6
-    caps_ratio: 0.7
-    caps_min_length: 6
+    block_muted: true
 ```
 
----
+Announcement **layout** (title lines) is in `lang/en.yml`, `ru.yml`, … under `broadcast.lines` / `lines_hidden` — each language has its own “Announcement from …”.
 
-## 🚀 Установка
+Player-facing error/help strings are only in `lang/*.yml`, not in `config.yml`.
 
-1. Соберите jar (`mvn clean package`) или скачайте релиз.
-2. Положите в `plugins/` (Paper / Spigot **1.21**).
-3. Перезапустите сервер.
-4. Настройте `config.yml` и `lang/*.yml`.
-5. Опционально: LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV.
+### Build
 
----
-
-## 🛠️ Сборка
+Requires **JDK 21+**.
 
 ```bash
-git clone https://github.com/Mutya660/ChatSync.git
-cd ChatSync
 mvn clean package
-# → target/*.jar
+# → target/chatsync-1.6.jar
 ```
 
-**Java 17+**, Maven.
+Compiled against Paper API **1.21.4** (Java 21). The same JAR runs on Paper **1.21.x through 26.2**.
 
----
-
-## 📁 Данные плагина
+### Data folder
 
 ```
 plugins/ChatSync/
@@ -223,22 +125,90 @@ plugins/ChatSync/
 └── logs/chat-YYYY-MM-DD.log
 ```
 
----
+Advancement **datapacks** (e.g. Russian titles) go in `world/datapacks/`, not inside the plugin JAR.
 
-## 🎨 Палитра цветов
+### Support
 
-Во всех сообщениях плагина используются только:
-
-| Код | Назначение |
-| --- | --- |
-| `&a` | успех / позитив |
-| `&c` | ошибка |
-| `&e` | акцент / заголовки |
-| `&f` | основной текст / ники |
-| `&7` | вторичный текст |
-| `&8` | приглушённый / разделители |
-| `&l` | жирный (заголовки) |
+Found a bug or error? Contact on Discord: **mutya660**
 
 ---
 
-*ChatSync v1.4 · Paper 1.21 · Java 17+*
+## Русский
+
+**Многофункциональный плагин чата для Minecraft (Paper 1.21.x – 26.2)**
+
+Глобальный и локальный чат, ЛС, игнор, socialspy, `/me`, очистка чата с подтверждением, статистика, playtime, объявления, перевод смертей, **кликабельные ники**, локализация (en / ru / de / fr).
+
+**О баге или ошибке:** напишите в Discord — **mutya660**
+
+### Возможности
+
+| Возможность | Описание |
+| :--- | :--- |
+| **Глобальный / локальный чат** | `!` → глобал; иначе локальный с радиусом. Кулдаун и slowmode. Обход: `chatsync.bypass_cooldown`. |
+| **Языки** | `en`, `ru`, `de`, `fr` по локали клиента. В конфиге по умолчанию: `language: "en"`. |
+| **Смерти** | Перевод при `language: "ru"` (пакет Minecraft 26.2). Кликабельные ники. |
+| **Достижения** | Ник в анонсе кликабелен. Текст названия — клиент или датапак сервера. |
+| **ЛС** | `/msg`, `/reply`, звук, кликабельные ники. |
+| **Ролевой чат** | `/me` (`chatsync.color`). |
+| **Очистка** | `/clear [игрок]` с подтверждением. |
+| **Статистика** | `/chatstats`, сброс `/chatstats reset`. |
+| **Время игры** | `/playtime`, `/playtimetop`, `/lastseen`. |
+| **Объявления** | `/broadcast` — оформление из `lang/*.yml`, пресеты, скрытие автора (`-h` / `hide`). |
+| **PlaceholderAPI** | `%chatsync_playtime%`, `%chatsync_messages_total%` и др. |
+| **Антиспам** | Стаффу с `chatsync.spam.notify`. |
+| **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans. |
+
+### Команды и права
+
+| Команда | Описание | Право |
+| :--- | :--- | :--- |
+| `/chatsync reload` | Перезагрузка конфига | `chatsync.admin` |
+| `/msg` / `/reply` | Личные сообщения | (по умолчанию) |
+| `/ignore` / `/ignorelist` | Игнор | (по умолчанию) |
+| `/socialspy` | Просмотр ЛС / локала | `chatsync.socialspy` |
+| `/me` | Ролевое сообщение | `chatsync.me` |
+| `/clear [игрок]` | Очистка чата | `chatsync.clear` |
+| `/chatstats` | Статистика | `chatsync.chatstats` |
+| `/chatstats reset …` | Сброс статистики | `chatsync.chatstats.reset` |
+| `/playtime` / `/playtimetop` / `/lastseen` | Онлайн / топ / last seen | `chatsync.playtime` и др. |
+| `/broadcast …` | Объявления, пресеты, `-h`, `hide`, `preset` | `chatsync.broadcast` |
+
+### Быстрая настройка
+
+1. JAR в `plugins/`.
+2. Первый запуск → правьте `plugins/ChatSync/config.yml`.
+3. После правок: `/chatsync reload`.
+
+Важно:
+
+```yaml
+language: "en"
+
+broadcast:
+  presets:                 # тексты пресетов — английские по умолчанию
+    restart_5m: "&c&lServer restarting in 5 minutes!"
+```
+
+**Оформление** объявления («Объявление от …» / «Announcement from …») — в `lang/ru.yml`, `en.yml` и т.д. (`broadcast.lines` / `lines_hidden`).
+
+Тексты ошибок и подсказок — только в `lang/*.yml`.
+
+### Сборка
+
+Нужен **JDK 21+**.
+
+```bash
+mvn clean package
+# → target/chatsync-1.6.jar
+```
+
+Сборка против Paper API **1.21.4**. Тот же JAR работает на **1.21.x – 26.2**.
+
+### Поддержка
+
+Нашли баг или ошибку? Напишите в Discord: **mutya660**
+
+---
+
+*ChatSync v1.6 · [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)*

@@ -1,6 +1,7 @@
 # ═══════════════════════════════════════════════════════════════
 #  ChatSync - Configuration by mutya660
 #  Modrinth: https://modrinth.com/plugin/chatsync
+#  GitHub: https://github.com/Mutya660/ChatSync
 #
 #  Every setting below has a bilingual comment:
 #  [EN] English explanation
@@ -92,13 +93,16 @@ discord:
 
 # ── Death messages ──────────────────────────────────────────────
 death_messages:
-  # [EN] Translate vanilla death messages (death.attack.*, death.fell.*) to Russian.
-  #      Works regardless of the player's client locale — important for console,
-  #      logs and DiscordSRV, which otherwise always receive English text.
-  # [RU] Переводить ванильные сообщения о смерти (death.attack.*, death.fell.*) на русский.
-  #      Работает независимо от языка клиента игрока — важно для консоли, логов и
-  #      DiscordSRV, которые всегда получают английский текст без этого перевода.
-  translate_to_russian: true
+  # [EN] Translate death messages according to `language` above.
+  #      language: "en" → uses death_messages_ru.json + entity_names_ru.json
+  #      language: "en" (default) → vanilla Minecraft text (client-localized), clickable names only
+  # [RU] Переводить сообщения о смерти по `language` выше.
+  #      language: "ru" → пакет death_messages_ru.json + entity_names_ru.json
+  #      language: "en" (по умолчанию) → ванильный текст (локаль клиента), только кликабельные ники
+  translate: true
+  # [EN] Legacy: if true and `translate` key is absent, force Russian pack
+  # [RU] Старый ключ: если true и нет `translate` — принудительно русский пакет
+  translate_to_russian: false
 
 # ── Join / Quit messages ──────────────────────────────────────
 messages:
@@ -240,27 +244,14 @@ integrations:
 
 # ── /broadcast (server-wide announcements) ──────────────────────
 broadcast:
-  # [EN] Chat format for the announcement. Placeholder: %message%
-  # [RU] Формат чата для объявления. Плейсхолдер: %message%
-  # [EN] Multi-line design (DwBroadcast-style). Placeholders: %sender%/%player%, %message%/%text%
-  # [RU] Многострочный дизайн (как DwBroadcast). Плейсхолдеры: %sender%/%player%, %message%/%text%
-  #      Цвета: &a &c &7 &8 &f &e &l
-  lines:
-    - " "
-    - "&eОбъявление &fот &e%sender%"
-    - "&f%message%"
-    - " "
-  # [EN] Same design without author (/broadcast -h or /broadcast hide)
-  # [RU] Тот же дизайн без автора
-  lines_hidden:
-    - " "
-    - "&eОбъявление"
-    - "&f%message%"
-    - " "
-  # [EN] Legacy single-line formats (used only if lines lists are empty)
-  # [RU] Старые однострочные форматы (если lists пустые)
-  format: "&eОбъявление &fот &e%sender%"
-  format_hidden: "&eОбъявление"
+  # [EN] Announcement layout (lines / lines_hidden) lives in lang/<code>.yml
+  #      so each language has its own "Announcement from …" text.
+  # [RU] Оформление объявления (lines / lines_hidden) — в lang/<code>.yml
+  #      у каждого языка свой текст «Объявление от …».
+  # [EN] Optional legacy single-line fallback if lang lists are empty
+  # [RU] Запасной однострочный формат, если в lang списки пустые
+  format: "&eAnnouncement &ffrom &e%sender%"
+  format_hidden: "&eAnnouncement"
   # [EN] Show the sender name. Admins can hide via /broadcast hide or -h
   # [RU] Показывать автора. Скрыть: /broadcast hide или -h
   show_sender: true
@@ -289,9 +280,9 @@ broadcast:
   # [RU] Заготовки объявлений по ключу. Использование: /broadcast <ключ>
   #      Без подтверждения. Пример: /broadcast restart_5m
   presets:
-    restart_5m: "&c&lСервер перезапустится через 5 минут!"
-    restart_1m: "&c&lСервер перезапустится через 1 минуту!"
-    maintenance: "&e&lНа сервере технические работы. Извините за неудобства."
+    restart_5m: "&c&lServer restarting in 5 minutes!"
+    restart_1m: "&c&lServer restarting in 1 minute!"
+    maintenance: "&e&lServer is under maintenance. Sorry for the inconvenience."
 
 
 # ── Hover on clickable names ────────────────────────────────────

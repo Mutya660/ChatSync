@@ -75,6 +75,16 @@ chatstats:
   reset_player_done: "&aСтатистика чата игрока &f%player% &aсброшена."
 
 broadcast:
+  lines:
+    - " "
+    - "&eОбъявление &fот &e%sender%"
+    - "&f%message%"
+    - " "
+  lines_hidden:
+    - " "
+    - "&eОбъявление"
+    - "&f%message%"
+    - " "
   usage: "&7Использование: &f/broadcast <сообщение|пресет|preset|hide|-h>"
   usage_hide: "&7Скрыть автора: &f/broadcast -h <сообщение|пресет>"
   no_permission: "&cУ вас нет прав на отправку объявлений."

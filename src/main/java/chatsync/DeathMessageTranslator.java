@@ -25,15 +25,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Переводит ванильные сообщения о смерти на русский, включая вложенные
- * имена мобов/предметов, используя официальные строки Mojang из
- * death_messages_ru.json и entity_names_ru.json. Также делает ник жертвы
- * (и убийцы, если это игрок) кликабельным для быстрого /msg.
- *
- * Translates vanilla death messages to Russian, including nested mob/item
- * names, using official Mojang strings from death_messages_ru.json and
- * entity_names_ru.json. Also makes the victim's name (and the killer's,
- * if a player) clickable for a quick /msg.
+ * Перевод сообщений о смерти по language из config.yml + кликабельные ники с hover.
+ * Для language=ru загружаются death_messages_ru.json / entity_names_ru.json.
+ * Для en (и прочих без пакета) оставляем ванильный текст, только кликабельность.
  */
 public class DeathMessageTranslator implements Listener {
 
@@ -42,70 +36,94 @@ public class DeathMessageTranslator implements Listener {
 
     public DeathMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
-        this.translations = loadAllTranslations(plugin);
+        this.translations = loadTranslationsForLanguage(plugin);
     }
 
-    private Map<String, String> loadAllTranslations(JavaPlugin plugin) {
+    private Map<String, String> loadTranslationsForLanguage(JavaPlugin plugin) {
+        String lang = plugin.getConfig().getString("language", "en").toLowerCase();
+        // Обратная совместимость: translate_to_russian: true при language en → всё равно ru, если явно включено
+        boolean forceRu = plugin.getConfig().getBoolean("death_messages.translate_to_russian", false)
+                && !plugin.getConfig().contains("death_messages.translate");
+        boolean translate = plugin.getConfig().getBoolean("death_messages.translate", true);
+
         Map<String, String> combined = new HashMap<>();
-        combined.putAll(loadJsonResource(plugin, "death_messages_ru.json"));
-        combined.putAll(loadJsonResource(plugin, "entity_names_ru.json"));
+        if (!translate) return combined;
+
+        if (forceRu || "ru".equals(lang)) {
+            combined.putAll(loadJsonResource(plugin, "death_messages_ru.json"));
+            combined.putAll(loadJsonResource(plugin, "entity_names_ru.json"));
+            if (!combined.isEmpty()) {
+                plugin.getLogger().info("Death messages: loaded Russian translation pack (" + combined.size() + " keys).");
+            }
+        } else {
+            // en / de / fr — ванильные сообщения Minecraft (клиент сам локализует translatable),
+            // плагин только делает ники кликабельными.
+            plugin.getLogger().info("Death messages: language=" + lang + " — vanilla text, clickable names only.");
+        }
         return combined;
     }
 
     private Map<String, String> loadJsonResource(JavaPlugin plugin, String fileName) {
         try (InputStream in = plugin.getResource(fileName)) {
             if (in == null) {
-                plugin.getLogger().warning(fileName + " не найден в resources!");
+                plugin.getLogger().warning(fileName + " not found in resources!");
                 return Map.of();
             }
             Type type = new TypeToken<Map<String, String>>() {}.getType();
             Map<String, String> loaded = new Gson().fromJson(new InputStreamReader(in, StandardCharsets.UTF_8), type);
             return loaded != null ? loaded : Map.of();
         } catch (Exception e) {
-            plugin.getLogger().warning("Не удалось загрузить " + fileName + ": " + e.getMessage());
+            plugin.getLogger().warning("Failed to load " + fileName + ": " + e.getMessage());
             return Map.of();
         }
     }
 
-    // MONITOR — чтобы сработать после всех остальных плагинов, которые могут менять сообщение
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        if (!plugin.getConfig().getBoolean("death_messages.translate_to_russian", true)) return;
-
         Component deathMessage = event.deathMessage();
         if (deathMessage == null) return;
 
-        if (!(deathMessage instanceof TranslatableComponent translatable)) return;
-        String translatedText = translateTranslatable(translatable);
-        if (translatedText == null) return;
-
         boolean clickable = plugin.getConfig().getBoolean("toggles.clickable_death_name", true);
-        Component finalMessage = clickable
-                ? buildClickableMessage(translatedText, collectClickableTargets(event))
-                : Component.text(translatedText);
+        boolean translate = plugin.getConfig().getBoolean("death_messages.translate", true);
 
-        event.deathMessage(finalMessage);
+        // Перевод, если есть пакет для текущего language
+        if (translate && !translations.isEmpty() && deathMessage instanceof TranslatableComponent translatable) {
+            String translatedText = translateTranslatable(translatable);
+            if (translatedText != null) {
+                Component finalMessage = clickable
+                        ? buildClickableMessage(translatedText, collectClickableTargets(event))
+                        : Component.text(translatedText);
+                event.deathMessage(finalMessage);
+                return;
+            }
+        }
+
+        // Без перевода — только кликабельные ники на ванильном Component
+        if (clickable) {
+            Map<String, Player> targets = collectClickableTargets(event);
+            Component updated = makeNamesClickable(deathMessage, targets);
+            if (updated != null) {
+                event.deathMessage(updated);
+            }
+        }
     }
 
-    /** Собирает игроков, чьи ники встречаются в сообщении о смерти и должны стать кликабельными. */
     private Map<String, Player> collectClickableTargets(PlayerDeathEvent event) {
         Map<String, Player> map = new LinkedHashMap<>();
         Player victim = event.getEntity();
         map.put(victim.getName(), victim);
-
         Player killer = victim.getKiller();
         if (killer != null && !killer.equals(victim)) map.put(killer.getName(), killer);
         return map;
     }
 
-    /** Оборачивает вхождения имён игроков в тексте в кликабельные компоненты (клик = /msg <игрок>). */
     private Component buildClickableMessage(String text, Map<String, Player> clickable) {
         if (clickable.isEmpty()) return Component.text(text);
 
         List<String> names = new ArrayList<>(clickable.keySet());
-        names.sort((a, b) -> b.length() - a.length()); // сначала более длинные имена, чтобы избежать частичных совпадений
+        names.sort((a, b) -> b.length() - a.length());
 
-        net.kyori.adventure.text.TextComponent.@org.jetbrains.annotations.NotNull Builder builder = Component.text();
+        net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
         StringBuilder plain = new StringBuilder();
         int i = 0;
         while (i < text.length()) {
@@ -122,10 +140,7 @@ public class DeathMessageTranslator implements Listener {
                     plain.setLength(0);
                 }
                 Player p = clickable.get(matched);
-                String hover = plugin.t(p, "messages.join_hover").replace("%player%", p.getName());
-                builder.append(Component.text(matched)
-                        .clickEvent(ClickEvent.suggestCommand("/msg " + p.getName() + " "))
-                        .hoverEvent(HoverEvent.showText(plugin.color(hover))));
+                builder.append(plugin.clickableName(matched, p.getName(), p.getUniqueId(), p));
                 i += matched.length();
             } else {
                 plain.append(text.charAt(i));
@@ -136,12 +151,72 @@ public class DeathMessageTranslator implements Listener {
         return builder.build();
     }
 
-    /**
-     * Переводит любой Component в обычную строку.
-     * Если это TranslatableComponent с известным ключом — переводит рекурсивно
-     * (включая вложенные имена мобов/предметов в его аргументах).
-     * Иначе — просто извлекает текст как есть (например, ник игрока).
-     */
+    /** Делает ники кликабельными внутри ванильного (в т.ч. translatable) компонента. */
+    private Component makeNamesClickable(Component component, Map<String, Player> targets) {
+        if (component instanceof TranslatableComponent translatable) {
+            return makeTranslatableClickable(translatable, targets);
+        }
+        return tryReplaceInChildren(component, targets);
+    }
+
+    private Component makeTranslatableClickable(TranslatableComponent translatable, Map<String, Player> targets) {
+        List<net.kyori.adventure.text.TranslationArgument> args = translatable.arguments();
+        if (args.isEmpty()) return null;
+
+        List<net.kyori.adventure.text.TranslationArgument> newArgs = new ArrayList<>(args.size());
+        boolean changed = false;
+
+        for (net.kyori.adventure.text.TranslationArgument arg : args) {
+            Component argComponent = arg.asComponent();
+            String plain = PlainTextComponentSerializer.plainText().serialize(argComponent);
+            Player match = targets.get(plain);
+            if (match != null) {
+                newArgs.add(net.kyori.adventure.text.TranslationArgument.component(
+                        plugin.clickableName(plain, match.getName(), match.getUniqueId(), match)));
+                changed = true;
+            } else {
+                Component nested = makeNamesClickable(argComponent, targets);
+                if (nested != null) {
+                    newArgs.add(net.kyori.adventure.text.TranslationArgument.component(nested));
+                    changed = true;
+                } else {
+                    newArgs.add(arg);
+                }
+            }
+        }
+
+        if (!changed) return null;
+        return Component.translatable()
+                .key(translatable.key())
+                .arguments(newArgs)
+                .style(translatable.style())
+                .build();
+    }
+
+    private Component tryReplaceInChildren(Component component, Map<String, Player> targets) {
+        String plain = PlainTextComponentSerializer.plainText().serialize(component);
+        Player match = targets.get(plain);
+        if (match != null && component.children().isEmpty()) {
+            return plugin.clickableName(plain, match.getName(), match.getUniqueId(), match);
+        }
+
+        List<Component> children = component.children();
+        if (children.isEmpty()) return null;
+
+        List<Component> newChildren = new ArrayList<>(children.size());
+        boolean changed = false;
+        for (Component child : children) {
+            Component updated = makeNamesClickable(child, targets);
+            if (updated != null) {
+                newChildren.add(updated);
+                changed = true;
+            } else {
+                newChildren.add(child);
+            }
+        }
+        return changed ? component.children(newChildren) : null;
+    }
+
     private String resolveArgumentText(Component component) {
         if (component instanceof TranslatableComponent nested) {
             String translated = translateTranslatable(nested);
@@ -150,7 +225,6 @@ public class DeathMessageTranslator implements Listener {
         return PlainTextComponentSerializer.plainText().serialize(component);
     }
 
-    /** Возвращает переведённую строку для TranslatableComponent, либо null если ключ не найден. */
     private String translateTranslatable(TranslatableComponent translatable) {
         String key = translatable.key();
         String template = translations.get(key);

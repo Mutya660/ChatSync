@@ -64,10 +64,17 @@ chatstats:
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7messages"
   player_header: "&e&lChat stats: &f%player%"
   player_line: "&7Global: &f%global%  &7Local: &f%local%  &7PMs: &f%pm%  &7/me: &f%me%  &7Total: &e%total%"
+  reset_usage: "&7Usage: &f/chatstats reset <player|all> [confirm]"
+  reset_no_permission: "&cYou don't have permission to reset chat statistics."
+  reset_all_confirm: "&e&lThis will RESET ALL chat statistics. Click here or type &f/chatstats reset all confirm &eto confirm."
+  reset_expired: "&cNothing to confirm, or the confirmation expired. Run the command again."
+  reset_all_done: "&a&lAll chat statistics have been reset."
+  reset_player_done: "&aChat statistics for &f%player% &ahave been reset."
 
 broadcast:
-  usage: "&7Usage: &f/broadcast <message>"
+  usage: "&7Usage: &f/broadcast <message|preset>"
   no_permission: "&cYou don't have permission to broadcast announcements."
+  preset_empty: "&cPreset &f%preset% &cis empty."
 
 playtime:
   disabled: "&cPlaytime tracking is disabled."

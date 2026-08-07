@@ -1,5 +1,5 @@
 name: ChatSync
-version: 1.1
+version: 1.2
 main: chatsync.ChatSync
 api-version: '1.21'
 softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect]
@@ -86,6 +86,9 @@ permissions:
   chatsync.chatstats.others:
     description: View other players' chat statistics via /chatstats <player>
     default: op
+  chatsync.chatstats.reset:
+    description: Reset chat statistics for a player or all (/chatstats reset)
+    default: op
   chatsync.broadcast:
     description: Access to /broadcast
     default: op
@@ -98,3 +101,9 @@ permissions:
   chatsync.lastseen:
     description: Access to /lastseen
     default: true
+  chatsync.spam.notify:
+    description: Receive staff alerts when a player is spamming (same message, CAPS, flood)
+    default: op
+  chatsync.spam.bypass:
+    description: Bypass spam detection notifications
+    default: op

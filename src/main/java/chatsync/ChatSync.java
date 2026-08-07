@@ -42,6 +42,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private CoreProtectHook  coreProtectHook;
     private PlaytimeManager  playtimeManager;
 
+    /** Ожидающие подтверждения сброса статистики: ключ отправителя → время истечения. */
+    private final Map<UUID, Long> pendingStatsResets = new HashMap<>();
+
+    /** Анти-спам: UUID → последние сообщения (текст + timestamp). */
+    private final Map<UUID, java.util.Deque<SpamEntry>> recentMessages = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record SpamEntry(String text, long time, String channel) {}
+
+    public ChatStatsManager getStatsManager() { return statsManager; }
+    public PlaytimeManager getPlaytimeManager() { return playtimeManager; }
+
     private static final List<String> SUPPORTED_LANGS = List.of("en", "ru", "de", "fr");
 
     private static final Map<String, String> LOCALE_MAP = Map.ofEntries(
@@ -109,6 +120,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         // Периодическая очистка просроченных заявок /clear, чтобы карта не росла бесконечно.
         Bukkit.getScheduler().runTaskTimer(this, this::purgeExpiredClears, 20L * 60, 20L * 60);
+
+        // PlaceholderAPI expansion (reverse direction — own placeholders for TAB/scoreboard)
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            try {
+                new ChatSyncExpansion(this).register();
+                getLogger().info("PlaceholderAPI expansion registered (%chatsync_*%).");
+            } catch (Throwable t) {
+                getLogger().warning("Failed to register PlaceholderAPI expansion: " + t.getMessage());
+            }
+        }
 
         getLogger().info("ChatSync v" + getDescription().getVersion() + " enabled!");
         if (luckPermsHook.isAvailable()) getLogger().info("LuckPerms detected: direct API fallback enabled.");
@@ -208,6 +229,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         socialSpy.remove(player.getUniqueId());
         globalCooldown.remove(player.getUniqueId());
         pendingClears.remove(player.getUniqueId());
+        pendingStatsResets.remove(player.getUniqueId());
+        recentMessages.remove(player.getUniqueId());
     }
 
     private Component buildJoinQuitMessage(String template, Player player) {
@@ -245,6 +268,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         if (rawMessage.isEmpty()) return;
+
+        // Анти-спам уведомление стаффу
+        checkAndNotifySpam(sender, rawMessage, isGlobal ? "global" : "local");
 
         // ── Кулдаун глобального чата ───────────────────────────────
         if (isGlobal && !sender.hasPermission("chatsync.bypass_cooldown")) {
@@ -474,6 +500,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String rawMessage = joinArgs(args, 0);
         if (!pSender.hasPermission("chatsync.color")) rawMessage = stripColorCodes(rawMessage);
 
+        checkAndNotifySpam(pSender, rawMessage, "me");
+
         String format = getConfig().getString("chat.me.format", "&7* %player% %message%");
         double radius = getConfig().getDouble("chat.me.radius", -1);
 
@@ -600,6 +628,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return true;
         }
 
+        // /chatstats reset <player|all> [confirm]
+        if (args.length >= 1 && args[0].equalsIgnoreCase("reset")) {
+            return cmdChatStatsReset(sender, args);
+        }
+
         if (args.length == 0) {
             int topSize = getConfig().getInt("stats.top_size", 10);
             List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top = statsManager.top(topSize);
@@ -666,6 +699,65 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return true;
     }
 
+    private boolean cmdChatStatsReset(CommandSender sender, String[] args) {
+        String resetPerm = getConfig().getString("commands.chatstats.permission_reset", "chatsync.chatstats.reset");
+        if (!sender.hasPermission(resetPerm)) {
+            sender.sendMessage(color(tAny(sender, "chatstats.reset_no_permission")));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(color(tAny(sender, "chatstats.reset_usage")));
+            return true;
+        }
+
+        long timeoutMs = Math.max(5, getConfig().getInt("stats.reset_confirm_timeout", 15)) * 1000L;
+        UUID key = senderKey(sender);
+
+        // /chatstats reset all confirm
+        if (args[1].equalsIgnoreCase("all")) {
+            boolean confirm = args.length >= 3 && args[2].equalsIgnoreCase("confirm");
+            if (!confirm) {
+                pendingStatsResets.put(key, System.currentTimeMillis() + timeoutMs);
+                Component hint = color(tAny(sender, "chatstats.reset_all_confirm"))
+                        .clickEvent(ClickEvent.runCommand("/chatstats reset all confirm"));
+                sender.sendMessage(hint);
+                return true;
+            }
+            Long expires = pendingStatsResets.remove(key);
+            if (expires == null || expires < System.currentTimeMillis()) {
+                sender.sendMessage(color(tAny(sender, "chatstats.reset_expired")));
+                return true;
+            }
+            statsManager.resetAll();
+            sender.sendMessage(color(tAny(sender, "chatstats.reset_all_done")));
+            logToConsole("[ChatStats] " + (sender instanceof Player p ? p.getName() : "Console") + " reset ALL chat statistics.");
+            return true;
+        }
+
+        // /chatstats reset <player>
+        String targetName = args[1];
+        ResolvedPlayer resolved = resolvePlayer(targetName);
+        if (resolved == null) {
+            // try offline by name cache
+            UUID uuid = statsManager.findUuidByName(targetName);
+            if (uuid == null) {
+                sender.sendMessage(color(tAny(sender, "chatstats.no_data").replace("%player%", targetName)));
+                return true;
+            }
+            resolved = new ResolvedPlayer(uuid, statsManager.nameOf(uuid));
+        }
+
+        boolean removed = statsManager.resetPlayer(resolved.uuid());
+        if (removed) {
+            sender.sendMessage(color(tAny(sender, "chatstats.reset_player_done").replace("%player%", resolved.name())));
+            logToConsole("[ChatStats] " + (sender instanceof Player p ? p.getName() : "Console")
+                    + " reset chat statistics for " + resolved.name() + ".");
+        } else {
+            sender.sendMessage(color(tAny(sender, "chatstats.no_data").replace("%player%", resolved.name())));
+        }
+        return true;
+    }
+
     // ── /broadcast ───────────────────────────────────────────────
 
     private boolean cmdBroadcast(CommandSender sender, String[] args) {
@@ -676,10 +768,27 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         if (args.length < 1) {
             sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+            // list available presets if any
+            var presets = getConfig().getConfigurationSection("broadcast.presets");
+            if (presets != null && !presets.getKeys(false).isEmpty()) {
+                sender.sendMessage(color("&7Presets: &f" + String.join("&7, &f", presets.getKeys(false))));
+            }
             return true;
         }
 
-        String rawMessage = joinArgs(args, 0);
+        String rawMessage;
+        // Preset: /broadcast <key>  (no confirmation, no extra args required)
+        var presets = getConfig().getConfigurationSection("broadcast.presets");
+        if (presets != null && args.length == 1 && presets.contains(args[0])) {
+            rawMessage = presets.getString(args[0], "");
+            if (rawMessage == null || rawMessage.isEmpty()) {
+                sender.sendMessage(color(tAny(sender, "broadcast.preset_empty").replace("%preset%", args[0])));
+                return true;
+            }
+        } else {
+            rawMessage = joinArgs(args, 0);
+        }
+
         if (sender instanceof Player pSender && !pSender.hasPermission("chatsync.color")) {
             rawMessage = stripColorCodes(rawMessage);
         }
@@ -942,10 +1051,33 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 if (p.getName().toLowerCase().startsWith(args[0].toLowerCase()))
                     names.add(p.getName());
             if (name.equals("clear")) names.add("confirm");
+            if (name.equals("chatstats") && "reset".startsWith(args[0].toLowerCase())) names.add("reset");
             return names;
         }
         if (name.equals("clear") && args.length == 2) return List.of("confirm");
         if (name.equals("chatsync") && args.length == 1) return List.of("reload");
+        if (name.equals("chatstats") && args.length == 2 && args[0].equalsIgnoreCase("reset")) {
+            List<String> list = new ArrayList<>();
+            list.add("all");
+            for (Player p : Bukkit.getOnlinePlayers())
+                if (p.getName().toLowerCase().startsWith(args[1].toLowerCase()))
+                    list.add(p.getName());
+            return list;
+        }
+        if (name.equals("chatstats") && args.length == 3
+                && args[0].equalsIgnoreCase("reset") && args[1].equalsIgnoreCase("all")) {
+            return List.of("confirm");
+        }
+        if (name.equals("broadcast") && args.length == 1) {
+            var presets = getConfig().getConfigurationSection("broadcast.presets");
+            if (presets != null) {
+                List<String> keys = new ArrayList<>();
+                for (String k : presets.getKeys(false)) {
+                    if (k.toLowerCase().startsWith(args[0].toLowerCase())) keys.add(k);
+                }
+                return keys;
+            }
+        }
         return List.of();
     }
 
@@ -954,6 +1086,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     // ──────────────────────────────────────────────────────────────
 
     private void sendPM(Player from, Player to, String message) {
+        checkAndNotifySpam(from, message, "pm");
+
         String senderFmt   = t(from, "pm.format_sender").replace("%message%", message);
         String receiverFmt = t(to,   "pm.format_receiver").replace("%message%", message);
         String hoverFrom   = t(from, "messages.join_hover").replace("%player%", to.getName());
@@ -1117,6 +1251,96 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         } catch (IllegalArgumentException e) {
             getLogger().warning("Invalid sound in config: " + path + ".name");
         }
+    }
+
+    /**
+     * Проверяет сообщение на спам (повтор одного текста, CAPS, флуд)
+     * и уведомляет админов с правом chatsync.spam.notify.
+     * Не блокирует сообщение — только алерт стаффу.
+     */
+    private void checkAndNotifySpam(Player player, String message, String channel) {
+        if (!getConfig().getBoolean("spam.notify.enabled", true)) return;
+        if (player.hasPermission("chatsync.spam.bypass")) return;
+
+        String plain = stripColorCodes(message).trim();
+        if (plain.isEmpty()) return;
+
+        long now = System.currentTimeMillis();
+        int windowSec = getConfig().getInt("spam.notify.window_seconds", 10);
+        int sameLimit = getConfig().getInt("spam.notify.same_message_limit", 3);
+        int floodLimit = getConfig().getInt("spam.notify.flood_limit", 6);
+        double capsRatio = getConfig().getDouble("spam.notify.caps_ratio", 0.7);
+        int minCapsLen = getConfig().getInt("spam.notify.caps_min_length", 6);
+        long windowMs = windowSec * 1000L;
+
+        java.util.Deque<SpamEntry> deque = recentMessages.computeIfAbsent(
+                player.getUniqueId(), k -> new java.util.concurrent.ConcurrentLinkedDeque<>());
+        deque.addLast(new SpamEntry(plain.toLowerCase(Locale.ROOT), now, channel));
+        // prune old
+        while (!deque.isEmpty() && now - deque.peekFirst().time() > windowMs) {
+            deque.pollFirst();
+        }
+
+        String reason = null;
+
+        // 1) Same message spam
+        long sameCount = deque.stream()
+                .filter(e -> e.text().equals(plain.toLowerCase(Locale.ROOT)))
+                .count();
+        if (sameCount >= sameLimit) {
+            reason = "same";
+        }
+
+        // 2) Caps spam ("капсом")
+        if (reason == null && plain.length() >= minCapsLen) {
+            int letters = 0, upper = 0;
+            for (char c : plain.toCharArray()) {
+                if (Character.isLetter(c)) {
+                    letters++;
+                    if (Character.isUpperCase(c)) upper++;
+                }
+            }
+            if (letters > 0 && (double) upper / letters >= capsRatio) {
+                reason = "caps";
+            }
+        }
+
+        // 3) General flood
+        if (reason == null && deque.size() >= floodLimit) {
+            reason = "flood";
+        }
+
+        if (reason == null) return;
+
+        String channelLabel = switch (channel) {
+            case "global" -> "глобальный чат";
+            case "local"  -> "локальный чат";
+            case "me"     -> "/me";
+            case "pm"     -> "ЛС";
+            case "broadcast" -> "объявление";
+            default -> channel;
+        };
+
+        String reasonLabel = switch (reason) {
+            case "same"  -> "повторяет одно сообщение";
+            case "caps"  -> "пишет КАПСОМ";
+            case "flood" -> "флудит";
+            default -> "спамит";
+        };
+
+        // Используем только разрешённые цвета: &a &c &7 &8 &f &e и &l
+        String alert = "&8[&c&lSPAM&8] &e" + player.getName()
+                + " &7" + reasonLabel
+                + " &8(&f" + channelLabel + "&8)&7: &f"
+                + (plain.length() > 40 ? plain.substring(0, 40) + "…" : plain);
+
+        String perm = getConfig().getString("spam.notify.permission", "chatsync.spam.notify");
+        for (Player staff : Bukkit.getOnlinePlayers()) {
+            if (staff.hasPermission(perm) && !staff.equals(player)) {
+                staff.sendMessage(color(alert));
+            }
+        }
+        logToConsole("[SPAM] " + player.getName() + " (" + reason + "/" + channel + "): " + plain);
     }
 
     private void logToConsole(String message) {

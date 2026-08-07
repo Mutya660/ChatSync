@@ -156,4 +156,24 @@ public class ChatStatsManager {
             plugin.getLogger().warning("Failed to save stats.yml: " + e.getMessage());
         }
     }
+
+    /** Сбросить статистику одного игрока. Возвращает true, если запись существовала. */
+    public synchronized boolean resetPlayer(UUID uuid) {
+        if (uuid == null) return false;
+        PlayerStats removed = stats.remove(uuid);
+        nameCache.remove(uuid);
+        dirty = true;
+        save();
+        dirty = false;
+        return removed != null;
+    }
+
+    /** Сбросить статистику всех игроков. */
+    public synchronized void resetAll() {
+        stats.clear();
+        nameCache.clear();
+        dirty = true;
+        save();
+        dirty = false;
+    }
 }

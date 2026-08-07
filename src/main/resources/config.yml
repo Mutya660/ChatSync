@@ -119,6 +119,7 @@ commands:
   chatstats:
     permission: "chatsync.chatstats"
     permission_others: "chatsync.chatstats.others"
+    permission_reset: "chatsync.chatstats.reset"
   broadcast:
     permission: "chatsync.broadcast"
   playtime:
@@ -152,6 +153,34 @@ stats:
   # [EN] Number of entries shown by the /chatstats leaderboard
   # [RU] Количество записей, показываемых в топе /chatstats
   top_size: 10
+  # [EN] Seconds a pending /chatstats reset all confirmation stays valid
+  # [RU] Сколько секунд действует подтверждение /chatstats reset all
+  reset_confirm_timeout: 15
+
+# ── Spam staff notifications ────────────────────────────────────
+# [EN] Admins with the permission receive chat alerts when a player spamms
+#      (same message, CAPS, or flood) in global/local chat, /me or PMs.
+# [RU] Админы с правом получают уведомления в чат, когда игрок спамит
+#      (одно сообщение, КАПС или флуд) в глобальном/локальном чате, /me или ЛС.
+spam:
+  notify:
+    enabled: true
+    permission: "chatsync.spam.notify"
+    # [EN] Time window (seconds) for counting repeated / flood messages
+    # [RU] Окно времени (секунды) для подсчёта повторов / флуда
+    window_seconds: 10
+    # [EN] Same message repeated this many times → alert
+    # [RU] Одно и то же сообщение столько раз → алерт
+    same_message_limit: 3
+    # [EN] Any messages this many times in the window → flood alert
+    # [RU] Любые сообщения столько раз в окне → алерт о флуде
+    flood_limit: 6
+    # [EN] Ratio of uppercase letters (0.0–1.0) to treat as CAPS spam
+    # [RU] Доля заглавных букв (0.0–1.0) для определения КАПСа
+    caps_ratio: 0.7
+    # [EN] Minimum length of message to check for CAPS
+    # [RU] Минимальная длина сообщения для проверки на КАПС
+    caps_min_length: 6
 # ── Playtime tracking (/playtime, /playtimetop, /lastseen) ─────
 playtime:
   # [EN] Whether playtime is tracked and periodically saved to playtime.yml
@@ -219,6 +248,14 @@ broadcast:
     # [EN] Subtitle text. Placeholder: %message%
     # [RU] Текст подзаголовка. Плейсхолдер: %message%
     subtitle: ""
+  # [EN] Pre-made announcements by key. Use: /broadcast <key>
+  #      No confirmation required. Example: /broadcast restart_5m
+  # [RU] Заготовки объявлений по ключу. Использование: /broadcast <ключ>
+  #      Без подтверждения. Пример: /broadcast restart_5m
+  presets:
+    restart_5m: "&c&lСервер перезапустится через 5 минут!"
+    restart_1m: "&c&lСервер перезапустится через 1 минуту!"
+    maintenance: "&e&lНа сервере технические работы. Извините за неудобства."
 
 # ══════════════════════════════════════════════════════════════
 #  Message toggles

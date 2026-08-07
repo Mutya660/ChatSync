@@ -64,10 +64,17 @@ chatstats:
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7сообщений"
   player_header: "&e&lСтатистика чата: &f%player%"
   player_line: "&7Глобальный: &f%global%  &7Локальный: &f%local%  &7ЛС: &f%pm%  &7/me: &f%me%  &7Всего: &e%total%"
+  reset_usage: "&7Использование: &f/chatstats reset <игрок|all> [confirm]"
+  reset_no_permission: "&cУ вас нет прав на сброс статистики чата."
+  reset_all_confirm: "&e&lЭто сбросит ВСЮ статистику чата. Нажмите сюда или напишите &f/chatstats reset all confirm &eдля подтверждения."
+  reset_expired: "&cНет действия для подтверждения, или время истекло. Выполните команду снова."
+  reset_all_done: "&a&lВся статистика чата сброшена."
+  reset_player_done: "&aСтатистика чата игрока &f%player% &aсброшена."
 
 broadcast:
-  usage: "&7Использование: &f/broadcast <сообщение>"
+  usage: "&7Использование: &f/broadcast <сообщение|пресет>"
   no_permission: "&cУ вас нет прав на отправку объявлений."
+  preset_empty: "&cПресет &f%preset% &cпустой."
 
 playtime:
   disabled: "&cОтслеживание playtime отключено."

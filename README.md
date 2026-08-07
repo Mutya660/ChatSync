@@ -27,7 +27,10 @@
 | **Очистка чата** | `/clear [игрок]` с кликабельным подтверждением. |
 | **Статистика чата** | `/chatstats` — топ и детальная статистика; ники в топе кликабельны. |
 | **Время игры** | `/playtime`, `/playtimetop`, `/lastseen` — онлайн, топ, last seen; ники кликабельны. |
-| **Объявления** | `/broadcast` — чат, action bar, title, звук. |
+| **Объявления** | `/broadcast` — чат, action bar, title, звук. Пресеты из `broadcast.presets` без подтверждения (`/broadcast restart_5m`). |
+| **Сброс статистики** | `/chatstats reset <игрок>` и `/chatstats reset all` (с подтверждением). |
+| **PlaceholderAPI** | Свои плейсхолдеры: `%chatsync_playtime%`, `%chatsync_messages_total%` и др. для TAB/scoreboard. |
+| **Антиспам-алерты** | Стаффу с `chatsync.spam.notify` — уведомления о повторах, КАПСе и флуде (чат, /me, ЛС). |
 | **Асинхронные логи** | `logs/chat-YYYY-MM-DD.log` без нагрузки на основной поток. |
 | **Модерация** | `/ignore`, `/ignorelist`, `/socialspy`. |
 | **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV (soft-depend). |
@@ -47,12 +50,13 @@
 | `/me <действие>` | От третьего лица | `chatsync.me` |
 | `/clear [игрок]` | Очистка чата (с подтверждением) | `chatsync.clear` |
 | `/chatstats [игрок]` | Топ / статистика | `chatsync.chatstats` / `.others` |
-| `/broadcast <текст>` | Объявление | `chatsync.broadcast` |
+| `/chatstats reset <игрок\|all>` | Сброс статистики (all — с подтверждением) | `chatsync.chatstats.reset` |
+| `/broadcast <текст\|пресет>` | Объявление или пресет из config | `chatsync.broadcast` |
 | `/playtime [игрок]` | Время игры | `chatsync.playtime` |
 | `/playtimetop` | Топ по времени игры | `chatsync.playtimetop` |
 | `/lastseen <игрок>` | Когда был онлайн | `chatsync.lastseen` |
 
-Дополнительно: `chatsync.color`, `chatsync.bypass_cooldown`.
+Дополнительно: `chatsync.color`, `chatsync.bypass_cooldown`, `chatsync.spam.notify`, `chatsync.spam.bypass`.
 
 ### Кликабельные ники
 
@@ -80,6 +84,106 @@
 - Офлайн / топ: кэш в `playtime.yml` (обновляется при выходе и по таймеру).
 - Формат: **часы + минуты** (например `12ч 34м`), при днях — `2д 5ч 12м`.
 - Выключить: `playtime.enabled: false`.
+
+### `/broadcast` и пресеты
+
+Обычное объявление:
+
+```text
+/broadcast Сервер перезапустится через 10 минут
+```
+
+Пресеты (без подтверждения) задаются в `config.yml`:
+
+```yaml
+broadcast:
+  presets:
+    restart_5m: "&c&lСервер перезапустится через 5 минут!"
+    restart_1m: "&c&lСервер перезапустится через 1 минуту!"
+    maintenance: "&e&lНа сервере технические работы. Извините за неудобства."
+```
+
+Использование:
+
+```text
+/broadcast restart_5m
+```
+
+Tab-complete подставляет ключи пресетов. При `/broadcast` без аргументов выводится список доступных ключей.
+
+Поддерживаются action bar, title и звук (см. `broadcast.*` в конфиге).
+
+### `/chatstats reset`
+
+| Команда | Действие |
+| :--- | :--- |
+| `/chatstats reset <игрок>` | Сброс статистики одного игрока (сразу) |
+| `/chatstats reset all` | Запрос подтверждения |
+| `/chatstats reset all confirm` | Сброс **всей** статистики |
+
+Право: `chatsync.chatstats.reset`. Таймаут подтверждения: `stats.reset_confirm_timeout` (по умолчанию 15 сек).
+
+### PlaceholderAPI
+
+При установленном PlaceholderAPI плагин регистрирует expansion `chatsync`. Плейсхолдеры можно использовать в **TAB**, scoreboard, hologram, DeluxeMenus и т.п.
+
+| Плейсхолдер | Описание |
+| :--- | :--- |
+| `%chatsync_playtime%` | Время игры (форматированное, напр. `12h 34m`) |
+| `%chatsync_playtime_seconds%` | Время игры в секундах (число) |
+| `%chatsync_messages_total%` | Всего сообщений (global + local + pm + me) |
+| `%chatsync_messages_global%` | Сообщения в глобальном чате |
+| `%chatsync_messages_local%` | Сообщения в локальном чате |
+| `%chatsync_messages_pm%` | Личные сообщения |
+| `%chatsync_messages_me%` | Сообщения `/me` |
+
+Алиасы: `%chatsync_messages%` = total, `%chatsync_global%` / `%chatsync_local%` / `%chatsync_pm%` / `%chatsync_me%`.
+
+Пример в TAB (scoreboard line):
+
+```text
+&7Сообщений: &e%chatsync_messages_total%
+&7Онлайн: &a%chatsync_playtime%
+```
+
+### Антиспам-алерты
+
+Не блокирует сообщения — только уведомляет стафф в чат.
+
+| Право | Назначение |
+| :--- | :--- |
+| `chatsync.spam.notify` | Получать алерты о спаме |
+| `chatsync.spam.bypass` | Не попадать под детекцию |
+
+Отслеживаются каналы: **глобальный / локальный чат**, `/me`, **ЛС**.
+
+Типы срабатывания:
+
+| Тип | Условие (настраивается в `spam.notify`) |
+| :--- | :--- |
+| **same** | Одно и то же сообщение ≥ `same_message_limit` раз за окно |
+| **caps** | Доля ЗАГЛАВНЫХ ≥ `caps_ratio` при длине ≥ `caps_min_length` |
+| **flood** | ≥ `flood_limit` любых сообщений за `window_seconds` |
+
+Пример алерта:
+
+```text
+[SPAM] Nick повторяет одно сообщение (локальный чат): текст…
+```
+
+Конфиг по умолчанию:
+
+```yaml
+spam:
+  notify:
+    enabled: true
+    permission: "chatsync.spam.notify"
+    window_seconds: 10
+    same_message_limit: 3
+    flood_limit: 6
+    caps_ratio: 0.7
+    caps_min_length: 6
+```
 
 ---
 
@@ -137,4 +241,4 @@ plugins/ChatSync/
 
 ---
 
-*ChatSync v1.1 · Paper 1.21 · Java 17+*
+*ChatSync v1.2 · Paper 1.21 · Java 17+*

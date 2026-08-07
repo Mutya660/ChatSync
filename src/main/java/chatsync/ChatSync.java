@@ -30,6 +30,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private final Set<UUID>            socialSpy     = new HashSet<>();
     /** UUID → timestamp последнего глобального сообщения (для кулдауна) */
     private final Map<UUID, Long>      globalCooldown = new HashMap<>();
+    /** UUID → timestamp последнего локального сообщения (slowmode) */
+    private final Map<UUID, Long>      localCooldown  = new HashMap<>();
     private final Map<String, YamlConfiguration> langConfigs = new HashMap<>();
 
     /** Ожидающие подтверждения запросы /clear: ключ отправителя → цель + время истечения. */
@@ -41,6 +43,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private LuckPermsHook    luckPermsHook;
     private CoreProtectHook  coreProtectHook;
     private PlaytimeManager  playtimeManager;
+    private LiteBansHook     liteBansHook;
 
     /** Ожидающие подтверждения сброса статистики: ключ отправителя → время истечения. */
     private final Map<UUID, Long> pendingStatsResets = new HashMap<>();
@@ -86,6 +89,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         this.luckPermsHook   = new LuckPermsHook(this);
         this.coreProtectHook = new CoreProtectHook(this);
         this.playtimeManager = new PlaytimeManager(this);
+        this.liteBansHook    = new LiteBansHook(this);
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new DeathMessageTranslator(this), this);
@@ -137,6 +141,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         getLogger().info("ChatSync v" + getDescription().getVersion() + " enabled!");
         if (luckPermsHook.isAvailable()) getLogger().info("LuckPerms detected: direct API fallback enabled.");
         if (coreProtectHook.isAvailable()) getLogger().info("CoreProtect detected: /clear will be logged for /co lookup.");
+        if (liteBansHook.isAvailable()) getLogger().info("LiteBans detected: muted players blocked in chat/PM/me.");
         if (getConfig().getBoolean("playtime.enabled", true)) getLogger().info("Playtime tracking enabled.");
     }
 
@@ -214,6 +219,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (playtimeManager != null && getConfig().getBoolean("playtime.enabled", true)) {
             playtimeManager.onJoin(player.getUniqueId(), player.getName());
         }
+        if (liteBansHook != null) liteBansHook.onJoin(player);
         if (!tog("join_message")) { event.joinMessage(null); return; }
         event.joinMessage(buildJoinQuitMessage(
                 getConfig().getString("messages.join", "&a+ &f%player%"), player));
@@ -235,11 +241,13 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         pendingStatsResets.remove(player.getUniqueId());
         recentMessages.remove(player.getUniqueId());
         broadcastHideAuthor.remove(player.getUniqueId());
+        localCooldown.remove(player.getUniqueId());
+        if (liteBansHook != null) liteBansHook.onQuit(player.getUniqueId());
     }
 
     private Component buildJoinQuitMessage(String template, Player player) {
-        String hover = t(player, "messages.join_hover").replace("%player%", player.getName());
-        return buildNameComponent(template, player, hover);
+        // hover строится внутри buildNameComponent через clickableName
+        return buildNameComponent(template, player, null);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -273,23 +281,45 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (rawMessage.isEmpty()) return;
 
+        // LiteBans mute — ChatSync сам обрабатывает чат, поэтому проверяем явно
+        if (liteBansHook != null && liteBansHook.isMuted(sender)) {
+            sender.sendMessage(color(t(sender, "chat.muted")));
+            return;
+        }
+
         // Анти-спам уведомление стаффу
         checkAndNotifySpam(sender, rawMessage, isGlobal ? "global" : "local");
 
-        // ── Кулдаун глобального чата ───────────────────────────────
-        if (isGlobal && !sender.hasPermission("chatsync.bypass_cooldown")) {
-            int cooldownSec = getConfig().getInt("chat.global.cooldown", 0);
-            if (cooldownSec > 0) {
-                long lastTime = globalCooldown.getOrDefault(sender.getUniqueId(), 0L);
-                long elapsed  = System.currentTimeMillis() - lastTime;
-                long remaining = (cooldownSec * 1000L) - elapsed;
-                if (remaining > 0) {
-                    String sec = String.valueOf((int) Math.ceil(remaining / 1000.0));
-                    sender.sendMessage(color(t(sender, "chat.cooldown").replace("%seconds%", sec)));
-                    return;
+        // ── Кулдаун / slowmode ─────────────────────────────────────
+        if (!sender.hasPermission("chatsync.bypass_cooldown")) {
+            if (isGlobal) {
+                int cooldownSec = getConfig().getInt("chat.global.cooldown", 0);
+                if (cooldownSec > 0) {
+                    long lastTime = globalCooldown.getOrDefault(sender.getUniqueId(), 0L);
+                    long elapsed  = System.currentTimeMillis() - lastTime;
+                    long remaining = (cooldownSec * 1000L) - elapsed;
+                    if (remaining > 0) {
+                        String sec = String.valueOf((int) Math.ceil(remaining / 1000.0));
+                        sender.sendMessage(color(t(sender, "chat.cooldown").replace("%seconds%", sec)));
+                        return;
+                    }
                 }
+                globalCooldown.put(sender.getUniqueId(), System.currentTimeMillis());
+            } else {
+                // Slowmode локального чата
+                int cooldownSec = getConfig().getInt("chat.local.cooldown", 0);
+                if (cooldownSec > 0) {
+                    long lastTime = localCooldown.getOrDefault(sender.getUniqueId(), 0L);
+                    long elapsed  = System.currentTimeMillis() - lastTime;
+                    long remaining = (cooldownSec * 1000L) - elapsed;
+                    if (remaining > 0) {
+                        String sec = String.valueOf((int) Math.ceil(remaining / 1000.0));
+                        sender.sendMessage(color(t(sender, "chat.local_cooldown").replace("%seconds%", sec)));
+                        return;
+                    }
+                }
+                localCooldown.put(sender.getUniqueId(), System.currentTimeMillis());
             }
-            globalCooldown.put(sender.getUniqueId(), System.currentTimeMillis());
         }
 
         if (isGlobal) {
@@ -500,6 +530,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return true;
         }
         if (args.length < 1) { pSender.sendMessage(color(t(pSender, "me.usage"))); return true; }
+
+        if (liteBansHook != null && liteBansHook.isMuted(pSender)) {
+            pSender.sendMessage(color(t(pSender, "chat.muted")));
+            return true;
+        }
 
         String rawMessage = joinArgs(args, 0);
         if (!pSender.hasPermission("chatsync.color")) rawMessage = stripColorCodes(rawMessage);
@@ -796,23 +831,33 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         boolean forceHide = false;
         int msgStart = 0;
-        // one-shot: /broadcast -h <msg>  или  /broadcast hide <msg>
+        // one-shot: /broadcast -h <msg|preset>  или  /broadcast hide <msg|preset>
         if (args[0].equalsIgnoreCase("-h") || args[0].equalsIgnoreCase("-hide")
                 || args[0].equalsIgnoreCase("hide")) {
             forceHide = true;
             msgStart = 1;
             if (args.length < 2) {
-                sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+                // /broadcast -h  → подсказка + список пресетов
+                sender.sendMessage(color(tAny(sender, "broadcast.usage_hide")));
+                var presetsHelp = getConfig().getConfigurationSection("broadcast.presets");
+                if (presetsHelp != null && !presetsHelp.getKeys(false).isEmpty()) {
+                    sender.sendMessage(color("&7Пресеты: &f" + String.join("&7, &f", presetsHelp.getKeys(false))));
+                }
                 return true;
             }
         }
 
         String rawMessage;
         var presets = getConfig().getConfigurationSection("broadcast.presets");
-        if (!forceHide && presets != null && args.length == 1 && presets.contains(args[0])) {
-            rawMessage = presets.getString(args[0], "");
+        // Пресет: /broadcast <key>  или  /broadcast -h <key>
+        String maybeKey = args[msgStart];
+        boolean isPreset = presets != null
+                && args.length == msgStart + 1
+                && presets.contains(maybeKey);
+        if (isPreset) {
+            rawMessage = presets.getString(maybeKey, "");
             if (rawMessage == null || rawMessage.isEmpty()) {
-                sender.sendMessage(color(tAny(sender, "broadcast.preset_empty").replace("%preset%", args[0])));
+                sender.sendMessage(color(tAny(sender, "broadcast.preset_empty").replace("%preset%", maybeKey)));
                 return true;
             }
         } else {
@@ -833,29 +878,49 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 || (sender instanceof Player p2 && broadcastHideAuthor.contains(p2.getUniqueId()))
                 || !getConfig().getBoolean("broadcast.show_sender", true);
 
-        String senderDisplay = hideAuthor ? "" : executorName;
-        String formatTpl = getConfig().getString("broadcast.format",
-                "&e&l[Объявление] &8(&7%sender%&8) &e%message%");
-        // убираем пустые скобки автора, если sender скрыт
-        String format = formatTpl
-                .replace("%sender%", senderDisplay)
-                .replace("%message%", rawMessage);
-        if (hideAuthor) {
-            format = format.replace("()", "").replace("( )", "").replace("&8&8", "&8").trim();
-            // подчистим двойные пробелы после удаления автора
-            format = format.replaceAll(" {2,}", " ");
+        // Многострочный дизайн (DwBroadcast-стиль):
+        //   &eОбъявление &fот &eNick
+        //   &fтекст
+        java.util.List<String> lines = hideAuthor
+                ? getConfig().getStringList("broadcast.lines_hidden")
+                : getConfig().getStringList("broadcast.lines");
+        if (lines == null || lines.isEmpty()) {
+            String formatTpl = hideAuthor
+                    ? getConfig().getString("broadcast.format_hidden", "&eОбъявление")
+                    : getConfig().getString("broadcast.format", "&eОбъявление &fот &e%sender%");
+            lines = java.util.List.of(" ", formatTpl, "&f%message%", " ");
         }
 
-        Component component = color(format);
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (String line : lines) {
+            if (line == null) line = "";
+            String withMsg = line
+                    .replace("%message%", rawMessage)
+                    .replace("%text%", rawMessage);
+            if (!hideAuthor && (withMsg.contains("%sender%") || withMsg.contains("%player%"))) {
+                // Кликабельный ник автора → /msg
+                components.add(buildClickableNameLine(
+                        withMsg.replace("%sender%", "%player%"),
+                        executorName,
+                        sender));
+            } else {
+                components.add(color(withMsg
+                        .replace("%sender%", "")
+                        .replace("%player%", "")));
+            }
+        }
 
+        Component plainMsg = color("&f" + rawMessage);
         boolean actionbar   = getConfig().getBoolean("broadcast.actionbar", false);
         boolean titleEnable = getConfig().getBoolean("broadcast.title.enable", false);
         String  titleText   = getConfig().getString("broadcast.title.text", "%message%").replace("%message%", rawMessage);
         String  subtitle    = getConfig().getString("broadcast.title.subtitle", "").replace("%message%", rawMessage);
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendMessage(component);
-            if (actionbar) p.sendActionBar(component);
+            for (Component c : components) {
+                p.sendMessage(c);
+            }
+            if (actionbar) p.sendActionBar(plainMsg);
             if (titleEnable) p.showTitle(Title.title(color(titleText), color(subtitle)));
             playCustomSound(p, "broadcast.sound");
         }
@@ -1135,21 +1200,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     /**
      * Собирает строку с кликабельным ником: в template должен остаться плейсхолдер %player%.
-     * Клик подставляет /msg <ник> в чат.
+     * Клик подставляет /msg <ник> в чат. Hover — настраиваемый (см. hover.* в config).
      */
     private Component buildClickableNameLine(String template, String playerName, CommandSender viewer) {
         final String PH = "%player%";
         int idx = template.indexOf(PH);
         if (idx < 0) {
-            // fallback: имя уже подставлено — ищем буквально
             idx = template.indexOf(playerName);
             if (idx < 0) return color(template);
             String before = template.substring(0, idx);
             String after  = template.substring(idx + playerName.length());
-            String hover  = tAny(viewer, "messages.join_hover").replace("%player%", playerName);
-            Component nameComp = color(extractTrailingColor(before) + playerName)
-                    .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "))
-                    .hoverEvent(HoverEvent.showText(color(hover)));
+            Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, null, viewer);
             return Component.text()
                     .append(color(before))
                     .append(nameComp)
@@ -1158,15 +1219,63 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         String before = template.substring(0, idx);
         String after  = template.substring(idx + PH.length());
-        String hover  = tAny(viewer, "messages.join_hover").replace("%player%", playerName);
-        Component nameComp = color(extractTrailingColor(before) + playerName)
-                .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "))
-                .hoverEvent(HoverEvent.showText(color(hover)));
+        Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, null, viewer);
         return Component.text()
                 .append(color(before))
                 .append(nameComp)
                 .append(color(after))
                 .build();
+    }
+
+    /** Кликабельный ник с hover (playtime опционально). */
+    private Component clickableName(String coloredName, String playerName, UUID uuid, CommandSender viewer) {
+        Component nameComp = color(coloredName)
+                .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "));
+        if (getConfig().getBoolean("hover.enabled", true)) {
+            nameComp = nameComp.hoverEvent(HoverEvent.showText(buildHoverComponent(viewer, playerName, uuid)));
+        }
+        return nameComp;
+    }
+
+    /**
+     * Текст hover при наведении на ник.
+     * Плейсхолдеры: %player%, %playtime%, %playtime_seconds%
+     * Многострочность: \\n в lang-строке.
+     */
+    private Component buildHoverComponent(CommandSender viewer, String playerName, UUID uuid) {
+        boolean showPt = getConfig().getBoolean("hover.show_playtime", true)
+                && getConfig().getBoolean("playtime.enabled", true)
+                && playtimeManager != null;
+
+        String key = showPt ? "messages.join_hover_playtime" : "messages.join_hover";
+        String raw = tAny(viewer, key).replace("%player%", playerName);
+
+        if (showPt) {
+            if (uuid == null) {
+                Player online = Bukkit.getPlayerExact(playerName);
+                if (online != null) {
+                    uuid = online.getUniqueId();
+                } else {
+                    uuid = playtimeManager.findUuidByName(playerName);
+                }
+            }
+            long sec = uuid != null ? playtimeManager.getPlaytimeSeconds(uuid) : 0L;
+            raw = raw
+                    .replace("%playtime%", formatDuration(sec, viewer))
+                    .replace("%playtime_seconds%", String.valueOf(sec));
+        } else {
+            raw = raw.replace("%playtime%", "—").replace("%playtime_seconds%", "0");
+        }
+
+        // Многострочный hover: разбиваем по \n
+        String[] parts = raw.split("\\\\n|\\n");
+        if (parts.length == 1) return color(parts[0]);
+        net.kyori.adventure.text.TextComponent.Builder b = Component.text();
+        for (int i = 0; i < parts.length; i++) {
+            if (i > 0) b.append(Component.newline());
+            b.append(color(parts[i]));
+        }
+        return b.build();
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -1215,6 +1324,19 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 }
                 return keys;
             }
+            // /broadcast -h <preset> — tab по пресетам
+            if (args.length == 2 && (args[0].equalsIgnoreCase("-h")
+                    || args[0].equalsIgnoreCase("-hide") || args[0].equalsIgnoreCase("hide"))) {
+                var presets = getConfig().getConfigurationSection("broadcast.presets");
+                if (presets != null) {
+                    List<String> keys = new ArrayList<>();
+                    String pref = args[1].toLowerCase(Locale.ROOT);
+                    for (String k : presets.getKeys(false)) {
+                        if (k.toLowerCase(Locale.ROOT).startsWith(pref)) keys.add(k);
+                    }
+                    return keys;
+                }
+            }
             if (args.length == 2 && args[0].equalsIgnoreCase("preset")) {
                 List<String> acts = new ArrayList<>();
                 String pref = args[1].toLowerCase(Locale.ROOT);
@@ -1244,6 +1366,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     // ──────────────────────────────────────────────────────────────
 
     private void sendPM(Player from, Player to, String message) {
+        if (liteBansHook != null && liteBansHook.isMuted(from)) {
+            from.sendMessage(color(t(from, "chat.muted")));
+            return;
+        }
+
         checkAndNotifySpam(from, message, "pm");
 
         String senderFmt   = t(from, "pm.format_sender").replace("%message%", message);
@@ -1292,12 +1419,12 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         String before = resolvePlaceholders(format.substring(0, idx), sender);
         String after  = resolvePlaceholders(format.substring(idx + PP.length()), sender).replace(MP, rawMessage);
-        String hover  = t(viewer, "messages.join_hover").replace("%player%", sender.getName());
 
-        Component nameComp = LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(extractTrailingColor(before) + sender.getName())
-                .clickEvent(ClickEvent.suggestCommand("/msg " + sender.getName() + " "))
-                .hoverEvent(HoverEvent.showText(color(hover)));
+        Component nameComp = clickableName(
+                extractTrailingColor(before) + sender.getName(),
+                sender.getName(),
+                sender.getUniqueId(),
+                viewer);
 
         return Component.text()
                 .append(LegacyComponentSerializer.legacyAmpersand().deserialize(before))
@@ -1306,7 +1433,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 .build();
     }
 
-    private Component buildNameComponent(String template, Player player, String hoverText) {
+    private Component buildNameComponent(String template, Player player, String ignoredHover) {
         final String PH = "%player%";
         int idx = template.indexOf(PH);
         if (idx == -1)
@@ -1316,10 +1443,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String before = resolvePlaceholders(template.substring(0, idx), player);
         String after  = resolvePlaceholders(template.substring(idx + PH.length()), player);
 
-        Component nameComp = LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(extractTrailingColor(before) + player.getName())
-                .clickEvent(ClickEvent.suggestCommand("/msg " + player.getName() + " "))
-                .hoverEvent(HoverEvent.showText(color(hoverText)));
+        Component nameComp = clickableName(
+                extractTrailingColor(before) + player.getName(),
+                player.getName(),
+                player.getUniqueId(),
+                player);
 
         return Component.text()
                 .append(LegacyComponentSerializer.legacyAmpersand().deserialize(before))
@@ -1328,7 +1456,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 .build();
     }
 
-    private Component formatPM(String format, Player target, Player other, String hoverText) {
+    private Component formatPM(String format, Player target, Player other, String ignoredHover) {
         int idx = format.indexOf("%sender%");
         String ph = "%sender%";
         if (idx == -1) { idx = format.indexOf("%receiver%"); ph = "%receiver%"; }
@@ -1339,10 +1467,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String before = format.substring(0, idx);
         String after  = format.substring(idx + ph.length());
 
-        Component nameComp = LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(extractTrailingColor(before) + other.getName())
-                .clickEvent(ClickEvent.suggestCommand("/msg " + other.getName() + " "))
-                .hoverEvent(HoverEvent.showText(color(hoverText)));
+        Component nameComp = clickableName(
+                extractTrailingColor(before) + other.getName(),
+                other.getName(),
+                other.getUniqueId(),
+                target);
 
         return Component.text()
                 .append(LegacyComponentSerializer.legacyAmpersand().deserialize(resolvePlaceholders(before, target)))

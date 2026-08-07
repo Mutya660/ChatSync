@@ -42,6 +42,11 @@ chat:
     # [EN] Radius (in blocks) within which local chat messages are visible
     # [RU] Радиус (в блоках), в пределах которого видны сообщения локального чата
     radius: 100.0
+    # [EN] Slowmode: seconds between local chat messages. 0 = disabled.
+    #      Bypass permission: chatsync.bypass_cooldown
+    # [RU] Slowmode: секунды между сообщениями в локальном чате. 0 = выкл.
+    #      Обход: chatsync.bypass_cooldown
+    cooldown: 2
     # [EN] Local chat format shown to players
     # [RU] Формат локального чата, который видят игроки
     format: "&8[&fL&8] %luckperms_prefix% &f%player% %luckperms_suffix%&f > &f%message%"
@@ -223,14 +228,41 @@ integrations:
     # [EN] Log every confirmed /clear execution into CoreProtect for /co lookup
     # [RU] Записывать каждое подтверждённое выполнение /clear в CoreProtect для /co lookup
     log_clear: true
+  litebans:
+    # [EN] Respect LiteBans mutes in chat, /me and private messages
+    #      (required because ChatSync fully handles the chat event)
+    # [RU] Учитывать муты LiteBans в чате, /me и ЛС
+    #      (нужно, т.к. ChatSync полностью перехватывает событие чата)
+    enabled: true
+    # [EN] Block muted players from chatting /me /msg
+    # [RU] Блокировать замученных в чате /me /msg
+    block_muted: true
 
 # ── /broadcast (server-wide announcements) ──────────────────────
 broadcast:
   # [EN] Chat format for the announcement. Placeholder: %message%
   # [RU] Формат чата для объявления. Плейсхолдер: %message%
-  format: "&e&l[Объявление] &8(&7%sender%&8) &e%message%"
-  # [EN] Show the sender name in announcements (%sender% in format). Admins can hide via /broadcast hide
-  # [RU] Показывать автора объявления (%sender% в формате). Админы могут скрыть через /broadcast hide
+  # [EN] Multi-line design (DwBroadcast-style). Placeholders: %sender%/%player%, %message%/%text%
+  # [RU] Многострочный дизайн (как DwBroadcast). Плейсхолдеры: %sender%/%player%, %message%/%text%
+  #      Цвета: &a &c &7 &8 &f &e &l
+  lines:
+    - " "
+    - "&eОбъявление &fот &e%sender%"
+    - "&f%message%"
+    - " "
+  # [EN] Same design without author (/broadcast -h or /broadcast hide)
+  # [RU] Тот же дизайн без автора
+  lines_hidden:
+    - " "
+    - "&eОбъявление"
+    - "&f%message%"
+    - " "
+  # [EN] Legacy single-line formats (used only if lines lists are empty)
+  # [RU] Старые однострочные форматы (если lists пустые)
+  format: "&eОбъявление &fот &e%sender%"
+  format_hidden: "&eОбъявление"
+  # [EN] Show the sender name. Admins can hide via /broadcast hide or -h
+  # [RU] Показывать автора. Скрыть: /broadcast hide или -h
   show_sender: true
   # [EN] Also show the announcement in the action bar
   # [RU] Также показывать объявление в панели действий (action bar)
@@ -260,6 +292,12 @@ broadcast:
     restart_5m: "&c&lСервер перезапустится через 5 минут!"
     restart_1m: "&c&lСервер перезапустится через 1 минуту!"
     maintenance: "&e&lНа сервере технические работы. Извините за неудобства."
+
+
+# ── Hover on clickable names ────────────────────────────────────
+hover:
+  enabled: true
+  show_playtime: true
 
 # ══════════════════════════════════════════════════════════════
 #  Message toggles

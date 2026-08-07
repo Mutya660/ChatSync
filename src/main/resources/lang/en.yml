@@ -33,9 +33,12 @@ commands:
 chat:
   local_noone: "&7[!] Nobody can hear you. Use &f!<message>&7 for global chat."
   cooldown: "&c[!] Wait &f%seconds%s &cbefore sending another global message."
+  local_cooldown: "&c[!] Slowmode: wait &f%seconds%s &cbefore sending another message."
+  muted: "&c[!] You are muted and cannot chat."
 
 messages:
-  join_hover: "&7Click to message %player%"
+  join_hover: "&7Click to message &f%player%"
+  join_hover_playtime: "&7Click to message &f%player%\n&8Playtime: &e%playtime%"
 
 pm:
   format_sender:   "&eYou &e→ &e%receiver%&e: &e%message%"
@@ -72,7 +75,8 @@ chatstats:
   reset_player_done: "&aChat statistics for &f%player% &ahave been reset."
 
 broadcast:
-  usage: "&7Usage: &f/broadcast <message|preset|preset|hide>"
+  usage: "&7Usage: &f/broadcast <message|preset|hide|-h>"
+  usage_hide: "&7Hide author: &f/broadcast -h <message|preset>"
   no_permission: "&cYou don't have permission to broadcast announcements."
   preset_empty: "&cPreset &f%preset% &cis empty."
   preset_usage: "&7Usage: &f/broadcast preset list|set <key> <text>|remove <key>"

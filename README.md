@@ -241,4 +241,4 @@ plugins/ChatSync/
 
 ---
 
-*ChatSync v1.3 · Paper 1.21 · Java 17+*
+*ChatSync v1.4 · Paper 1.21 · Java 17+*

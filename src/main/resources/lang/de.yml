@@ -1,5 +1,5 @@
 # ChatSync - Deutsch
-# Sprachcodes: de_de, de_at, de_ch
+# Locale-Codes: de_de, de_at, de_ch
 
 commands:
   reload:
@@ -8,21 +8,21 @@ commands:
     usage: "&7Verwendung: &f/chatsync reload"
   msg:
     usage: "&7Verwendung: &f/msg <Spieler> <Nachricht>"
-    self: "&cDu kannst dir selbst keine Nachricht schicken."
+    self: "&cDu kannst dir selbst keine Nachricht senden."
   reply:
     usage: "&7Verwendung: &f/reply <Nachricht>"
-    no_target: "&cNiemand zum Antworten gefunden."
-    offline: "&cDieser Spieler ist nicht mehr online."
+    no_target: "&cNiemand, dem du antworten könntest."
+    offline: "&cDieser Spieler ist offline."
   ignore:
     usage: "&7Verwendung: &f/ignore <Spieler>"
     added: "&eDu ignorierst jetzt &f%player%&e."
-    removed: "&aDu ignorierst &f%player%&a nicht mehr."
+    removed: "&aDu ignorierst &f%player% &anicht mehr."
     ignores_you: "&c%player% ignoriert dich."
     self: "&cDu kannst dich nicht selbst ignorieren."
     target_added: "&7%player% &7ignoriert dich jetzt."
     target_removed: "&7%player% &7ignoriert dich nicht mehr."
   ignorelist:
-    empty: "&7Deine Ignore-Liste ist leer."
+    empty: "&7Deine Ignorierliste ist leer."
     header: "&7Ignorierte Spieler &8(&f%count%&8)&7:"
     entry_prefix: "&f"
   socialspy:
@@ -31,17 +31,20 @@ commands:
     no_permission: "&cDu hast keine Berechtigung für SocialSpy."
 
 chat:
-  local_noone: "&7[!] Niemand kann dich hören. Schreibe &f!<Nachricht>&7 für den globalen Chat."
+  local_noone: "&7[!] Dich hört niemand. Nutze &f!<Nachricht>&7 für den globalen Chat."
   cooldown: "&c[!] Warte noch &f%seconds%s &cvor der nächsten globalen Nachricht."
+  local_cooldown: "&c[!] Slowmode: warte noch &f%seconds%s &cvor der nächsten Nachricht."
+  muted: "&c[!] Du bist stummgeschaltet und kannst nicht chatten."
 
 messages:
-  join_hover: "&7Klicke, um %player% eine Nachricht zu schreiben"
+  join_hover: "&7Klicken, um &f%player% &7eine Nachricht zu senden"
+  join_hover_playtime: "&7Klicken, um &f%player% &7eine Nachricht zu senden\n&8Spielzeit: &e%playtime%"
 
 pm:
   format_sender:   "&eDu &e→ &e%receiver%&e: &e%message%"
-  format_receiver: "&e%sender% &e→ &eDir&e: &e%message%"
+  format_receiver: "&e%sender% &e→ &eDu&e: &e%message%"
   player_not_found: "&cSpieler &f%player% &cist nicht online."
-  no_reply_target: "&cNiemand zum Antworten vorhanden."
+  no_reply_target: "&cNiemand, dem du antworten könntest."
 
 me:
   usage: "&7Verwendung: &f/me <Aktion>"
@@ -49,48 +52,53 @@ me:
 
 clear:
   no_permission: "&cDu hast keine Berechtigung, den Chat zu leeren."
-  confirm_hint: "&eDies leert den Chat für &falle&e. Klicke hier oder schreibe &f/clear confirm &ezum Bestätigen."
-  confirm_hint_player: "&eDies leert den Chat von &f%target%&e. Klicke hier oder schreibe &f/clear %target% confirm &ezum Bestätigen."
-  expired: "&cNichts zu bestätigen, oder die Zeit ist abgelaufen. Führe den Befehl erneut aus."
-  done_all: "&aChat wurde von &f%player% &ageleert."
-  done_player: "&aChat für &f%target% &awurde von &f%player% &ageleert."
+  confirm_hint: "&eDas leert den Chat für &falle&e. Hier klicken oder &f/clear confirm &eeingeben."
+  confirm_hint_player: "&eDas leert den Chat für &f%target%&e. Hier klicken oder &f/clear %target% confirm &eeingeben."
+  expired: "&cNichts zu bestätigen, oder die Bestätigung ist abgelaufen. Befehl erneut ausführen."
+  done_all: "&aChat wurde von &f%player% &agleert."
+  done_player: "&aChat für &f%target% &awurde von &f%player% &agleert."
 
 chatstats:
-  empty: "&7Noch keine Chat-Statistik. Schreibe etwas in den Chat (&f!Nachricht&7 = global)."
+  empty: "&7Noch keine Chat-Statistiken. Schreibe etwas in den Chat (&f!Nachricht&7 = global)."
   no_permission: "&cDu hast keine Berechtigung, Chat-Statistiken anzusehen."
   no_permission_others: "&cDu hast keine Berechtigung, Statistiken anderer Spieler anzusehen."
   no_data: "&cKeine Chat-Statistiken für &f%player% &cgefunden."
-  top_header: "&e&lAktivste Spieler &8(&fTop %count%&8)&e:"
+  top_header: "&e&lTop Chatter &8(&fTop %count%&8)&e:"
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7Nachrichten"
-  player_header: "&e&lChat-Statistik: &f%player%"
-reset_usage: "&7Verwendung: &f/chatstats reset <Spieler|all> [confirm]"
+  player_header: "&e&lChat-Statistiken: &f%player%"
+  player_line: "&7Global: &f%global%  &7Lokal: &f%local%  &7PN: &f%pm%  &7/me: &f%me%  &7BC: &f%broadcast%  &7Gesamt: &e%total%"
+  reset_usage: "&7Verwendung: &f/chatstats reset <Spieler|all> [confirm]"
   reset_no_permission: "&cDu hast keine Berechtigung, Chat-Statistiken zurückzusetzen."
-  reset_all_confirm: "&e&lDies setzt ALLE Chat-Statistiken zurück. Klicke hier oder tippe &f/chatstats reset all confirm&e."
-  reset_expired: "&cNichts zu bestätigen oder abgelaufen."
-  reset_all_done: "&a&lAlle Chat-Statistiken wurden zurückgesetzt."
-  reset_player_done: "&aChat-Statistiken von &f%player% &awurden zurückgesetzt."
-  player_line: "&7Global: &f%global%  &7Lokal: &f%local%  &7PN: &f%pm%  &7/me: &f%me%  &7Gesamt: &e%total%"
-reset_usage: "&7Verwendung: &f/chatstats reset <Spieler|all> [confirm]"
-  reset_no_permission: "&cDu hast keine Berechtigung, Chat-Statistiken zurückzusetzen."
-  reset_all_confirm: "&e&lDies setzt ALLE Chat-Statistiken zurück. Klicke hier oder tippe &f/chatstats reset all confirm&e."
-  reset_expired: "&cNichts zu bestätigen oder abgelaufen."
+  reset_all_confirm: "&e&lDas setzt ALLE Chat-Statistiken zurück. Hier klicken oder &f/chatstats reset all confirm &eeingeben."
+  reset_expired: "&cNichts zu bestätigen, oder die Bestätigung ist abgelaufen. Befehl erneut ausführen."
   reset_all_done: "&a&lAlle Chat-Statistiken wurden zurückgesetzt."
   reset_player_done: "&aChat-Statistiken von &f%player% &awurden zurückgesetzt."
 
 broadcast:
-  usage: "&7Verwendung: &f/broadcast <Nachricht>"
+  usage: "&7Verwendung: &f/broadcast <Nachricht|Preset|hide|-h>"
+  usage_hide: "&7Autor verbergen: &f/broadcast -h <Nachricht|Preset>"
   no_permission: "&cDu hast keine Berechtigung, Ankündigungen zu senden."
+  preset_empty: "&cPreset &f%preset% &cist leer."
+  preset_usage: "&7Verwendung: &f/broadcast preset list|set <Schlüssel> <Text>|remove <Schlüssel>"
+  preset_empty_list: "&7Keine Broadcast-Presets konfiguriert."
+  preset_list_header: "&e&lBroadcast-Presets:"
+  preset_saved: "&aPreset &f%preset% &agespeichert: &f%message%"
+  preset_removed: "&aPreset &f%preset% &aentfernt."
+  preset_not_found: "&cPreset &f%preset% &cnicht gefunden."
+  preset_invalid_key: "&cUngültiger Schlüssel. Nutze Buchstaben, Zahlen, _ und -."
+  hide_on: "&eAutor der Ankündigungen ist jetzt &cverborgen&e. Umschalten: &f/broadcast hide"
+  hide_off: "&eAutor der Ankündigungen ist jetzt &asichtbar&e. Verbergen: &f/broadcast hide"
 
 playtime:
   disabled: "&cPlaytime-Tracking ist deaktiviert."
-  no_permission: "&cDu hast keine Berechtigung, die Spielzeit anzuzeigen."
-  top_no_permission: "&cDu hast keine Berechtigung für die Playtime-Rangliste."
+  no_permission: "&cDu hast keine Berechtigung, die Spielzeit anzusehen."
+  top_no_permission: "&cDu hast keine Berechtigung, die Spielzeit-Rangliste anzusehen."
   lastseen_no_permission: "&cDu hast keine Berechtigung für /lastseen."
   usage: "&7Verwendung: &f/playtime [Spieler]"
   lastseen_usage: "&7Verwendung: &f/lastseen <Spieler>"
   self: "&aDeine Spielzeit: &f%time%"
   other: "&aSpielzeit von &f%player%&a: &f%time%"
-  no_data: "&cKeine Playtime-Daten für &f%player%&c."
+  no_data: "&cKeine Spielzeit-Daten für &f%player%&c."
   top_header: "&e&lSpielzeit-Rangliste &8(&fTop %count%&8)&e:"
   top_entry: "&7#%rank% &f%player% &8— &e%time%"
   lastseen: "&7%player% &7war zuletzt online: &f%when%"
@@ -99,6 +107,6 @@ playtime:
 
 duration:
   days: "T"
-  hours: "Std"
-  minutes: "Min"
-  seconds: "Sek"
+  hours: "h"
+  minutes: "m"
+  seconds: "s"

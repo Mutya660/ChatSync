@@ -1,8 +1,8 @@
 name: ChatSync
-version: 1.3
+version: 1.4
 main: chatsync.ChatSync
 api-version: '1.21'
-softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect]
+softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans]
 description: "Chat plugin with global/local chat, private messages, ignore, socialspy, /me, /clear, /chatstats, /broadcast, playtime and multi-language support."
 authors: [Mutya660]
 website: "https://modrinth.com/plugin/chatsync"

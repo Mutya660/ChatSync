@@ -1,5 +1,5 @@
 # ChatSync - Français
-# Codes de langue : fr_fr, fr_ca, fr_be, fr_ch
+# Codes de locale : fr_fr, fr_ca, fr_be, fr_ch
 
 commands:
   reload:
@@ -12,7 +12,7 @@ commands:
   reply:
     usage: "&7Utilisation : &f/reply <message>"
     no_target: "&cPersonne à qui répondre."
-    offline: "&cCe joueur s'est déconnecté."
+    offline: "&cCe joueur est hors ligne."
   ignore:
     usage: "&7Utilisation : &f/ignore <joueur>"
     added: "&eVous ignorez maintenant &f%player%&e."
@@ -22,7 +22,7 @@ commands:
     target_added: "&7%player% &7vous ignore maintenant."
     target_removed: "&7%player% &7ne vous ignore plus."
   ignorelist:
-    empty: "&7Votre liste d'ignorés est vide."
+    empty: "&7Votre liste d'ignore est vide."
     header: "&7Joueurs ignorés &8(&f%count%&8)&7 :"
     entry_prefix: "&f"
   socialspy:
@@ -31,15 +31,18 @@ commands:
     no_permission: "&cVous n'avez pas la permission d'utiliser SocialSpy."
 
 chat:
-  local_noone: "&7[!] Personne ne vous entend. Écrivez &f!<message>&7 pour le chat global."
-  cooldown: "&c[!] Attendez encore &f%seconds%s &cavant d'envoyer un autre message global."
+  local_noone: "&7[!] Personne ne vous entend. Utilisez &f!<message>&7 pour le chat global."
+  cooldown: "&c[!] Attendez encore &f%seconds%s &cavant le prochain message global."
+  local_cooldown: "&c[!] Slowmode : attendez encore &f%seconds%s &cavant le prochain message."
+  muted: "&c[!] Vous êtes muet et ne pouvez pas discuter."
 
 messages:
-  join_hover: "&7Cliquez pour écrire à %player%"
+  join_hover: "&7Cliquez pour envoyer un message à &f%player%"
+  join_hover_playtime: "&7Cliquez pour envoyer un message à &f%player%\n&8Temps de jeu : &e%playtime%"
 
 pm:
-  format_sender:   "&eVous &e→ &e%receiver%&e: &e%message%"
-  format_receiver: "&e%sender% &e→ &eVous&e: &e%message%"
+  format_sender:   "&eVous &e→ &e%receiver%&e : &e%message%"
+  format_receiver: "&e%sender% &e→ &eVous&e : &e%message%"
   player_not_found: "&cLe joueur &f%player% &cn'est pas en ligne."
   no_reply_target: "&cPersonne à qui répondre."
 
@@ -49,37 +52,42 @@ me:
 
 clear:
   no_permission: "&cVous n'avez pas la permission de vider le chat."
-  confirm_hint: "&eCeci videra le chat pour &ftout le monde&e. Cliquez ici ou tapez &f/clear confirm &epour confirmer."
-  confirm_hint_player: "&eCeci videra le chat de &f%target%&e. Cliquez ici ou tapez &f/clear %target% confirm &epour confirmer."
-  expired: "&cRien à confirmer, ou le délai a expiré. Relancez la commande."
+  confirm_hint: "&eCela videra le chat pour &ftout le monde&e. Cliquez ici ou tapez &f/clear confirm &epour confirmer."
+  confirm_hint_player: "&eCela videra le chat de &f%target%&e. Cliquez ici ou tapez &f/clear %target% confirm &epour confirmer."
+  expired: "&cRien à confirmer, ou la confirmation a expiré. Relancez la commande."
   done_all: "&aChat vidé par &f%player%&a."
   done_player: "&aChat de &f%target% &avidé par &f%player%&a."
 
 chatstats:
   empty: "&7Pas encore de statistiques. Écrivez dans le chat (&f!message&7 = global)."
-  no_permission: "&cVous n'avez pas la permission de voir les statistiques du chat."
+  no_permission: "&cVous n'avez pas la permission de voir les statistiques de chat."
   no_permission_others: "&cVous n'avez pas la permission de voir les statistiques des autres joueurs."
   no_data: "&cAucune statistique trouvée pour &f%player%&c."
   top_header: "&e&lMeilleurs chatteurs &8(&ftop %count%&8)&e :"
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7messages"
   player_header: "&e&lStatistiques de chat : &f%player%"
-reset_usage: "&7Utilisation: &f/chatstats reset <joueur|all> [confirm]"
+  player_line: "&7Global : &f%global%  &7Local : &f%local%  &7MP : &f%pm%  &7/me : &f%me%  &7BC : &f%broadcast%  &7Total : &e%total%"
+  reset_usage: "&7Utilisation : &f/chatstats reset <joueur|all> [confirm]"
   reset_no_permission: "&cVous n'avez pas la permission de réinitialiser les statistiques."
   reset_all_confirm: "&e&lCela réinitialisera TOUTES les statistiques. Cliquez ici ou tapez &f/chatstats reset all confirm&e."
-  reset_expired: "&cRien à confirmer ou confirmation expirée."
-  reset_all_done: "&a&lToutes les statistiques de chat ont été réinitialisées."
-  reset_player_done: "&aStatistiques de &f%player% &aréinitialisées."
-  player_line: "&7Global : &f%global%  &7Local : &f%local%  &7MP : &f%pm%  &7/me : &f%me%  &7Total : &e%total%"
-reset_usage: "&7Utilisation: &f/chatstats reset <joueur|all> [confirm]"
-  reset_no_permission: "&cVous n'avez pas la permission de réinitialiser les statistiques."
-  reset_all_confirm: "&e&lCela réinitialisera TOUTES les statistiques. Cliquez ici ou tapez &f/chatstats reset all confirm&e."
-  reset_expired: "&cRien à confirmer ou confirmation expirée."
+  reset_expired: "&cRien à confirmer, ou la confirmation a expiré. Relancez la commande."
   reset_all_done: "&a&lToutes les statistiques de chat ont été réinitialisées."
   reset_player_done: "&aStatistiques de &f%player% &aréinitialisées."
 
 broadcast:
-  usage: "&7Utilisation : &f/broadcast <message>"
+  usage: "&7Utilisation : &f/broadcast <message|preset|hide|-h>"
+  usage_hide: "&7Masquer l'auteur : &f/broadcast -h <message|preset>"
   no_permission: "&cVous n'avez pas la permission d'envoyer des annonces."
+  preset_empty: "&cLe preset &f%preset% &cest vide."
+  preset_usage: "&7Utilisation : &f/broadcast preset list|set <clé> <texte>|remove <clé>"
+  preset_empty_list: "&7Aucun preset d'annonce configuré."
+  preset_list_header: "&e&lPresets d'annonce :"
+  preset_saved: "&aPreset &f%preset% &aenregistré : &f%message%"
+  preset_removed: "&aPreset &f%preset% &asupprimé."
+  preset_not_found: "&cPreset &f%preset% &cintrouvable."
+  preset_invalid_key: "&cClé invalide. Utilisez lettres, chiffres, _ et -."
+  hide_on: "&eL'auteur des annonces est maintenant &cmasqué&e. Basculer : &f/broadcast hide"
+  hide_off: "&eL'auteur des annonces est maintenant &avisible&e. Masquer : &f/broadcast hide"
 
 playtime:
   disabled: "&cLe suivi du temps de jeu est désactivé."
@@ -91,7 +99,7 @@ playtime:
   self: "&aVotre temps de jeu : &f%time%"
   other: "&aTemps de jeu de &f%player%&a : &f%time%"
   no_data: "&cAucune donnée de temps de jeu pour &f%player%&c."
-  top_header: "&e&lClassement du temps de jeu &8(&ftop %count%&8)&e:"
+  top_header: "&e&lClassement du temps de jeu &8(&ftop %count%&8)&e :"
   top_entry: "&7#%rank% &f%player% &8— &e%time%"
   lastseen: "&7%player% &7était en ligne : &f%when%"
   lastseen_online: "&a%player% &aest actuellement en ligne."

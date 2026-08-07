@@ -33,9 +33,12 @@ commands:
 chat:
   local_noone: "&7[!] Тебя никто не слышит. Напиши &f!<сообщение>&7 для глобального чата."
   cooldown: "&c[!] Подожди ещё &f%seconds%с &cперед следующим глобальным сообщением."
+  local_cooldown: "&c[!] Slowmode: подожди ещё &f%seconds%с &cперед следующим сообщением."
+  muted: "&c[!] Вы в муте и не можете писать в чат."
 
 messages:
-  join_hover: "&7Нажми, чтобы написать игроку %player%"
+  join_hover: "&7Нажми, чтобы написать &f%player%"
+  join_hover_playtime: "&7Нажми, чтобы написать &f%player%\n&8Время игры: &e%playtime%"
 
 pm:
   format_sender:   "&eВы &e→ &e%receiver%&e: &e%message%"
@@ -72,7 +75,8 @@ chatstats:
   reset_player_done: "&aСтатистика чата игрока &f%player% &aсброшена."
 
 broadcast:
-  usage: "&7Использование: &f/broadcast <сообщение|пресет|preset|hide>"
+  usage: "&7Использование: &f/broadcast <сообщение|пресет|preset|hide|-h>"
+  usage_hide: "&7Скрыть автора: &f/broadcast -h <сообщение|пресет>"
   no_permission: "&cУ вас нет прав на отправку объявлений."
   preset_empty: "&cПресет &f%preset% &cпустой."
   preset_usage: "&7Использование: &f/broadcast preset list|set <ключ> <текст>|remove <ключ>"

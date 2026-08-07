@@ -56,14 +56,37 @@ clear:
   done_player: "&aЧат для &f%target% &aочищен игроком &f%player%&a."
 
 chatstats:
+  empty: "&7Пока нет статистики. Напишите что-нибудь в чат (&f!сообщение&7 — глобальный)."
   no_permission: "&cУ вас нет прав на просмотр статистики чата."
   no_permission_others: "&cУ вас нет прав на просмотр статистики других игроков."
   no_data: "&cСтатистика для &f%player% &cне найдена."
-  top_header: "&6&lТоп по активности &8(&fтоп %count%&8)&6:"
+  top_header: "&e&lТоп по активности &8(&fтоп %count%&8)&e:"
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7сообщений"
-  player_header: "&6&lСтатистика чата: &f%player%"
+  player_header: "&e&lСтатистика чата: &f%player%"
   player_line: "&7Глобальный: &f%global%  &7Локальный: &f%local%  &7ЛС: &f%pm%  &7/me: &f%me%  &7Всего: &e%total%"
 
 broadcast:
   usage: "&7Использование: &f/broadcast <сообщение>"
   no_permission: "&cУ вас нет прав на отправку объявлений."
+
+playtime:
+  disabled: "&cОтслеживание playtime отключено."
+  no_permission: "&cУ вас нет прав на просмотр playtime."
+  top_no_permission: "&cУ вас нет прав на просмотр топа playtime."
+  lastseen_no_permission: "&cУ вас нет прав на просмотр lastseen."
+  usage: "&7Использование: &f/playtime [игрок]"
+  lastseen_usage: "&7Использование: &f/lastseen <игрок>"
+  self: "&aВаше время игры: &f%time%"
+  other: "&aВремя игры &f%player%&a: &f%time%"
+  no_data: "&cНет данных о playtime для &f%player%&c."
+  top_header: "&e&lТоп по времени игры &8(&fтоп %count%&8)&e:"
+  top_entry: "&7#%rank% &f%player% &8— &e%time%"
+  lastseen: "&7%player% &7был(а) онлайн: &f%when%"
+  lastseen_online: "&a%player% &aсейчас онлайн."
+  unknown_time: "&7неизвестно"
+
+duration:
+  days: "д"
+  hours: "ч"
+  minutes: "м"
+  seconds: "с"

@@ -56,14 +56,37 @@ clear:
   done_player: "&aChat cleared for &f%target% &aby &f%player%&a."
 
 chatstats:
+  empty: "&7No chat stats yet. Send a message in chat (&f!message&7 for global)."
   no_permission: "&cYou don't have permission to view chat statistics."
   no_permission_others: "&cYou don't have permission to view other players' statistics."
   no_data: "&cNo chat statistics found for &f%player%&c."
-  top_header: "&6&lTop chatters &8(&ftop %count%&8)&6:"
+  top_header: "&e&lTop chatters &8(&ftop %count%&8)&e:"
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7messages"
-  player_header: "&6&lChat stats: &f%player%"
+  player_header: "&e&lChat stats: &f%player%"
   player_line: "&7Global: &f%global%  &7Local: &f%local%  &7PMs: &f%pm%  &7/me: &f%me%  &7Total: &e%total%"
 
 broadcast:
   usage: "&7Usage: &f/broadcast <message>"
   no_permission: "&cYou don't have permission to broadcast announcements."
+
+playtime:
+  disabled: "&cPlaytime tracking is disabled."
+  no_permission: "&cYou don't have permission to view playtime."
+  top_no_permission: "&cYou don't have permission to view the playtime leaderboard."
+  lastseen_no_permission: "&cYou don't have permission to use /lastseen."
+  usage: "&7Usage: &f/playtime [player]"
+  lastseen_usage: "&7Usage: &f/lastseen <player>"
+  self: "&aYour playtime: &f%time%"
+  other: "&aPlaytime of &f%player%&a: &f%time%"
+  no_data: "&cNo playtime data for &f%player%&c."
+  top_header: "&e&lPlaytime leaderboard &8(&ftop %count%&8)&e:"
+  top_entry: "&7#%rank% &f%player% &8— &e%time%"
+  lastseen: "&7%player% &7was last online: &f%when%"
+  lastseen_online: "&a%player% &ais currently online."
+  unknown_time: "&7unknown"
+
+duration:
+  days: "d"
+  hours: "h"
+  minutes: "m"
+  seconds: "s"

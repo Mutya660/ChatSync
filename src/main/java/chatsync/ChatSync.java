@@ -17,6 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.*;
 import java.util.*;
+import java.util.Locale;
 
 public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
 
@@ -39,6 +40,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private ChatLogger       chatLogger;
     private LuckPermsHook    luckPermsHook;
     private CoreProtectHook  coreProtectHook;
+    private PlaytimeManager  playtimeManager;
 
     private static final List<String> SUPPORTED_LANGS = List.of("en", "ru", "de", "fr");
 
@@ -69,25 +71,40 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 getConfig().getBoolean("logging.async", true));
         this.luckPermsHook   = new LuckPermsHook(this);
         this.coreProtectHook = new CoreProtectHook(this);
+        this.playtimeManager = new PlaytimeManager(this);
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new DeathMessageTranslator(this), this);
+        getServer().getPluginManager().registerEvents(new AdvancementMessageTranslator(this), this);
 
-        registerCmd("msg",        this);
-        registerCmd("reply",      this);
-        registerCmd("ignore",     this);
-        registerCmd("ignorelist", this);
-        registerCmd("socialspy",  this);
-        registerCmd("chatsync",   this);
-        registerCmd("me",         this);
-        registerCmd("clear",      this);
-        registerCmd("chatstats",  this);
-        registerCmd("broadcast",  this);
+        registerCmd("msg",         this);
+        registerCmd("reply",       this);
+        registerCmd("ignore",      this);
+        registerCmd("ignorelist",  this);
+        registerCmd("socialspy",   this);
+        registerCmd("chatsync",    this);
+        registerCmd("me",          this);
+        registerCmd("clear",       this);
+        registerCmd("chatstats",   this);
+        registerCmd("broadcast",   this);
+        registerCmd("playtime",    this);
+        registerCmd("playtimetop", this);
+        registerCmd("lastseen",    this);
 
         if (getConfig().getBoolean("stats.enabled", true)) {
             long intervalTicks = 20L * Math.max(30, getConfig().getInt("stats.save_interval", 300));
             Bukkit.getScheduler().runTaskTimerAsynchronously(this,
                     () -> statsManager.saveIfDirty(), intervalTicks, intervalTicks);
+        }
+
+        if (getConfig().getBoolean("playtime.enabled", true)) {
+            long ptTicks = 20L * Math.max(30, getConfig().getInt("playtime.save_interval", 300));
+            Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                    () -> playtimeManager.saveIfDirty(), ptTicks, ptTicks);
+            // Уже онлайн на момент включения плагина (reload / late enable)
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                playtimeManager.onJoin(online.getUniqueId(), online.getName());
+            }
         }
 
         // Периодическая очистка просроченных заявок /clear, чтобы карта не росла бесконечно.
@@ -96,11 +113,18 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         getLogger().info("ChatSync v" + getDescription().getVersion() + " enabled!");
         if (luckPermsHook.isAvailable()) getLogger().info("LuckPerms detected: direct API fallback enabled.");
         if (coreProtectHook.isAvailable()) getLogger().info("CoreProtect detected: /clear will be logged for /co lookup.");
+        if (getConfig().getBoolean("playtime.enabled", true)) getLogger().info("Playtime tracking enabled.");
     }
 
     @Override
     public void onDisable() {
         if (statsManager != null) statsManager.save();
+        if (playtimeManager != null && getConfig().getBoolean("playtime.enabled", true)) {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                playtimeManager.onQuit(online.getUniqueId(), online.getName());
+            }
+            playtimeManager.save();
+        }
         if (chatLogger != null) chatLogger.flushNow();
     }
 
@@ -163,6 +187,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        if (playtimeManager != null && getConfig().getBoolean("playtime.enabled", true)) {
+            playtimeManager.onJoin(player.getUniqueId(), player.getName());
+        }
         if (!tog("join_message")) { event.joinMessage(null); return; }
         event.joinMessage(buildJoinQuitMessage(
                 getConfig().getString("messages.join", "&a+ &f%player%"), player));
@@ -171,6 +198,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        if (playtimeManager != null && getConfig().getBoolean("playtime.enabled", true)) {
+            playtimeManager.onQuit(player.getUniqueId(), player.getName());
+        }
         if (!tog("quit_message")) { event.quitMessage(null); }
         else event.quitMessage(buildJoinQuitMessage(
                 getConfig().getString("messages.quit", "&c- &f%player%"), player));
@@ -238,9 +268,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 p.sendMessage(buildChatComponent(formatStr, sender, rawMessage, p));
             }
             logToConsole("[GlobalChat] " + sender.getName() + ": " + rawMessage);
-            sendToDiscord(sender, rawMessage, "global");
-            statsManager.record(sender.getUniqueId(), sender.getName(), ChatStatsManager.MessageType.GLOBAL);
+            if (getConfig().getBoolean("stats.enabled", true)) {
+                statsManager.record(sender.getUniqueId(), sender.getName(), ChatStatsManager.MessageType.GLOBAL);
+            }
             logChat("[GLOBAL] " + sender.getName() + ": " + stripColorCodes(rawMessage));
+            sendToDiscord(sender, rawMessage, "global");
         } else {
             double radius     = getConfig().getDouble("chat.local.radius", 100.0);
             int    recipients = 0;
@@ -273,7 +305,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     spy.sendMessage(color(spyLocalFmt));
                 }
             }
-            statsManager.record(sender.getUniqueId(), sender.getName(), ChatStatsManager.MessageType.LOCAL);
+            if (getConfig().getBoolean("stats.enabled", true)) {
+                statsManager.record(sender.getUniqueId(), sender.getName(), ChatStatsManager.MessageType.LOCAL);
+            }
             logChat("[LOCAL] " + sender.getName() + ": " + stripColorCodes(rawMessage));
         }
     }
@@ -295,6 +329,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             case "clear"       -> { return cmdClear(sender, args); }
             case "chatstats"   -> { return cmdChatStats(sender, args); }
             case "broadcast"   -> { return cmdBroadcast(sender, args); }
+            case "playtime"    -> { return cmdPlaytime(sender, args); }
+            case "playtimetop" -> { return cmdPlaytimeTop(sender, args); }
+            case "lastseen"    -> { return cmdLastSeen(sender, args); }
         }
         return false;
     }
@@ -456,7 +493,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         logToConsole("[Me] " + pSender.getName() + " " + rawMessage);
         logChat("[ME] " + pSender.getName() + " " + stripColorCodes(rawMessage));
-        statsManager.record(pSender.getUniqueId(), pSender.getName(), ChatStatsManager.MessageType.ME);
+        if (getConfig().getBoolean("stats.enabled", true)) {
+            statsManager.record(pSender.getUniqueId(), pSender.getName(), ChatStatsManager.MessageType.ME);
+        }
         sendToDiscord(pSender, "* " + pSender.getName() + " " + rawMessage, "me");
         return true;
     }
@@ -564,20 +603,28 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (args.length == 0) {
             int topSize = getConfig().getInt("stats.top_size", 10);
             List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top = statsManager.top(topSize);
-            sender.sendMessage(color(tAny(sender, "chatstats.top_header").replace("%count%", String.valueOf(top.size()))));
+            if (top.isEmpty()) {
+                sender.sendMessage(color(tAny(sender, "chatstats.empty")));
+                return true;
+            }
+            sender.sendMessage(color(tAny(sender, "chatstats.top_header")
+                    .replace("%count%", String.valueOf(top.size()))));
             int rank = 1;
             for (Map.Entry<UUID, ChatStatsManager.PlayerStats> entry : top) {
+                String name = statsManager.nameOf(entry.getKey());
+                // если в кэше UUID — попробуем онлайн-имя
+                Player online = Bukkit.getPlayer(entry.getKey());
+                if (online != null) name = online.getName();
                 String line = tAny(sender, "chatstats.top_entry")
                         .replace("%rank%", String.valueOf(rank++))
-                        .replace("%player%", statsManager.nameOf(entry.getKey()))
                         .replace("%total%", String.valueOf(entry.getValue().total()));
-                sender.sendMessage(color(line));
+                sender.sendMessage(buildClickableNameLine(line, name, sender));
             }
             return true;
         }
 
-        String  targetName = args[0];
-        boolean isSelf     = sender instanceof Player p0 && p0.getName().equalsIgnoreCase(targetName);
+        String targetName = args[0];
+        boolean isSelf = sender instanceof Player p0 && p0.getName().equalsIgnoreCase(targetName);
         if (!isSelf) {
             String othersPermission = getConfig().getString("commands.chatstats.permission_others", "chatsync.chatstats.others");
             if (!sender.hasPermission(othersPermission)) {
@@ -586,16 +633,30 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
         }
 
-        @SuppressWarnings("deprecation")
-        org.bukkit.OfflinePlayer off = Bukkit.getOfflinePlayer(targetName);
-        UUID uuid = off.getUniqueId();
-        ChatStatsManager.PlayerStats stats = statsManager.get(uuid);
-        if (stats == null) {
+        ResolvedPlayer resolved = resolvePlayer(targetName);
+        if (resolved == null) {
             sender.sendMessage(color(tAny(sender, "chatstats.no_data").replace("%player%", targetName)));
             return true;
         }
+        ChatStatsManager.PlayerStats stats = statsManager.get(resolved.uuid());
+        if (stats == null) {
+            // онлайн без истории — показываем нули, а не «не найдено»
+            Player online = Bukkit.getPlayer(resolved.uuid());
+            if (online != null && online.isOnline()) {
+                stats = new ChatStatsManager.PlayerStats();
+            } else {
+                sender.sendMessage(buildClickableNameLine(
+                        tAny(sender, "chatstats.no_data"), resolved.name(), sender));
+                return true;
+            }
+        }
 
-        sender.sendMessage(color(tAny(sender, "chatstats.player_header").replace("%player%", statsManager.nameOf(uuid))));
+        String displayName = resolved.name();
+        Player online = Bukkit.getPlayer(resolved.uuid());
+        if (online != null) displayName = online.getName();
+
+        sender.sendMessage(buildClickableNameLine(
+                tAny(sender, "chatstats.player_header"), displayName, sender));
         sender.sendMessage(color(tAny(sender, "chatstats.player_line")
                 .replace("%global%", String.valueOf(stats.global))
                 .replace("%local%", String.valueOf(stats.local))
@@ -623,7 +684,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             rawMessage = stripColorCodes(rawMessage);
         }
 
-        String    format    = getConfig().getString("broadcast.format", "&6&l[Announcement] &e%message%").replace("%message%", rawMessage);
+        String    format    = getConfig().getString("broadcast.format", "&e&l[Announcement] &f%message%").replace("%message%", rawMessage);
         Component component = color(format);
 
         boolean actionbar   = getConfig().getBoolean("broadcast.actionbar", false);
@@ -645,6 +706,228 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return true;
     }
 
+
+    // ── /playtime ────────────────────────────────────────────────
+
+    private boolean cmdPlaytime(CommandSender sender, String[] args) {
+        if (!getConfig().getBoolean("playtime.enabled", true)) {
+            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
+            return true;
+        }
+        String permission = getConfig().getString("commands.playtime.permission", "chatsync.playtime");
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage(color(tAny(sender, "playtime.no_permission")));
+            return true;
+        }
+
+        if (args.length == 0) {
+            if (!(sender instanceof Player pSender)) {
+                sender.sendMessage(color(tAny(sender, "playtime.usage")));
+                return true;
+            }
+            long seconds = playtimeManager.getPlaytimeSeconds(pSender.getUniqueId());
+            sender.sendMessage(color(tAny(sender, "playtime.self")
+                    .replace("%time%", formatDuration(seconds, sender))));
+            return true;
+        }
+
+        ResolvedPlayer resolved = resolvePlayer(args[0]);
+        if (resolved == null || (!playtimeManager.hasData(resolved.uuid())
+                && Bukkit.getPlayer(resolved.uuid()) == null)) {
+            sender.sendMessage(color(tAny(sender, "playtime.no_data").replace("%player%", args[0])));
+            return true;
+        }
+        long seconds = playtimeManager.getPlaytimeSeconds(resolved.uuid());
+        String line = tAny(sender, "playtime.other")
+                .replace("%time%", formatDuration(seconds, sender));
+        sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
+        return true;
+    }
+
+    private boolean cmdPlaytimeTop(CommandSender sender, String[] args) {
+        if (!getConfig().getBoolean("playtime.enabled", true)) {
+            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
+            return true;
+        }
+        String permission = getConfig().getString("commands.playtime.playtimetop.permission", "chatsync.playtimetop");
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage(color(tAny(sender, "playtime.top_no_permission")));
+            return true;
+        }
+        int topSize = getConfig().getInt("playtime.top_size", 10);
+        List<Map.Entry<UUID, Long>> top = playtimeManager.top(topSize);
+        sender.sendMessage(color(tAny(sender, "playtime.top_header").replace("%count%", String.valueOf(top.size()))));
+        int rank = 1;
+        for (Map.Entry<UUID, Long> entry : top) {
+            String name = playtimeManager.nameOf(entry.getKey());
+            String line = tAny(sender, "playtime.top_entry")
+                    .replace("%rank%", String.valueOf(rank++))
+                    .replace("%time%", formatDuration(entry.getValue(), sender));
+            sender.sendMessage(buildClickableNameLine(line, name, sender));
+        }
+        return true;
+    }
+
+    private boolean cmdLastSeen(CommandSender sender, String[] args) {
+        if (!getConfig().getBoolean("playtime.enabled", true)) {
+            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
+            return true;
+        }
+        String permission = getConfig().getString("commands.playtime.lastseen.permission", "chatsync.lastseen");
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage(color(tAny(sender, "playtime.lastseen_no_permission")));
+            return true;
+        }
+        if (args.length < 1) {
+            sender.sendMessage(color(tAny(sender, "playtime.lastseen_usage")));
+            return true;
+        }
+
+        ResolvedPlayer resolved = resolvePlayer(args[0]);
+        if (resolved == null) {
+            sender.sendMessage(color(tAny(sender, "playtime.no_data").replace("%player%", args[0])));
+            return true;
+        }
+
+        Player online = Bukkit.getPlayer(resolved.uuid());
+        if (online != null && online.isOnline()) {
+            sender.sendMessage(buildClickableNameLine(
+                    tAny(sender, "playtime.lastseen_online"), resolved.name(), sender));
+            return true;
+        }
+
+        Long logout = playtimeManager.getLastLogout(resolved.uuid());
+        Long login  = playtimeManager.getLastLogin(resolved.uuid());
+        if (logout == null && login == null && !playtimeManager.hasData(resolved.uuid())) {
+            sender.sendMessage(buildClickableNameLine(
+                    tAny(sender, "playtime.no_data"), resolved.name(), sender));
+            return true;
+        }
+
+        long when = logout != null ? logout : (login != null ? login : 0L);
+        String line = tAny(sender, "playtime.lastseen")
+                .replace("%when%", formatTimestamp(when, sender));
+        sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
+        return true;
+    }
+
+    /** UUID + отображаемое имя, найденные по нику (онлайн → кэш → OfflinePlayer). */
+    private record ResolvedPlayer(UUID uuid, String name) {}
+
+    private ResolvedPlayer resolvePlayer(String input) {
+        if (input == null || input.isBlank()) return null;
+
+        // 1) онлайн (точное имя)
+        Player online = Bukkit.getPlayerExact(input);
+        if (online != null) return new ResolvedPlayer(online.getUniqueId(), online.getName());
+
+        // 2) онлайн (частичное / без учёта регистра)
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (p.getName().equalsIgnoreCase(input)) {
+                return new ResolvedPlayer(p.getUniqueId(), p.getName());
+            }
+        }
+
+        // 3) кэш chatstats
+        if (statsManager != null) {
+            UUID uuid = statsManager.findUuidByName(input);
+            if (uuid != null) return new ResolvedPlayer(uuid, statsManager.nameOf(uuid));
+        }
+
+        // 4) кэш playtime
+        if (playtimeManager != null) {
+            for (Map.Entry<UUID, Long> e : playtimeManager.top(Integer.MAX_VALUE)) {
+                String n = playtimeManager.nameOf(e.getKey());
+                if (n != null && n.equalsIgnoreCase(input)) {
+                    return new ResolvedPlayer(e.getKey(), n);
+                }
+            }
+        }
+
+        // 5) OfflinePlayer (только если реально заходил)
+        @SuppressWarnings("deprecation")
+        org.bukkit.OfflinePlayer off = Bukkit.getOfflinePlayer(input);
+        if (off.hasPlayedBefore() || off.isOnline()) {
+            String name = off.getName() != null ? off.getName() : input;
+            return new ResolvedPlayer(off.getUniqueId(), name);
+        }
+        return null;
+    }
+
+    /**
+     * Формат как у TAB / %statistic_hours_played%, но с минутами:
+     * 12ч 34м  ·  при &lt; 1ч — 45м  ·  при днях — 2д 5ч 12м
+     * (секунды только если меньше минуты)
+     */
+    private String formatDuration(long totalSeconds, CommandSender sender) {
+        if (totalSeconds < 0) totalSeconds = 0;
+        long days = totalSeconds / 86400;
+        long hoursTotal = totalSeconds / 3600;          // всего часов (как hours_played)
+        long hours = (totalSeconds % 86400) / 3600;     // часов в текущих сутках
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+
+        String d = tAny(sender, "duration.days");
+        String h = tAny(sender, "duration.hours");
+        String m = tAny(sender, "duration.minutes");
+        String s = tAny(sender, "duration.seconds");
+
+        if (totalSeconds < 60) {
+            return seconds + s;
+        }
+        if (days > 0) {
+            return days + d + " " + hours + h + " " + minutes + m;
+        }
+        if (hoursTotal > 0) {
+            // 12ч 34м — как TAB hours + минуты
+            return hoursTotal + h + " " + minutes + m;
+        }
+        return minutes + m;
+    }
+
+    private String formatTimestamp(long epochMs, CommandSender sender) {
+        if (epochMs <= 0) return tAny(sender, "playtime.unknown_time");
+        java.time.Instant instant = java.time.Instant.ofEpochMilli(epochMs);
+        java.time.ZonedDateTime zdt = instant.atZone(java.time.ZoneId.systemDefault());
+        return java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").format(zdt);
+    }
+
+    /**
+     * Собирает строку с кликабельным ником: в template должен остаться плейсхолдер %player%.
+     * Клик подставляет /msg <ник> в чат.
+     */
+    private Component buildClickableNameLine(String template, String playerName, CommandSender viewer) {
+        final String PH = "%player%";
+        int idx = template.indexOf(PH);
+        if (idx < 0) {
+            // fallback: имя уже подставлено — ищем буквально
+            idx = template.indexOf(playerName);
+            if (idx < 0) return color(template);
+            String before = template.substring(0, idx);
+            String after  = template.substring(idx + playerName.length());
+            String hover  = tAny(viewer, "messages.join_hover").replace("%player%", playerName);
+            Component nameComp = color(extractTrailingColor(before) + playerName)
+                    .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "))
+                    .hoverEvent(HoverEvent.showText(color(hover)));
+            return Component.text()
+                    .append(color(before))
+                    .append(nameComp)
+                    .append(color(after))
+                    .build();
+        }
+        String before = template.substring(0, idx);
+        String after  = template.substring(idx + PH.length());
+        String hover  = tAny(viewer, "messages.join_hover").replace("%player%", playerName);
+        Component nameComp = color(extractTrailingColor(before) + playerName)
+                .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "))
+                .hoverEvent(HoverEvent.showText(color(hover)));
+        return Component.text()
+                .append(color(before))
+                .append(nameComp)
+                .append(color(after))
+                .build();
+    }
+
     // ──────────────────────────────────────────────────────────────
     //  Tab complete
     // ──────────────────────────────────────────────────────────────
@@ -652,7 +935,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         String name = command.getName().toLowerCase();
-        if (args.length == 1 && (name.equals("msg") || name.equals("ignore") || name.equals("clear") || name.equals("chatstats"))) {
+        if (args.length == 1 && (name.equals("msg") || name.equals("ignore") || name.equals("clear")
+                || name.equals("chatstats") || name.equals("playtime") || name.equals("lastseen"))) {
             List<String> names = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers())
                 if (p.getName().toLowerCase().startsWith(args[0].toLowerCase()))
@@ -697,7 +981,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
         }
         logToConsole("[PM] " + from.getName() + " → " + to.getName() + ": " + message);
-        statsManager.record(from.getUniqueId(), from.getName(), ChatStatsManager.MessageType.PM);
+        if (getConfig().getBoolean("stats.enabled", true)) {
+            statsManager.record(from.getUniqueId(), from.getName(), ChatStatsManager.MessageType.PM);
+        }
         logChat("[PM] " + from.getName() + " -> " + to.getName() + ": " + stripColorCodes(message));
     }
 

@@ -56,14 +56,37 @@ clear:
   done_player: "&aChat für &f%target% &awurde von &f%player% &ageleert."
 
 chatstats:
+  empty: "&7Noch keine Chat-Statistik. Schreibe etwas in den Chat (&f!Nachricht&7 = global)."
   no_permission: "&cDu hast keine Berechtigung, Chat-Statistiken anzusehen."
   no_permission_others: "&cDu hast keine Berechtigung, Statistiken anderer Spieler anzusehen."
   no_data: "&cKeine Chat-Statistiken für &f%player% &cgefunden."
-  top_header: "&6&lAktivste Spieler &8(&fTop %count%&8)&6:"
+  top_header: "&e&lAktivste Spieler &8(&fTop %count%&8)&e:"
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7Nachrichten"
-  player_header: "&6&lChat-Statistik: &f%player%"
+  player_header: "&e&lChat-Statistik: &f%player%"
   player_line: "&7Global: &f%global%  &7Lokal: &f%local%  &7PN: &f%pm%  &7/me: &f%me%  &7Gesamt: &e%total%"
 
 broadcast:
   usage: "&7Verwendung: &f/broadcast <Nachricht>"
   no_permission: "&cDu hast keine Berechtigung, Ankündigungen zu senden."
+
+playtime:
+  disabled: "&cPlaytime-Tracking ist deaktiviert."
+  no_permission: "&cDu hast keine Berechtigung, die Spielzeit anzuzeigen."
+  top_no_permission: "&cDu hast keine Berechtigung für die Playtime-Rangliste."
+  lastseen_no_permission: "&cDu hast keine Berechtigung für /lastseen."
+  usage: "&7Verwendung: &f/playtime [Spieler]"
+  lastseen_usage: "&7Verwendung: &f/lastseen <Spieler>"
+  self: "&aDeine Spielzeit: &f%time%"
+  other: "&aSpielzeit von &f%player%&a: &f%time%"
+  no_data: "&cKeine Playtime-Daten für &f%player%&c."
+  top_header: "&e&lSpielzeit-Rangliste &8(&fTop %count%&8)&e:"
+  top_entry: "&7#%rank% &f%player% &8— &e%time%"
+  lastseen: "&7%player% &7war zuletzt online: &f%when%"
+  lastseen_online: "&a%player% &aist gerade online."
+  unknown_time: "&7unbekannt"
+
+duration:
+  days: "T"
+  hours: "Std"
+  minutes: "Min"
+  seconds: "Sek"

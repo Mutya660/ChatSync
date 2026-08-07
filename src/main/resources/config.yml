@@ -198,7 +198,7 @@ integrations:
 broadcast:
   # [EN] Chat format for the announcement. Placeholder: %message%
   # [RU] Формат чата для объявления. Плейсхолдер: %message%
-  format: "&6&l[Объявление] &e%message%"
+  format: "&e&l[Объявление] &e%message%"
   # [EN] Also show the announcement in the action bar
   # [RU] Также показывать объявление в панели действий (action bar)
   actionbar: false
@@ -215,7 +215,7 @@ broadcast:
     enable: false
     # [EN] Title text. Placeholder: %message%
     # [RU] Текст заголовка. Плейсхолдер: %message%
-    text: "&6&l%message%"
+    text: "&e&l%message%"
     # [EN] Subtitle text. Placeholder: %message%
     # [RU] Текст подзаголовка. Плейсхолдер: %message%
     subtitle: ""

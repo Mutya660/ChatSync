@@ -56,14 +56,37 @@ clear:
   done_player: "&aChat de &f%target% &avidé par &f%player%&a."
 
 chatstats:
+  empty: "&7Pas encore de statistiques. Écrivez dans le chat (&f!message&7 = global)."
   no_permission: "&cVous n'avez pas la permission de voir les statistiques du chat."
   no_permission_others: "&cVous n'avez pas la permission de voir les statistiques des autres joueurs."
   no_data: "&cAucune statistique trouvée pour &f%player%&c."
-  top_header: "&6&lMeilleurs chatteurs &8(&ftop %count%&8)&6 :"
+  top_header: "&e&lMeilleurs chatteurs &8(&ftop %count%&8)&e :"
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7messages"
-  player_header: "&6&lStatistiques de chat : &f%player%"
+  player_header: "&e&lStatistiques de chat : &f%player%"
   player_line: "&7Global : &f%global%  &7Local : &f%local%  &7MP : &f%pm%  &7/me : &f%me%  &7Total : &e%total%"
 
 broadcast:
   usage: "&7Utilisation : &f/broadcast <message>"
   no_permission: "&cVous n'avez pas la permission d'envoyer des annonces."
+
+playtime:
+  disabled: "&cLe suivi du temps de jeu est désactivé."
+  no_permission: "&cVous n'avez pas la permission de voir le temps de jeu."
+  top_no_permission: "&cVous n'avez pas la permission de voir le classement."
+  lastseen_no_permission: "&cVous n'avez pas la permission d'utiliser /lastseen."
+  usage: "&7Utilisation : &f/playtime [joueur]"
+  lastseen_usage: "&7Utilisation : &f/lastseen <joueur>"
+  self: "&aVotre temps de jeu : &f%time%"
+  other: "&aTemps de jeu de &f%player%&a : &f%time%"
+  no_data: "&cAucune donnée de temps de jeu pour &f%player%&c."
+  top_header: "&e&lClassement du temps de jeu &8(&ftop %count%&8)&e:"
+  top_entry: "&7#%rank% &f%player% &8— &e%time%"
+  lastseen: "&7%player% &7était en ligne : &f%when%"
+  lastseen_online: "&a%player% &aest actuellement en ligne."
+  unknown_time: "&7inconnu"
+
+duration:
+  days: "j"
+  hours: "h"
+  minutes: "min"
+  seconds: "s"

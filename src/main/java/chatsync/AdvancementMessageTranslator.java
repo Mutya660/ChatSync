@@ -2,6 +2,7 @@ package chatsync;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.text.TranslationArgument;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -15,14 +16,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Делает ник игрока кликабельным (клик = быстрый /msg) в стандартном
- * сообщении о получении достижения. Сам перевод не трогаем — TranslatableComponent
- * и так локализуется на клиенте под его язык (Paper даёт message() именно как Component).
+ * Делает ник игрока кликабельным (клик = /msg) в сообщении о получении достижения.
+ * Перевод не трогаем — TranslatableComponent локализуется на клиенте.
  *
- * Makes the player name clickable (click = quick /msg) in the vanilla
- * advancement-announcement message. Translation itself is untouched — the
- * TranslatableComponent is already client-side localized (Paper exposes
- * message() as a Component for exactly this kind of tweak).
+ * Adventure 4.15+: arguments() возвращает List&lt;TranslationArgument&gt;, не Component.
  */
 public class AdvancementMessageTranslator implements Listener {
 
@@ -37,32 +34,76 @@ public class AdvancementMessageTranslator implements Listener {
         if (!plugin.getConfig().getBoolean("toggles.clickable_advancement_name", true)) return;
 
         Component message = event.message();
-        if (message == null) return; // достижение не анонсируется в чат (рецепт/корневое)
+        if (message == null) return; // достижение не анонсируется (рецепт / корневое)
 
         Component updated = makeNameClickable(message, event.getPlayer());
         if (updated != null) event.message(updated);
     }
 
     private Component makeNameClickable(Component component, Player player) {
-        if (!(component instanceof TranslatableComponent translatable)) return null;
+        if (!(component instanceof TranslatableComponent translatable)) {
+            return tryReplaceInChildren(component, player);
+        }
 
-        List<Component> args = translatable.args();
-        List<Component> newArgs = new ArrayList<>(args.size());
+        List<TranslationArgument> args = translatable.arguments();
+        List<TranslationArgument> newArgs = new ArrayList<>(args.size());
         boolean changed = false;
+        String playerName = player.getName();
 
-        for (Component arg : args) {
-            if (!changed && PlainTextComponentSerializer.plainText().serialize(arg).equals(player.getName())) {
-                String hover = plugin.t(player, "messages.join_hover").replace("%player%", player.getName());
-                newArgs.add(arg
-                        .clickEvent(ClickEvent.suggestCommand("/msg " + player.getName() + " "))
-                        .hoverEvent(HoverEvent.showText(plugin.color(hover))));
+        for (TranslationArgument arg : args) {
+            Component argComponent = arg.asComponent();
+            String plain = PlainTextComponentSerializer.plainText().serialize(argComponent);
+
+            if (!changed && plain.equals(playerName)) {
+                String hover = plugin.t(player, "messages.join_hover").replace("%player%", playerName);
+                Component clickable = argComponent
+                        .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "))
+                        .hoverEvent(HoverEvent.showText(plugin.color(hover)));
+                newArgs.add(TranslationArgument.component(clickable));
                 changed = true;
             } else {
-                newArgs.add(arg);
+                Component nested = makeNameClickable(argComponent, player);
+                if (nested != null) {
+                    newArgs.add(TranslationArgument.component(nested));
+                    changed = true;
+                } else {
+                    newArgs.add(arg);
+                }
             }
         }
 
         if (!changed) return null;
-        return Component.translatable(translatable.key(), newArgs).style(translatable.style());
+        return Component.translatable()
+                .key(translatable.key())
+                .arguments(newArgs)
+                .style(translatable.style())
+                .build();
+    }
+
+    /** Рекурсивный fallback для не-translatable сообщений. */
+    private Component tryReplaceInChildren(Component component, Player player) {
+        List<Component> children = component.children();
+        if (children.isEmpty()) {
+            String plain = PlainTextComponentSerializer.plainText().serialize(component);
+            if (plain.equals(player.getName())) {
+                String hover = plugin.t(player, "messages.join_hover").replace("%player%", player.getName());
+                return component
+                        .clickEvent(ClickEvent.suggestCommand("/msg " + player.getName() + " "))
+                        .hoverEvent(HoverEvent.showText(plugin.color(hover)));
+            }
+            return null;
+        }
+        List<Component> newChildren = new ArrayList<>(children.size());
+        boolean changed = false;
+        for (Component child : children) {
+            Component updated = makeNameClickable(child, player);
+            if (updated != null) {
+                newChildren.add(updated);
+                changed = true;
+            } else {
+                newChildren.add(child);
+            }
+        }
+        return changed ? component.children(newChildren) : null;
     }
 }

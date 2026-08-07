@@ -122,6 +122,7 @@ commands:
     permission_reset: "chatsync.chatstats.reset"
   broadcast:
     permission: "chatsync.broadcast"
+    permission_preset: "chatsync.broadcast.preset"
   playtime:
     permission: "chatsync.playtime"
     playtimetop:
@@ -227,7 +228,10 @@ integrations:
 broadcast:
   # [EN] Chat format for the announcement. Placeholder: %message%
   # [RU] Формат чата для объявления. Плейсхолдер: %message%
-  format: "&e&l[Объявление] &e%message%"
+  format: "&e&l[Объявление] &8(&7%sender%&8) &e%message%"
+  # [EN] Show the sender name in announcements (%sender% in format). Admins can hide via /broadcast hide
+  # [RU] Показывать автора объявления (%sender% в формате). Админы могут скрыть через /broadcast hide
+  show_sender: true
   # [EN] Also show the announcement in the action bar
   # [RU] Также показывать объявление в панели действий (action bar)
   actionbar: false

@@ -94,6 +94,23 @@ public class PlaytimeManager {
         return nameCache.getOrDefault(uuid, uuid.toString());
     }
 
+    /** Запомнить ник без playtime-данных (для кликабельных ников / оффлайн-игроков). */
+    public void rememberName(UUID uuid, String name) {
+        if (uuid == null || name == null || name.isEmpty()) return;
+        nameCache.put(uuid, name);
+    }
+
+    /** Поиск UUID по нику в кэше playtime. */
+    public UUID findUuidByName(String name) {
+        if (name == null) return null;
+        for (Map.Entry<UUID, String> e : nameCache.entrySet()) {
+            if (e.getValue() != null && e.getValue().equalsIgnoreCase(name)) {
+                return e.getKey();
+            }
+        }
+        return null;
+    }
+
     /**
      * Топ-N по playtime.
      * Для онлайн-игроков берём актуальный ванильный счётчик; для остальных — кэш.

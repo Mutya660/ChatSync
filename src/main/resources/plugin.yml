@@ -1,5 +1,5 @@
 name: ChatSync
-version: 1.2
+version: 1.3
 main: chatsync.ChatSync
 api-version: '1.21'
 softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect]
@@ -91,6 +91,9 @@ permissions:
     default: op
   chatsync.broadcast:
     description: Access to /broadcast
+    default: op
+  chatsync.broadcast.preset:
+    description: Manage broadcast presets in-game (/broadcast preset)
     default: op
   chatsync.playtime:
     description: Access to /playtime (yourself and other players)

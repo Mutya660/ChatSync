@@ -63,7 +63,7 @@ chatstats:
   top_header: "&e&lTop chatters &8(&ftop %count%&8)&e:"
   top_entry: "&7#%rank% &f%player% &8— &e%total% &7messages"
   player_header: "&e&lChat stats: &f%player%"
-  player_line: "&7Global: &f%global%  &7Local: &f%local%  &7PMs: &f%pm%  &7/me: &f%me%  &7Total: &e%total%"
+  player_line: "&7Global: &f%global%  &7Local: &f%local%  &7PMs: &f%pm%  &7/me: &f%me%  &7BC: &f%broadcast%  &7Total: &e%total%"
   reset_usage: "&7Usage: &f/chatstats reset <player|all> [confirm]"
   reset_no_permission: "&cYou don't have permission to reset chat statistics."
   reset_all_confirm: "&e&lThis will RESET ALL chat statistics. Click here or type &f/chatstats reset all confirm &eto confirm."
@@ -72,9 +72,18 @@ chatstats:
   reset_player_done: "&aChat statistics for &f%player% &ahave been reset."
 
 broadcast:
-  usage: "&7Usage: &f/broadcast <message|preset>"
+  usage: "&7Usage: &f/broadcast <message|preset|preset|hide>"
   no_permission: "&cYou don't have permission to broadcast announcements."
   preset_empty: "&cPreset &f%preset% &cis empty."
+  preset_usage: "&7Usage: &f/broadcast preset list|set <key> <text>|remove <key>"
+  preset_empty_list: "&7No broadcast presets configured."
+  preset_list_header: "&e&lBroadcast presets:"
+  preset_saved: "&aPreset &f%preset% &asaved: &f%message%"
+  preset_removed: "&aPreset &f%preset% &aremoved."
+  preset_not_found: "&cPreset &f%preset% &cnot found."
+  preset_invalid_key: "&cInvalid key. Use letters, digits, _ and -."
+  hide_on: "&eBroadcast author is now &chidden&e. Toggle: &f/broadcast hide"
+  hide_off: "&eBroadcast author is now &avisible&e. Hide: &f/broadcast hide"
 
 playtime:
   disabled: "&cPlaytime tracking is disabled."

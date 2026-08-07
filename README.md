@@ -85,33 +85,32 @@
 - Формат: **часы + минуты** (например `12ч 34м`), при днях — `2д 5ч 12м`.
 - Выключить: `playtime.enabled: false`.
 
-### `/broadcast` и пресеты
+### `/broadcast`, автор и пресеты
 
-Обычное объявление:
-
-```text
-/broadcast Сервер перезапустится через 10 минут
-```
-
-Пресеты (без подтверждения) задаются в `config.yml`:
+Формат по умолчанию показывает **автора** (`%sender%`):
 
 ```yaml
 broadcast:
-  presets:
-    restart_5m: "&c&lСервер перезапустится через 5 минут!"
-    restart_1m: "&c&lСервер перезапустится через 1 минуту!"
-    maintenance: "&e&lНа сервере технические работы. Извините за неудобства."
+  format: "&e&l[Объявление] &8(&7%sender%&8) &e%message%"
+  show_sender: true
 ```
 
-Использование:
+| Команда | Действие |
+| :--- | :--- |
+| `/broadcast <текст>` | Обычное объявление с автором |
+| `/broadcast -h <текст>` | Объявление **без** автора (разово) |
+| `/broadcast hide` | Toggle: всегда скрывать свой автор |
+| `/broadcast <пресет>` | Готовое объявление из config |
+| `/broadcast preset list` | Список пресетов |
+| `/broadcast preset set <ключ> <текст>` | Создать/обновить пресет **в игре** |
+| `/broadcast preset remove <ключ>` | Удалить пресет |
+
+Права: `chatsync.broadcast`, `chatsync.broadcast.preset`.
 
 ```text
+/broadcast preset set restart_5m &c&lРестарт через 5 минут!
 /broadcast restart_5m
 ```
-
-Tab-complete подставляет ключи пресетов. При `/broadcast` без аргументов выводится список доступных ключей.
-
-Поддерживаются action bar, title и звук (см. `broadcast.*` в конфиге).
 
 ### `/chatstats reset`
 
@@ -136,8 +135,9 @@ Tab-complete подставляет ключи пресетов. При `/broadc
 | `%chatsync_messages_local%` | Сообщения в локальном чате |
 | `%chatsync_messages_pm%` | Личные сообщения |
 | `%chatsync_messages_me%` | Сообщения `/me` |
+| `%chatsync_messages_broadcast%` | Объявления `/broadcast` |
 
-Алиасы: `%chatsync_messages%` = total, `%chatsync_global%` / `%chatsync_local%` / `%chatsync_pm%` / `%chatsync_me%`.
+Алиасы: `%chatsync_messages%` = total, `%chatsync_global%` / `%chatsync_local%` / `%chatsync_pm%` / `%chatsync_me%` / `%chatsync_broadcast%`.
 
 Пример в TAB (scoreboard line):
 
@@ -241,4 +241,4 @@ plugins/ChatSync/
 
 ---
 
-*ChatSync v1.2 · Paper 1.21 · Java 17+*
+*ChatSync v1.3 · Paper 1.21 · Java 17+*

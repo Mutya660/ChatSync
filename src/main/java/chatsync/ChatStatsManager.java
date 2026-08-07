@@ -11,12 +11,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Статистика сообщений (глобальный / локальный / ЛС / /me) по каждому игроку.
+ * Статистика сообщений (глобальный / локальный / ЛС / /me / broadcast) по каждому игроку.
  * Данные в памяти + периодическое сохранение в stats.yml.
  */
 public class ChatStatsManager {
 
-    public enum MessageType { GLOBAL, LOCAL, PM, ME }
+    public enum MessageType { GLOBAL, LOCAL, PM, ME, BROADCAST }
 
     private final JavaPlugin plugin;
     private final File statsFile;
@@ -35,9 +35,10 @@ public class ChatStatsManager {
         public int local;
         public int pm;
         public int me;
+        public int broadcast;
 
         public int total() {
-            return global + local + pm + me;
+            return global + local + pm + me + broadcast;
         }
 
         public PlayerStats copy() {
@@ -46,6 +47,7 @@ public class ChatStatsManager {
             c.local = local;
             c.pm = pm;
             c.me = me;
+            c.broadcast = broadcast;
             return c;
         }
     }
@@ -57,10 +59,11 @@ public class ChatStatsManager {
         PlayerStats s = stats.computeIfAbsent(uuid, k -> new PlayerStats());
         synchronized (s) {
             switch (type) {
-                case GLOBAL -> s.global++;
-                case LOCAL  -> s.local++;
-                case PM     -> s.pm++;
-                case ME     -> s.me++;
+                case GLOBAL    -> s.global++;
+                case LOCAL     -> s.local++;
+                case PM        -> s.pm++;
+                case ME        -> s.me++;
+                case BROADCAST -> s.broadcast++;
             }
         }
         dirty = true;
@@ -114,10 +117,11 @@ public class ChatStatsManager {
             try {
                 UUID uuid = UUID.fromString(key);
                 PlayerStats s = new PlayerStats();
-                s.global = cfg.getInt(key + ".global", 0);
-                s.local  = cfg.getInt(key + ".local", 0);
-                s.pm     = cfg.getInt(key + ".pm", 0);
-                s.me     = cfg.getInt(key + ".me", 0);
+                s.global    = cfg.getInt(key + ".global", 0);
+                s.local     = cfg.getInt(key + ".local", 0);
+                s.pm        = cfg.getInt(key + ".pm", 0);
+                s.me        = cfg.getInt(key + ".me", 0);
+                s.broadcast = cfg.getInt(key + ".broadcast", 0);
                 if (s.total() > 0 || cfg.contains(key + ".name")) {
                     stats.put(uuid, s);
                 }
@@ -146,6 +150,7 @@ public class ChatStatsManager {
                 cfg.set(key + ".local", s.local);
                 cfg.set(key + ".pm", s.pm);
                 cfg.set(key + ".me", s.me);
+                cfg.set(key + ".broadcast", s.broadcast);
             }
             cfg.set(key + ".name", nameCache.get(e.getKey()));
         }

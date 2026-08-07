@@ -48,6 +48,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     /** Анти-спам: UUID → последние сообщения (текст + timestamp). */
     private final Map<UUID, java.util.Deque<SpamEntry>> recentMessages = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Админы, у которых скрыт автор в /broadcast (персональный toggle). */
+    private final Set<UUID> broadcastHideAuthor = new HashSet<>();
+
     private record SpamEntry(String text, long time, String channel) {}
 
     public ChatStatsManager getStatsManager() { return statsManager; }
@@ -231,6 +234,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         pendingClears.remove(player.getUniqueId());
         pendingStatsResets.remove(player.getUniqueId());
         recentMessages.remove(player.getUniqueId());
+        broadcastHideAuthor.remove(player.getUniqueId());
     }
 
     private Component buildJoinQuitMessage(String template, Player player) {
@@ -673,15 +677,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         ChatStatsManager.PlayerStats stats = statsManager.get(resolved.uuid());
         if (stats == null) {
-            // онлайн без истории — показываем нули, а не «не найдено»
-            Player online = Bukkit.getPlayer(resolved.uuid());
-            if (online != null && online.isOnline()) {
-                stats = new ChatStatsManager.PlayerStats();
-            } else {
-                sender.sendMessage(buildClickableNameLine(
-                        tAny(sender, "chatstats.no_data"), resolved.name(), sender));
-                return true;
-            }
+            // Нет записей — показываем нули с кликабельным ником (игрок известен)
+            stats = new ChatStatsManager.PlayerStats();
         }
 
         String displayName = resolved.name();
@@ -695,6 +692,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 .replace("%local%", String.valueOf(stats.local))
                 .replace("%pm%", String.valueOf(stats.pm))
                 .replace("%me%", String.valueOf(stats.me))
+                .replace("%broadcast%", String.valueOf(stats.broadcast))
                 .replace("%total%", String.valueOf(stats.total()))));
         return true;
     }
@@ -766,34 +764,88 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             sender.sendMessage(color(tAny(sender, "broadcast.no_permission")));
             return true;
         }
-        if (args.length < 1) {
-            sender.sendMessage(color(tAny(sender, "broadcast.usage")));
-            // list available presets if any
-            var presets = getConfig().getConfigurationSection("broadcast.presets");
-            if (presets != null && !presets.getKeys(false).isEmpty()) {
-                sender.sendMessage(color("&7Presets: &f" + String.join("&7, &f", presets.getKeys(false))));
+
+        // /broadcast hide  — toggle «скрывать автора»
+        if (args.length == 1 && args[0].equalsIgnoreCase("hide")) {
+            if (!(sender instanceof Player p)) {
+                sender.sendMessage(color("&cТолько для игроков."));
+                return true;
+            }
+            if (broadcastHideAuthor.remove(p.getUniqueId())) {
+                p.sendMessage(color(tAny(sender, "broadcast.hide_off")));
+            } else {
+                broadcastHideAuthor.add(p.getUniqueId());
+                p.sendMessage(color(tAny(sender, "broadcast.hide_on")));
             }
             return true;
         }
 
+        // /broadcast preset list|set|remove ...
+        if (args.length >= 1 && args[0].equalsIgnoreCase("preset")) {
+            return cmdBroadcastPreset(sender, args);
+        }
+
+        if (args.length < 1) {
+            sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+            var presets = getConfig().getConfigurationSection("broadcast.presets");
+            if (presets != null && !presets.getKeys(false).isEmpty()) {
+                sender.sendMessage(color("&7Пресеты: &f" + String.join("&7, &f", presets.getKeys(false))));
+            }
+            return true;
+        }
+
+        boolean forceHide = false;
+        int msgStart = 0;
+        // one-shot: /broadcast -h <msg>  или  /broadcast hide <msg>
+        if (args[0].equalsIgnoreCase("-h") || args[0].equalsIgnoreCase("-hide")
+                || args[0].equalsIgnoreCase("hide")) {
+            forceHide = true;
+            msgStart = 1;
+            if (args.length < 2) {
+                sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+                return true;
+            }
+        }
+
         String rawMessage;
-        // Preset: /broadcast <key>  (no confirmation, no extra args required)
         var presets = getConfig().getConfigurationSection("broadcast.presets");
-        if (presets != null && args.length == 1 && presets.contains(args[0])) {
+        if (!forceHide && presets != null && args.length == 1 && presets.contains(args[0])) {
             rawMessage = presets.getString(args[0], "");
             if (rawMessage == null || rawMessage.isEmpty()) {
                 sender.sendMessage(color(tAny(sender, "broadcast.preset_empty").replace("%preset%", args[0])));
                 return true;
             }
         } else {
-            rawMessage = joinArgs(args, 0);
+            rawMessage = joinArgs(args, msgStart);
+        }
+
+        if (rawMessage.isBlank()) {
+            sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+            return true;
         }
 
         if (sender instanceof Player pSender && !pSender.hasPermission("chatsync.color")) {
             rawMessage = stripColorCodes(rawMessage);
         }
 
-        String    format    = getConfig().getString("broadcast.format", "&e&l[Announcement] &f%message%").replace("%message%", rawMessage);
+        String executorName = sender instanceof Player p ? p.getName() : "Console";
+        boolean hideAuthor = forceHide
+                || (sender instanceof Player p2 && broadcastHideAuthor.contains(p2.getUniqueId()))
+                || !getConfig().getBoolean("broadcast.show_sender", true);
+
+        String senderDisplay = hideAuthor ? "" : executorName;
+        String formatTpl = getConfig().getString("broadcast.format",
+                "&e&l[Объявление] &8(&7%sender%&8) &e%message%");
+        // убираем пустые скобки автора, если sender скрыт
+        String format = formatTpl
+                .replace("%sender%", senderDisplay)
+                .replace("%message%", rawMessage);
+        if (hideAuthor) {
+            format = format.replace("()", "").replace("( )", "").replace("&8&8", "&8").trim();
+            // подчистим двойные пробелы после удаления автора
+            format = format.replaceAll(" {2,}", " ");
+        }
+
         Component component = color(format);
 
         boolean actionbar   = getConfig().getBoolean("broadcast.actionbar", false);
@@ -808,11 +860,84 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             playCustomSound(p, "broadcast.sound");
         }
 
-        String executorName = sender instanceof Player p ? p.getName() : "Console";
-        logToConsole("[Broadcast] " + executorName + ": " + rawMessage);
+        logToConsole("[Broadcast] " + executorName + (hideAuthor ? " [hidden]" : "") + ": " + rawMessage);
         logChat("[BROADCAST] " + executorName + ": " + stripColorCodes(rawMessage));
-        if (sender instanceof Player p) sendToDiscord(p, rawMessage, "broadcast");
+        if (sender instanceof Player p) {
+            if (getConfig().getBoolean("stats.enabled", true)) {
+                statsManager.record(p.getUniqueId(), p.getName(), ChatStatsManager.MessageType.BROADCAST);
+            }
+            sendToDiscord(p, rawMessage, "broadcast");
+        }
         return true;
+    }
+
+    /** /broadcast preset list|set <key> <text>|remove <key> */
+    private boolean cmdBroadcastPreset(CommandSender sender, String[] args) {
+        String presetPerm = getConfig().getString("commands.broadcast.permission_preset", "chatsync.broadcast.preset");
+        if (!sender.hasPermission(presetPerm) && !sender.hasPermission(
+                getConfig().getString("commands.broadcast.permission", "chatsync.broadcast"))) {
+            sender.sendMessage(color(tAny(sender, "broadcast.no_permission")));
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+            return true;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "list" -> {
+                var section = getConfig().getConfigurationSection("broadcast.presets");
+                if (section == null || section.getKeys(false).isEmpty()) {
+                    sender.sendMessage(color(tAny(sender, "broadcast.preset_empty_list")));
+                    return true;
+                }
+                sender.sendMessage(color(tAny(sender, "broadcast.preset_list_header")));
+                for (String key : section.getKeys(false)) {
+                    String text = section.getString(key, "");
+                    sender.sendMessage(color("&8• &e" + key + " &8→ &f" + text));
+                }
+                return true;
+            }
+            case "set", "add", "create" -> {
+                if (args.length < 4) {
+                    sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+                    return true;
+                }
+                String key = args[2].toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_\\-]", "");
+                if (key.isEmpty()) {
+                    sender.sendMessage(color(tAny(sender, "broadcast.preset_invalid_key")));
+                    return true;
+                }
+                String text = joinArgs(args, 3);
+                getConfig().set("broadcast.presets." + key, text);
+                saveConfig();
+                sender.sendMessage(color(tAny(sender, "broadcast.preset_saved")
+                        .replace("%preset%", key)
+                        .replace("%message%", text)));
+                return true;
+            }
+            case "remove", "delete", "del" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+                    return true;
+                }
+                String key = args[2];
+                if (!getConfig().contains("broadcast.presets." + key)) {
+                    sender.sendMessage(color(tAny(sender, "broadcast.preset_not_found").replace("%preset%", key)));
+                    return true;
+                }
+                getConfig().set("broadcast.presets." + key, null);
+                saveConfig();
+                sender.sendMessage(color(tAny(sender, "broadcast.preset_removed").replace("%preset%", key)));
+                return true;
+            }
+            default -> {
+                sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+                return true;
+            }
+        }
     }
 
 
@@ -841,12 +966,18 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         ResolvedPlayer resolved = resolvePlayer(args[0]);
-        if (resolved == null || (!playtimeManager.hasData(resolved.uuid())
-                && Bukkit.getPlayer(resolved.uuid()) == null)) {
+        if (resolved == null) {
+            // ник неизвестен — без клика
             sender.sendMessage(color(tAny(sender, "playtime.no_data").replace("%player%", args[0])));
             return true;
         }
+        // Игрок заходил на сервер (OfflinePlayer) или есть в кэше плагина —
+        // всегда показываем время (0, если плагин ещё не видел выход) с кликабельным ником.
         long seconds = playtimeManager.getPlaytimeSeconds(resolved.uuid());
+        // Если в кэше пусто, но игрок когда-то заходил — подтянем имя в кэш для будущих запросов
+        if (!playtimeManager.hasData(resolved.uuid())) {
+            playtimeManager.rememberName(resolved.uuid(), resolved.name());
+        }
         String line = tAny(sender, "playtime.other")
                 .replace("%time%", formatDuration(seconds, sender));
         sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
@@ -907,13 +1038,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         Long logout = playtimeManager.getLastLogout(resolved.uuid());
         Long login  = playtimeManager.getLastLogin(resolved.uuid());
-        if (logout == null && login == null && !playtimeManager.hasData(resolved.uuid())) {
-            sender.sendMessage(buildClickableNameLine(
-                    tAny(sender, "playtime.no_data"), resolved.name(), sender));
+        if (logout == null && login == null) {
+            // Игрок известен (hasPlayedBefore), но плагин не видел вход/выход —
+            // всё равно кликабельный ник + «неизвестно»
+            String line = tAny(sender, "playtime.lastseen")
+                    .replace("%when%", tAny(sender, "playtime.unknown_time"));
+            sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
             return true;
         }
 
-        long when = logout != null ? logout : (login != null ? login : 0L);
+        long when = logout != null ? logout : login;
         String line = tAny(sender, "playtime.lastseen")
                 .replace("%when%", formatTimestamp(when, sender));
         sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
@@ -943,21 +1077,19 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             if (uuid != null) return new ResolvedPlayer(uuid, statsManager.nameOf(uuid));
         }
 
-        // 4) кэш playtime
+        // 4) кэш playtime (по имени, без тяжёлого top())
         if (playtimeManager != null) {
-            for (Map.Entry<UUID, Long> e : playtimeManager.top(Integer.MAX_VALUE)) {
-                String n = playtimeManager.nameOf(e.getKey());
-                if (n != null && n.equalsIgnoreCase(input)) {
-                    return new ResolvedPlayer(e.getKey(), n);
-                }
-            }
+            UUID uuid = playtimeManager.findUuidByName(input);
+            if (uuid != null) return new ResolvedPlayer(uuid, playtimeManager.nameOf(uuid));
         }
 
-        // 5) OfflinePlayer (только если реально заходил)
+        // 5) OfflinePlayer (только если реально заходил на сервер)
         @SuppressWarnings("deprecation")
         org.bukkit.OfflinePlayer off = Bukkit.getOfflinePlayer(input);
         if (off.hasPlayedBefore() || off.isOnline()) {
             String name = off.getName() != null ? off.getName() : input;
+            // кэшируем ник, чтобы дальше ник был кликабельным и находился быстрее
+            if (playtimeManager != null) playtimeManager.rememberName(off.getUniqueId(), name);
             return new ResolvedPlayer(off.getUniqueId(), name);
         }
         return null;
@@ -1068,14 +1200,40 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 && args[0].equalsIgnoreCase("reset") && args[1].equalsIgnoreCase("all")) {
             return List.of("confirm");
         }
-        if (name.equals("broadcast") && args.length == 1) {
-            var presets = getConfig().getConfigurationSection("broadcast.presets");
-            if (presets != null) {
+        if (name.equals("broadcast")) {
+            if (args.length == 1) {
                 List<String> keys = new ArrayList<>();
-                for (String k : presets.getKeys(false)) {
-                    if (k.toLowerCase().startsWith(args[0].toLowerCase())) keys.add(k);
+                String pref = args[0].toLowerCase(Locale.ROOT);
+                for (String s : List.of("hide", "preset", "-h")) {
+                    if (s.startsWith(pref)) keys.add(s);
+                }
+                var presets = getConfig().getConfigurationSection("broadcast.presets");
+                if (presets != null) {
+                    for (String k : presets.getKeys(false)) {
+                        if (k.toLowerCase(Locale.ROOT).startsWith(pref)) keys.add(k);
+                    }
                 }
                 return keys;
+            }
+            if (args.length == 2 && args[0].equalsIgnoreCase("preset")) {
+                List<String> acts = new ArrayList<>();
+                String pref = args[1].toLowerCase(Locale.ROOT);
+                for (String s : List.of("list", "set", "remove")) {
+                    if (s.startsWith(pref)) acts.add(s);
+                }
+                return acts;
+            }
+            if (args.length == 3 && args[0].equalsIgnoreCase("preset")
+                    && (args[1].equalsIgnoreCase("remove") || args[1].equalsIgnoreCase("set"))) {
+                var presets = getConfig().getConfigurationSection("broadcast.presets");
+                if (presets != null) {
+                    List<String> keys = new ArrayList<>();
+                    String pref = args[2].toLowerCase(Locale.ROOT);
+                    for (String k : presets.getKeys(false)) {
+                        if (k.toLowerCase(Locale.ROOT).startsWith(pref)) keys.add(k);
+                    }
+                    return keys;
+                }
             }
         }
         return List.of();

@@ -1361,7 +1361,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 return names;
             }
             if (args.length == 2 && args[0].equalsIgnoreCase("color")) {
-                return List.of("a", "b", "c", "d", "e", "f", "7", "8");
+                List<String> codes = List.of(
+                        "0","1","2","3","4","5","6","7","8","9",
+                        "a","b","c","d","e","f",
+                        "k","l","m","n","o","r",
+                        "c&l","a&l","e&l","b&l","6&l");
+                List<String> out = new ArrayList<>();
+                String pref = args[1].toLowerCase();
+                for (String s : codes) if (s.startsWith(pref)) out.add(s);
+                return out;
             }
         }
         if (name.equals("chatsync") && args.length == 1) return List.of("reload");
@@ -1762,12 +1770,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String out = format
                 .replace("%color%", team.color == null ? "&b" : team.color)
                 .replace("%team%", team.name)
-                .replace("%player%", sender.getName())
                 .replace("%message%", message);
-        Component component = color(out);
+        // keep %player% for clickable name
+        if (!out.contains("%player%")) {
+            out = out.replace(sender.getName(), "%player%");
+        }
         for (java.util.UUID id : team.members) {
             Player p = Bukkit.getPlayer(id);
-            if (p != null && p.isOnline()) p.sendMessage(component);
+            if (p != null && p.isOnline()) {
+                p.sendMessage(buildClickableNameLine(out, sender.getName(), p));
+            }
         }
         if (chatLogger != null) chatLogger.log("[TEAM] " + sender.getName() + ": [" + team.name + "] " + message);
     }
@@ -1940,7 +1952,12 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_color"))); return true; }
                 String r = teamManager.setColor(player, args[1]);
                 switch (r) {
-                    case "ok" -> player.sendMessage(color(t(player, "team.color_set").replace("%color%", args[1])));
+                    case "ok" -> {
+                        TeamManager.Team tcol = teamManager.getTeamOf(player.getUniqueId());
+                        String shown = (tcol != null && tcol.color != null) ? tcol.color : args[1];
+                        // preview square uses the actual team color codes
+                        player.sendMessage(color(t(player, "team.color_set").replace("%color%", shown)));
+                    }
                     case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
                     case "bad_color" -> player.sendMessage(color(t(player, "team.bad_color")));
                     case "disabled" -> player.sendMessage(color(t(player, "team.color_disabled")));

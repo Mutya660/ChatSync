@@ -160,7 +160,7 @@ team:
   disbanded: "&cÉquipe &f%team% &cdissoute."
   renamed: "&aÉquipe renommée en &f%team%&a."
   color_set: "&aCouleur: %color%■"
-  bad_color: "&cCouleur invalide."
+  bad_color: "&cCode invalide. Couleurs: &0-&9 &a-&f | Formats: &k&l&m&n&o&r | Combo: &c&l"
   color_disabled: "&cChangement de couleur désactivé."
   info_header: "%color%&lÉquipe &f%team%"
   info_members: "&7Membres: &f%members%"

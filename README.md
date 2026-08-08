@@ -1,17 +1,17 @@
 # ChatSync
 
-**Multifunctional chat plugin for Minecraft (Paper 1.21.x – 26.2)**
+**Multifunctional chat plugin for Minecraft (Paper 1.21.x – 26.2)** · **v1.7**
 
-Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with confirmation, statistics, playtime, announcements, death-message translation, **clickable names** (chat, death, advancements, tops), and full localization (en / ru / de / fr).
-
+Global & local chat, private messages, teams/party chat, ignore, socialspy, `/me`, clear chat, statistics, playtime, broadcasts, death-message translation, **clickable names**, vanish-aware join/quit, full localization (**en / ru / de / fr**).
 
 <p align="center">
   <a href="https://modrinth.com/plugin/chatsync"><img src="https://img.shields.io/badge/Available_on-Modrinth-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white" alt="Modrinth"></a>
   <a href="https://www.spigotmc.org/resources/chatsync.137778/"><img src="https://img.shields.io/badge/Available_on-SpigotMC-ED8106?style=for-the-badge&logo=spigotmc&logoColor=white" alt="SpigotMC"></a>
-  <a href="https://hangar.papermc.io/mutya660/ChatSyns"><img src="https://img.shields.io/badge/Available_on-Hangar-2C2E31?style=for-the-badge" alt="Hangar"></a>
   <a href="https://www.curseforge.com/minecraft/bukkit-plugins/chatsyns"><img src="https://img.shields.io/badge/Available_on-CurseForge-F16436?style=for-the-badge&logo=curseforge&logoColor=white" alt="CurseForge"></a>
   <a href="https://github.com/Mutya660/ChatSync"><img src="https://img.shields.io/badge/Available_on-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
-  <a href="https://hangar.papermc.io/mutya660/ChatSyns"><img src="https://img.shields.io/badge/Available_for-Paper-1B1B1B?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper"></a>
+</p>
+<p align="center">
+  <a href="https://papermc.io/"><img src="https://img.shields.io/badge/Available_for-Paper-1B1B1B?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper"></a>
   <a href="https://discord.gg/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://boosty.to/mutya660"><img src="https://img.shields.io/badge/Support_me_on-Boosty-F15F2C?style=for-the-badge" alt="Boosty"></a>
 </p>
@@ -19,8 +19,6 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
   <a href="https://papermc.io/"><img src="https://img.shields.io/badge/Paper-1.21%E2%80%9326.2-blue?logo=minecraft" alt="Paper versions"></a>
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21%2B-orange?logo=openjdk" alt="Java"></a>
 </p>
-
-
 
 ---
 
@@ -30,20 +28,20 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
 
 | Feature | Description |
 | :--- | :--- |
-| **Global / local chat** | Prefix `!` → global; otherwise local with radius. Cooldown & slowmode. Bypass: `chatsync.bypass_cooldown`. Clickable names → `/msg`. |
-| **Localization** | `en`, `ru`, `de`, `fr` by client locale. Default in config: `language: "en"`. |
-| **Death messages** | Optional translation when `language: "ru"` (pack from Minecraft 26.2). Clickable victim/killer names. |
-| **Advancements** | Player name in advancement announcements is clickable. Title text comes from the client or a server datapack. |
+| **Global / local chat** | Prefix `!` → global; otherwise local with radius. Cooldown & slowmode. Clickable names → `/msg`. |
+| **Team / party chat** | `/team` — create, invite (clickable Accept/Deny), leave, kick, disband, rename, color, **transfer ownership**, **co-owners**. Chat via `#message` or `/team chat`. |
+| **Localization** | `en`, `ru`, `de`, `fr`. `auto_language: true` follows the client language. |
+| **Death messages** | Optional RU pack (Minecraft 26.2 keys). Clickable names. |
+| **Advancements** | Clickable player name in advancement announcements. |
 | **Private messages** | `/msg`, `/reply`, sound, clickable names. |
 | **Roleplay** | `/me` with colors (`chatsync.color`). |
-| **Clear chat** | `/clear [player]` with clickable confirmation. |
-| **Chat stats** | `/chatstats` — top & details; `/chatstats reset`. |
+| **Clear chat** | `/clear [player]` with confirmation. |
+| **Chat stats** | `/chatstats`, `/chatstats reset <player\|all>`. |
 | **Playtime** | `/playtime`, `/playtimetop`, `/lastseen`. |
-| **Broadcasts** | `/broadcast` — multi-line layout from `lang/*.yml`, presets, hide author (`-h` / `hide`). |
-| **PlaceholderAPI** | `%chatsync_playtime%`, `%chatsync_messages_total%`, etc. |
-| **Anti-spam alerts** | Staff with `chatsync.spam.notify` get alerts (repeat, CAPS, flood). |
-| **Integrations** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans (soft-depend). |
-
+| **Broadcasts** | `/broadcast`, presets, hide author (`-h` / `hide`). Layout per language in `lang/*.yml`. |
+| **Vanish** | Hide join/quit when vanished (SuperVanish / PremiumVanish / Essentials). |
+| **Anti-spam alerts** | Staff with `chatsync.spam.notify`. |
+| **Integrations** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans (mutes), vanish plugins. |
 
 ### Screenshots
 
@@ -54,130 +52,119 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
   <img src="screenshots/en-hover.png" alt="">
 </p>
 
-
 ### Commands & permissions
 
 | Command | Description | Permission |
 | :--- | :--- | :--- |
 | `/chatsync reload` | Reload config & languages | `chatsync.admin` |
-| `/msg <player> <msg>` | Private message | (default true) |
-| `/reply <msg>` | Reply to last PM | (default true) |
-| `/ignore <player>` | Toggle ignore | (default true) |
-| `/ignorelist` | List ignored players | (default true) |
-| `/socialspy` | Spy on PMs / local chat | `chatsync.socialspy` |
-| `/me <action>` | Roleplay message | `chatsync.me` |
-| `/clear [player]` | Clear chat (confirm) | `chatsync.clear` |
-| `/chatstats [player\|top]` | Chat statistics | `chatsync.chatstats` |
-| `/chatstats reset <player\|all>` | Reset stats (confirm for all) | `chatsync.chatstats.reset` |
-| `/playtime [player]` | Playtime | `chatsync.playtime` |
-| `/playtimetop` | Playtime leaderboard | `chatsync.playtimetop` |
-| `/lastseen <player>` | Last online | `chatsync.lastseen` |
-| `/broadcast <msg\|preset>` | Server announcement | `chatsync.broadcast` |
-| `/broadcast -h <msg\|preset>` | Announcement without author | `chatsync.broadcast` |
-| `/broadcast hide` | Toggle hide-author | `chatsync.broadcast` |
-| `/broadcast preset …` | Manage presets in-game | `chatsync.broadcast.preset` |
+| `/msg` / `/reply` | Private messages | (default true) |
+| `/ignore` / `/ignorelist` | Ignore list | (default true) |
+| `/socialspy` | Spy PMs / local | `chatsync.spy` |
+| `/me` | Roleplay | `chatsync.me` |
+| `/clear [player]` | Clear chat | `chatsync.clear` |
+| `/chatstats` / `reset` | Stats | `chatsync.chatstats` / `.reset` |
+| `/playtime` / `/playtimetop` / `/lastseen` | Playtime | `chatsync.playtime` … |
+| `/broadcast …` | Announcements | `chatsync.broadcast` |
+| `/team …` | Team / party system | `chatsync.team` |
+| `/team create` | Create team | `chatsync.team.create` |
+
+**Team subcommands:** `create`, `invite`, `accept`, `deny`, `leave`, `kick`, `disband`, `chat`, `name`, `color`, `info`, `transfer`, `promote`, `demote`
+
+| Permission | Default | Description |
+| :--- | :--- | :--- |
+| `chatsync.team` | true | Use `/team` |
+| `chatsync.team.create` | true | Create teams |
+| `chatsync.team.admin` | op | Admin bypass |
+| `chatsync.spam.notify` | op | Spam alerts |
+| `chatsync.bypass_cooldown` | op | Bypass chat cooldown |
+
+### PlaceholderAPI
+
+```
+%chatsync_playtime%
+%chatsync_playtime_seconds%
+%chatsync_messages_total%
+%chatsync_messages_global%
+%chatsync_messages_local%
+%chatsync_messages_pm%
+%chatsync_messages_me%
+%chatsync_messages_broadcast%
+%chatsync_team% / %chatsync_team_name%
+%chatsync_team_color%
+%chatsync_team_owner%
+%chatsync_team_size%
+%chatsync_team_members%
+%chatsync_in_team%
+%chatsync_team_is_owner%
+%chatsync_team_is_leader%
+```
 
 ### Quick setup
 
 1. Put the JAR into `plugins/`.
-2. Start the server once, then edit `plugins/ChatSync/config.yml`.
-3. `/chatsync reload` after changes.
-
-Key options:
+2. Start once, edit `plugins/ChatSync/config.yml`.
+3. `/chatsync reload`.
 
 ```yaml
-language: "en"          # fallback language
-auto_language: true     # follow client language (default on)
+language: "en"
+auto_language: true          # follow client language
 
-chat:
-  global:
-    symbol: "!"
-    cooldown: 3
-  local:
-    radius: 100.0
-    cooldown: 2         # local slowmode
+vanish:
+  hide_join_quit: true
 
-death_messages:
-  translate: true       # ru pack when language is ru
-
-broadcast:
-  show_sender: true
-  presets:
-    restart_5m: "&c&lServer restarting in 5 minutes!"
-    restart_1m: "&c&lServer restarting in 1 minute!"
-    maintenance: "&e&lServer is under maintenance. Sorry for the inconvenience."
-
-hover:
+teams:
   enabled: true
-  show_playtime: true
-
-integrations:
-  litebans:
-    enabled: true
-    block_muted: true
+  max_teams: 50
+  max_members: 8
+  max_co_owners: 3
+  chat_symbol: "#"
+  format: "&8[%color%%team%&8] &f%player%&7: &f%message%"
 ```
 
-Announcement **layout** (title lines) is in `lang/en.yml`, `ru.yml`, … under `broadcast.lines` / `lines_hidden` — each language has its own “Announcement from …”.
-
-Player-facing error/help strings are only in `lang/*.yml`, not in `config.yml`.
+Announcement **layout** is in `lang/<code>.yml` (`broadcast.lines` / `lines_hidden`).  
+Player-facing texts are only in `lang/*.yml`.
 
 ### Build
 
-Requires **JDK 21+**.
+**JDK 21+** required.
 
 ```bash
 mvn clean package
-# → target/chatsync-1.6.jar
+# → target/chatsync-1.7.jar
 ```
 
-Compiled against Paper API **1.21.4** (Java 21). The same JAR runs on Paper **1.21.x through 26.2**.
-
-### Data folder
-
-```
-plugins/ChatSync/
-├── config.yml
-├── lang/          (en, ru, de, fr)
-├── death_messages_ru.json
-├── entity_names_ru.json
-├── stats.yml
-├── playtime.yml
-└── logs/chat-YYYY-MM-DD.log
-```
-
-Advancement **datapacks** (e.g. Russian titles) go in `world/datapacks/`, not inside the plugin JAR.
+Compiled against Paper API **1.21.4**. Same JAR runs on **1.21.x – 26.2**.
 
 ### Support
 
-Found a bug or error? Write on Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
-
+Found a bug? Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 ---
 
 ## Русский
 
-**Многофункциональный плагин чата для Minecraft (Paper 1.21.x – 26.2)**
+**Многофункциональный плагин чата для Minecraft (Paper 1.21.x – 26.2)** · **v1.7**
 
-Глобальный и локальный чат, ЛС, игнор, socialspy, `/me`, очистка чата с подтверждением, статистика, playtime, объявления, перевод смертей, **кликабельные ники**, локализация (en / ru / de / fr).
+Глобальный и локальный чат, команды/party, ЛС, игнор, socialspy, `/me`, очистка, статистика, playtime, объявления, перевод смертей, **кликабельные ники**, скрытие join/quit в ванише, локализация (**en / ru / de / fr**).
 
 ### Возможности
 
 | Возможность | Описание |
 | :--- | :--- |
-| **Глобальный / локальный чат** | `!` → глобал; иначе локальный с радиусом. Кулдаун и slowmode. Обход: `chatsync.bypass_cooldown`. |
-| **Языки** | `en`, `ru`, `de`, `fr` по локали клиента. В конфиге по умолчанию: `language: "en"`. |
-| **Смерти** | Перевод при `language: "ru"` (пакет Minecraft 26.2). Кликабельные ники. |
-| **Достижения** | Ник в анонсе кликабелен. Текст названия — клиент или датапак сервера. |
-| **ЛС** | `/msg`, `/reply`, звук, кликабельные ники. |
-| **Ролевой чат** | `/me` (`chatsync.color`). |
-| **Очистка** | `/clear [игрок]` с подтверждением. |
-| **Статистика** | `/chatstats`, сброс `/chatstats reset`. |
+| **Глобальный / локальный чат** | `!` → глобал; иначе локал с радиусом. Кулдаун и slowmode. |
+| **Команды (team)** | `/team` — создание, приглашения с кнопками, кик, роспуск, цвет, имя, **передача владения**, **совладельцы**. Чат: `#текст` или `/team chat`. |
+| **Языки** | `en`, `ru`, `de`, `fr`. `auto_language: true` — по языку клиента. |
+| **Смерти** | Опциональный RU-пакет (ключи 26.2). Кликабельные ники. |
+| **Достижения** | Кликабельный ник в анонсе. |
+| **ЛС** | `/msg`, `/reply`. |
+| **Ролевой чат** | `/me`. |
+| **Очистка** | `/clear` с подтверждением. |
+| **Статистика** | `/chatstats`, сброс. |
 | **Время игры** | `/playtime`, `/playtimetop`, `/lastseen`. |
-| **Объявления** | `/broadcast` — оформление из `lang/*.yml`, пресеты, скрытие автора (`-h` / `hide`). |
-| **PlaceholderAPI** | `%chatsync_playtime%`, `%chatsync_messages_total%` и др. |
-| **Антиспам** | Стаффу с `chatsync.spam.notify`. |
-| **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans. |
-
+| **Объявления** | `/broadcast`, пресеты, скрытие автора. |
+| **Ваниш** | Без join/quit в ванише (SuperVanish / PremiumVanish / Essentials). |
+| **Антиспам** | Алерты стаффу. |
+| **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans, ваниш-плагины. |
 
 ### Скриншоты
 
@@ -188,62 +175,85 @@ Found a bug or error? Write on Discord: [discord.gg/zQevSujnbe](https://discord.
   <img src="screenshots/ru-hover.png" alt="">
 </p>
 
-
 ### Команды и права
 
 | Команда | Описание | Право |
 | :--- | :--- | :--- |
-| `/chatsync reload` | Перезагрузка конфига | `chatsync.admin` |
-| `/msg` / `/reply` | Личные сообщения | (по умолчанию) |
+| `/chatsync reload` | Перезагрузка | `chatsync.admin` |
+| `/msg` / `/reply` | ЛС | (по умолчанию) |
 | `/ignore` / `/ignorelist` | Игнор | (по умолчанию) |
-| `/socialspy` | Просмотр ЛС / локала | `chatsync.socialspy` |
-| `/me` | Ролевое сообщение | `chatsync.me` |
-| `/clear [игрок]` | Очистка чата | `chatsync.clear` |
+| `/socialspy` | Просмотр ЛС | `chatsync.spy` |
+| `/me` | Роль | `chatsync.me` |
+| `/clear` | Очистка чата | `chatsync.clear` |
 | `/chatstats` | Статистика | `chatsync.chatstats` |
-| `/chatstats reset …` | Сброс статистики | `chatsync.chatstats.reset` |
-| `/playtime` / `/playtimetop` / `/lastseen` | Онлайн / топ / last seen | `chatsync.playtime` и др. |
-| `/broadcast …` | Объявления, пресеты, `-h`, `hide`, `preset` | `chatsync.broadcast` |
+| `/playtime` / `/playtimetop` / `/lastseen` | Онлайн | `chatsync.playtime` … |
+| `/broadcast` | Объявления | `chatsync.broadcast` |
+| `/team` | Система команд | `chatsync.team` |
+| `/team create` | Создать команду | `chatsync.team.create` |
+
+**Подкоманды team:** `create`, `invite`, `accept`, `deny`, `leave`, `kick`, `disband`, `chat`, `name`, `color`, `info`, `transfer`, `promote`, `demote`
+
+| Право | По умолчанию |
+| :--- | :--- |
+| `chatsync.team` | true |
+| `chatsync.team.create` | true |
+| `chatsync.team.admin` | op |
+| `chatsync.spam.notify` | op |
+
+### PlaceholderAPI
+
+```
+%chatsync_playtime%
+%chatsync_messages_total% …
+%chatsync_team%
+%chatsync_team_owner%
+%chatsync_team_size%
+%chatsync_in_team%
+%chatsync_team_is_owner%
+%chatsync_team_is_leader%
+```
 
 ### Быстрая настройка
 
-1. JAR в `plugins/`.
-2. Первый запуск → правьте `plugins/ChatSync/config.yml`.
-3. После правок: `/chatsync reload`.
-
-Важно:
+1. JAR → `plugins/`.
+2. Первый запуск → `config.yml`.
+3. `/chatsync reload`.
 
 ```yaml
 language: "en"
 auto_language: true
 
-broadcast:
-  presets:                 # тексты пресетов — английские по умолчанию
-    restart_5m: "&c&lServer restarting in 5 minutes!"
+vanish:
+  hide_join_quit: true
+
+teams:
+  enabled: true
+  max_teams: 50
+  max_members: 8
+  max_co_owners: 3
+  chat_symbol: "#"
 ```
 
-**Оформление** объявления («Объявление от …» / «Announcement from …») — в `lang/ru.yml`, `en.yml` и т.д. (`broadcast.lines` / `lines_hidden`).
-
-Тексты ошибок и подсказок — только в `lang/*.yml`.
+Оформление объявлений — в `lang/*.yml`. Тексты игрокам — только там.
 
 ### Сборка
 
-Нужен **JDK 21+**.
+**JDK 21+**.
 
 ```bash
 mvn clean package
-# → target/chatsync-1.6.jar
+# → target/chatsync-1.7.jar
 ```
 
-Сборка против Paper API **1.21.4**. Тот же JAR работает на **1.21.x – 26.2**.
+Сборка против Paper API **1.21.4**. JAR работает на **1.21.x – 26.2**.
 
 ### Поддержка
 
-Нашли баг или ошибку? Напишите в Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
-
+Баги и ошибки: Discord [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 ---
 
-*ChatSync v1.6 · [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)*
+*ChatSync v1.7 · [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)*
 
 ---
 

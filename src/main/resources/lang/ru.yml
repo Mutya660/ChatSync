@@ -160,7 +160,7 @@ team:
   disbanded: "&cКоманда &f%team% &cраспущена."
   renamed: "&aКоманда переименована в &f%team%&a."
   color_set: "&aЦвет команды: %color%■"
-  bad_color: "&cНеверный цвет. Используйте &a &c &7 &8 &f &e"
+  bad_color: "&cНеверный код. Цвета: &00&11&22&33&44&55&66&77&88&99&aa&bb&cc&dd&ee&ff &7| форматы: &lk&l &lm&m &ln&n &lo&o &lr&r &7| комбо: &c&lc&l"
   color_disabled: "&cСмена цвета отключена."
   info_header: "%color%&lКоманда &f%team%"
   info_members: "&7Участники: &f%members%"

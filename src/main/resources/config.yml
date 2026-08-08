@@ -371,6 +371,12 @@ teams:
   invite_timeout: 60
   default_color: "&b"
   allow_color_change: true
+  # [EN] Color & format codes for /team color (Minecraft legacy):
+  #      Colors: &0-&9 &a &b &c &d &e &f
+  #      Formats: &k magic &l bold &m strike &n underline &o italic &r reset
+  #      Combine: &c&l  (red + bold). Example: /team color c&l
+  # [RU] Цвета: &0-&9 &a-&f | Форматы: &k &l &m &n &o &r | Комбо: &c&l
+  #      Пример: /team color c&l
   persist: true
   # [EN] Format: %color% %team% %player% %message%
   format: "&8[%color%%team%&8] &f%player%&7: &f%message%"

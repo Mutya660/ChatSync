@@ -224,11 +224,12 @@ public class TeamManager {
         if (team == null) return "no_team";
         if (!team.isLeader(owner.getUniqueId())) return "not_owner";
         if (color == null || color.isBlank()) return "bad_color";
-        color = color.trim();
+        color = color.trim().replace("§", "&");
+        // allow &0-9a-f, &k-o, &r and combinations e.g. &c&l
         if (!color.startsWith("&")) color = "&" + color;
-        // only allowed legacy codes
-        if (!color.matches("&[0-9a-fk-orA-FK-OR]")) return "bad_color";
-        team.color = color.toLowerCase();
+        String lower = color.toLowerCase();
+        if (!lower.matches("(&[0-9a-fk-or])+")) return "bad_color";
+        team.color = lower;
         save();
         return "ok";
     }

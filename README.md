@@ -4,11 +4,6 @@
 
 Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with confirmation, statistics, playtime, announcements, death-message translation, **clickable names** (chat, death, advancements, tops), and full localization (en / ru / de / fr).
 
-**Modrinth:** [modrinth.com/plugin/chatsync](https://modrinth.com/plugin/chatsync)  
-**Repository:** [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)
-
-> Color codes used in messages: `&a` `&c` `&7` `&8` `&f` `&e` and `&l` when needed.
-
 
 <p align="center">
   <a href="https://modrinth.com/plugin/chatsync"><img src="https://img.shields.io/badge/Available_on-Modrinth-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white" alt="Modrinth"></a>
@@ -23,8 +18,6 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
 </p>
 
 
-
-**Bug reports / errors:** Discord — [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 ---
 
@@ -51,16 +44,17 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
 
 ### Screenshots
 
-| | |
-|:---:|:---:|
-| **Global / local chat** | **Private message** |
-| ![Chat](screenshots/chat-global-local.png) | ![PM](screenshots/private-message.png) |
-| **Broadcast** | **Broadcast (no author)** |
-| ![Broadcast](screenshots/broadcast.png) | ![Broadcast hidden](screenshots/broadcast-no-author.png) |
-| **Hover (playtime)** | **Chat stats top** |
-| ![Hover](screenshots/broadcast-hover.png) | ![Chatstats](screenshots/chatstats-top.png) |
-| **Playtime** | **Playtime top** |
-| ![Playtime](screenshots/playtime.png) | ![Playtimetop](screenshots/playtimetop.png) |
+<p align="center">
+  <img src="screenshots/chat-global-local.png" alt="chat">
+  <img src="screenshots/private-message.png" alt="pm">
+  <img src="screenshots/broadcast.png" alt="broadcast">
+  <img src="screenshots/broadcast-no-author.png" alt="broadcast hidden">
+  <img src="screenshots/broadcast-hover.png" alt="hover">
+  <img src="screenshots/chatstats-top.png" alt="chatstats">
+  <img src="screenshots/playtime.png" alt="playtime">
+  <img src="screenshots/playtimetop.png" alt="playtimetop">
+</p>
+
 
 ### Commands & permissions
 
@@ -155,16 +149,8 @@ Advancement **datapacks** (e.g. Russian titles) go in `world/datapacks/`, not in
 
 ### Support
 
-<p align="left">
-  <a href="https://discord.gg/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-</p>
-
-- **Discord:** [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
-- **Boosty:** [boosty.to/mutya660](https://boosty.to/mutya660)
-- **GitHub:** [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)
-- **Modrinth:** [modrinth.com/plugin/chatsync](https://modrinth.com/plugin/chatsync)
-
 Found a bug or error? Write on Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+
 
 ---
 
@@ -173,8 +159,6 @@ Found a bug or error? Write on Discord: [discord.gg/zQevSujnbe](https://discord.
 **Многофункциональный плагин чата для Minecraft (Paper 1.21.x – 26.2)**
 
 Глобальный и локальный чат, ЛС, игнор, socialspy, `/me`, очистка чата с подтверждением, статистика, playtime, объявления, перевод смертей, **кликабельные ники**, локализация (en / ru / de / fr).
-
-**О баге или ошибке:** Discord — [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 ### Возможности
 
@@ -197,16 +181,17 @@ Found a bug or error? Write on Discord: [discord.gg/zQevSujnbe](https://discord.
 
 ### Скриншоты
 
-| | |
-|:---:|:---:|
-| **Глобальный / локальный чат** | **Личное сообщение** |
-| ![Чат](screenshots/chat-global-local.png) | ![ЛС](screenshots/private-message.png) |
-| **Объявление** | **Объявление без автора** |
-| ![Объявление](screenshots/broadcast.png) | ![Без автора](screenshots/broadcast-no-author.png) |
-| **Hover (playtime)** | **Топ чата** |
-| ![Hover](screenshots/broadcast-hover.png) | ![Статистика](screenshots/chatstats-top.png) |
-| **Время игры** | **Топ playtime** |
-| ![Playtime](screenshots/playtime.png) | ![Топ](screenshots/playtimetop.png) |
+<p align="center">
+  <img src="screenshots/chat-global-local.png" alt="chat">
+  <img src="screenshots/private-message.png" alt="pm">
+  <img src="screenshots/broadcast.png" alt="broadcast">
+  <img src="screenshots/broadcast-no-author.png" alt="broadcast hidden">
+  <img src="screenshots/broadcast-hover.png" alt="hover">
+  <img src="screenshots/chatstats-top.png" alt="chatstats">
+  <img src="screenshots/playtime.png" alt="playtime">
+  <img src="screenshots/playtimetop.png" alt="playtimetop">
+</p>
+
 
 ### Команды и права
 
@@ -256,16 +241,8 @@ mvn clean package
 
 ### Поддержка
 
-<p align="left">
-  <a href="https://discord.gg/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-</p>
-
-- **Discord:** [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
-- **Boosty:** [boosty.to/mutya660](https://boosty.to/mutya660)
-- **GitHub:** [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)
-- **Modrinth:** [modrinth.com/plugin/chatsync](https://modrinth.com/plugin/chatsync)
-
 Нашли баг или ошибку? Напишите в Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+
 
 ---
 

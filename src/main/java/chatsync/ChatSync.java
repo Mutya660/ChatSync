@@ -1769,7 +1769,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             Player p = Bukkit.getPlayer(id);
             if (p != null && p.isOnline()) p.sendMessage(component);
         }
-        if (chatLogger != null) chatLogger.log("TEAM", sender.getName(), "[" + team.name + "] " + message);
+        if (chatLogger != null) chatLogger.log("[TEAM] " + sender.getName() + ": [" + team.name + "] " + message);
     }
 
     private boolean cmdTeam(CommandSender sender, String[] args) {

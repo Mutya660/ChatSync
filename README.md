@@ -12,7 +12,16 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
 
 > Color codes used in messages: `&a` `&c` `&7` `&8` `&f` `&e` and `&l` when needed.
 
-**Bug reports / errors:** write on Discord — **mutya660**
+
+<p align="center">
+  <a href="https://modrinth.com/plugin/chatsync"><img src="https://img.shields.io/badge/Available_on-Modrinth-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white" alt="Modrinth"></a>
+  <a href="https://github.com/Mutya660/ChatSync"><img src="https://img.shields.io/badge/Available_on-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
+  <a href="https://papermc.io/"><img src="https://img.shields.io/badge/Available_for-Paper-1B1B1B?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper"></a>
+  <a href="https://boosty.to/mutya660"><img src="https://img.shields.io/badge/Support_me_on-Boosty-F15F2C?style=for-the-badge&logo=boosty&logoColor=white" alt="Boosty"></a>
+</p>
+
+
+**Bug reports / errors:** Discord — [mutya660](https://discord.gg/zQevSujnbe)
 
 ---
 
@@ -35,6 +44,20 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
 | **PlaceholderAPI** | `%chatsync_playtime%`, `%chatsync_messages_total%`, etc. |
 | **Anti-spam alerts** | Staff with `chatsync.spam.notify` get alerts (repeat, CAPS, flood). |
 | **Integrations** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans (soft-depend). |
+
+
+### Screenshots
+
+| | |
+|:---:|:---:|
+| **Global / local chat** | **Private message** |
+| ![Chat](screenshots/chat-global-local.png) | ![PM](screenshots/private-message.png) |
+| **Broadcast** | **Broadcast (no author)** |
+| ![Broadcast](screenshots/broadcast.png) | ![Broadcast hidden](screenshots/broadcast-no-author.png) |
+| **Hover (playtime)** | **Chat stats top** |
+| ![Hover](screenshots/broadcast-hover.png) | ![Chatstats](screenshots/chatstats-top.png) |
+| **Playtime** | **Playtime top** |
+| ![Playtime](screenshots/playtime.png) | ![Playtimetop](screenshots/playtimetop.png) |
 
 ### Commands & permissions
 
@@ -129,7 +152,16 @@ Advancement **datapacks** (e.g. Russian titles) go in `world/datapacks/`, not in
 
 ### Support
 
-Found a bug or error? Contact on Discord: **mutya660**
+<p align="left">
+  <a href="https://discord.gg/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+</p>
+
+- **Discord:** [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+- **Boosty:** [boosty.to/mutya660](https://boosty.to/mutya660)
+- **GitHub:** [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)
+- **Modrinth:** [modrinth.com/plugin/chatsync](https://modrinth.com/plugin/chatsync)
+
+Found a bug or error? Write on Discord: [**mutya660**](https://discord.gg/zQevSujnbe)
 
 ---
 
@@ -139,7 +171,7 @@ Found a bug or error? Contact on Discord: **mutya660**
 
 Глобальный и локальный чат, ЛС, игнор, socialspy, `/me`, очистка чата с подтверждением, статистика, playtime, объявления, перевод смертей, **кликабельные ники**, локализация (en / ru / de / fr).
 
-**О баге или ошибке:** напишите в Discord — **mutya660**
+**О баге или ошибке:** Discord — [mutya660](https://discord.gg/zQevSujnbe)
 
 ### Возможности
 
@@ -158,6 +190,20 @@ Found a bug or error? Contact on Discord: **mutya660**
 | **PlaceholderAPI** | `%chatsync_playtime%`, `%chatsync_messages_total%` и др. |
 | **Антиспам** | Стаффу с `chatsync.spam.notify`. |
 | **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans. |
+
+
+### Скриншоты
+
+| | |
+|:---:|:---:|
+| **Глобальный / локальный чат** | **Личное сообщение** |
+| ![Чат](screenshots/chat-global-local.png) | ![ЛС](screenshots/private-message.png) |
+| **Объявление** | **Объявление без автора** |
+| ![Объявление](screenshots/broadcast.png) | ![Без автора](screenshots/broadcast-no-author.png) |
+| **Hover (playtime)** | **Топ чата** |
+| ![Hover](screenshots/broadcast-hover.png) | ![Статистика](screenshots/chatstats-top.png) |
+| **Время игры** | **Топ playtime** |
+| ![Playtime](screenshots/playtime.png) | ![Топ](screenshots/playtimetop.png) |
 
 ### Команды и права
 
@@ -207,8 +253,21 @@ mvn clean package
 
 ### Поддержка
 
-Нашли баг или ошибку? Напишите в Discord: **mutya660**
+<p align="left">
+  <a href="https://discord.gg/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+</p>
+
+- **Discord:** [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+- **Boosty:** [boosty.to/mutya660](https://boosty.to/mutya660)
+- **GitHub:** [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)
+- **Modrinth:** [modrinth.com/plugin/chatsync](https://modrinth.com/plugin/chatsync)
+
+Нашли баг или ошибку? Напишите в Discord: [**mutya660**](https://discord.gg/zQevSujnbe)
 
 ---
 
 *ChatSync v1.6 · [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)*
+
+---
+
+<sub>This plugin was developed with the help of AI. / Плагин сделан с помощью ИИ.</sub>

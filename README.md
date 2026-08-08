@@ -177,13 +177,19 @@ Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 | Возможность | Описание |
 | :--- | :--- |
-| **Глобальный / локальный чат** | `!` → глобал; иначе локал. Кулдаун, slowmode, кликабельные ники. |
-| **Языки** | `en`, `ru`, `de`, `fr`. `auto_language: true` — по клиенту. |
-| **Смерти / достижения** | Перевод, кликабельные ники. |
-| **ЛС, /me, очистка, статистика, playtime** | Полный набор. |
+| **Глобальный / локальный чат** | Префикс `!` → глобал; иначе локальный с радиусом. Кулдаун и slowmode. Кликабельные ники → `/msg`. |
+| **Локализация** | `en`, `ru`, `de`, `fr`. `auto_language: true` — язык как в настройках клиента. |
+| **Сообщения о смерти** | Опциональный RU-пакет (ключи Minecraft 26.2). Кликабельные ники. |
+| **Достижения** | Кликабельный ник в анонсе. |
+| **Личные сообщения** | `/msg`, `/reply`. |
+| **Ролевой чат** | `/me`. |
+| **Очистка чата** | `/clear` с подтверждением. |
+| **Статистика чата** | `/chatstats`, сброс. |
+| **Время игры** | `/playtime`, `/playtimetop`, `/lastseen`. |
 | **Объявления** | `/broadcast`, пресеты, скрытие автора. |
-| **Ваниш** | Без join/quit. |
-| **Интеграции** | LuckPerms, CoreProtect, PAPI, DiscordSRV, LiteBans, ваниш-плагины. |
+| **Ваниш** | Без сообщений входа/выхода в ванише. |
+| **Антиспам** | Алерты стаффу. |
+| **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans, SuperVanish / PremiumVanish / Essentials. |
 
 ### Скриншоты
 
@@ -196,37 +202,127 @@ Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 ### Команды
 
-Основные: `/chatsync reload`, `/msg`, `/reply`, `/ignore`, `/socialspy`, `/me`, `/clear`, `/chatstats`, `/playtime`, `/playtimetop`, `/lastseen`, `/broadcast` — см. таблицу в English.
+| Команда | Описание | Право |
+| :--- | :--- | :--- |
+| `/chatsync reload` | Перезагрузка конфига и языков | `chatsync.admin` |
+| `/msg <игрок> <текст>` | Личное сообщение | *(по умолчанию)* |
+| `/reply <текст>` | Ответ на последнее ЛС | *(по умолчанию)* |
+| `/ignore <игрок>` | Игнор вкл/выкл | *(по умолчанию)* |
+| `/ignorelist` | Список игнора | *(по умолчанию)* |
+| `/socialspy` | Просмотр ЛС / локала | `chatsync.spy` |
+| `/me <действие>` | Ролевое сообщение | `chatsync.me` |
+| `/clear [игрок]` | Очистка чата (с подтверждением) | `chatsync.clear` |
+| `/chatstats [игрок\|top]` | Статистика чата | `chatsync.chatstats` |
+| `/chatstats reset <игрок\|all>` | Сброс статистики | `chatsync.chatstats.reset` |
+| `/playtime [игрок]` | Время игры | `chatsync.playtime` |
+| `/playtimetop` | Топ по времени игры | `chatsync.playtimetop` |
+| `/lastseen <игрок>` | Когда был онлайн | `chatsync.lastseen` |
+| `/broadcast <текст\|пресет>` | Объявление | `chatsync.broadcast` |
+| `/broadcast -h` / `hide` | Объявление без автора | `chatsync.broadcast` |
+| `/broadcast preset …` | Управление пресетами | `chatsync.broadcast.preset` |
 
 #### Команды `/team` (алиасы: `/party`, `/squad`)
 
 Игрок может состоять **только в одной команде**. Чтобы вступить в другую — сначала `/team leave`.
 
-У каждой команды свой **символ чата** (`#`, `$`, `~`…): писать им могут только участники.
+У каждой команды свой **символ чата** (например `#`, `$`, `~`). Писать этим символом могут только участники этой команды.
 
-| Команда | Описание |
+| Команда | Описание | Кто |
+| :--- | :--- | :--- |
+| `/team create <имя>` | Создать команду (символ чата выдаётся автоматически) | `chatsync.team.create` |
+| `/team invite <игрок>` | Пригласить (кликабельные **Принять** / **Отклонить**) | владелец / совладелец |
+| `/team accept` / `deny` | Принять или отклонить приглашение | приглашённый |
+| `/team leave` | Выйти из команды | участник |
+| `/team kick <игрок>` | Исключить участника | владелец / совладелец |
+| `/team disband` | Распустить команду | владелец |
+| `/team chat <текст>` | Сообщение в чат своей команды | участник |
+| `#текст` (или символ вашей команды) | То же, что `/team chat` | участник |
+| `/team name <новое>` | Переименовать | владелец / совладелец |
+| `/team color <код>` | Цвет (`&c`, `&c&l` и т.д.) | владелец / совладелец |
+| `/team symbol <символ>` | Уникальный префикс чата | владелец / совладелец |
+| `/team info` | Информация (`*` владелец, `+` совладелец) | участник |
+| `/team transfer <игрок>` | Передать владение | владелец |
+| `/team promote <игрок>` | Назначить совладельца | владелец |
+| `/team demote <игрок>` | Снять совладельца | владелец |
+
+### Права
+
+| Право | По умолчанию | Описание |
+| :--- | :--- | :--- |
+| `chatsync.admin` | op | Перезагрузка |
+| `chatsync.bypass_cooldown` | op | Обход кулдауна чата |
+| `chatsync.spy` | op | Socialspy |
+| `chatsync.color` | op | Цвета `&` в чате |
+| `chatsync.me` | true | `/me` |
+| `chatsync.clear` | op | `/clear` |
+| `chatsync.chatstats` | true | Просмотр статистики |
+| `chatsync.chatstats.others` | op | Статистика других |
+| `chatsync.chatstats.reset` | op | Сброс статистики |
+| `chatsync.broadcast` | op | Объявления |
+| `chatsync.broadcast.preset` | op | Пресеты |
+| `chatsync.playtime` | true | Время игры |
+| `chatsync.playtimetop` | true | Топ playtime |
+| `chatsync.lastseen` | true | Last seen |
+| `chatsync.spam.notify` | op | Алерты о спаме |
+| `chatsync.spam.bypass` | op | Обход антиспама |
+| `chatsync.team` | true | Использование `/team` |
+| `chatsync.team.create` | true | Создание команды |
+| `chatsync.team.admin` | op | Админский обход |
+
+### PlaceholderAPI
+
+| Плейсхолдер | Описание |
 | :--- | :--- |
-| `/team create <имя>` | Создать команду (свой символ чата) |
-| `/team invite <игрок>` | Пригласить (кнопки Принять / Отклонить) |
-| `/team accept` / `deny` | Принять / отклонить |
-| `/team leave` | Выйти |
-| `/team kick <игрок>` | Исключить |
-| `/team disband` | Распустить |
-| `/team chat <текст>` или `#текст` | Написать в чат команды |
-| `/team name` / `color` / `symbol` | Имя, цвет, символ чата |
-| `/team info` | Информация (`*` владелец, `+` совладелец) |
-| `/team transfer` / `promote` / `demote` | Передать владение / совладельцы |
+| `%chatsync_playtime%` | Время игры (форматированное) |
+| `%chatsync_playtime_seconds%` | Секунды |
+| `%chatsync_messages_total%` | Всего сообщений |
+| `%chatsync_messages_global%` | Глобальный чат |
+| `%chatsync_messages_local%` | Локальный чат |
+| `%chatsync_messages_pm%` | Личные сообщения |
+| `%chatsync_messages_me%` | `/me` |
+| `%chatsync_messages_broadcast%` | Объявления |
+| `%chatsync_team%` | Название команды |
+| `%chatsync_team_symbol%` | Символ чата (`#`, `$`, …) |
+| `%chatsync_team_color%` | Цветовые коды |
+| `%chatsync_team_owner%` | Ник владельца |
+| `%chatsync_team_size%` | Число участников |
+| `%chatsync_team_members%` | Список участников |
+| `%chatsync_in_team%` | `yes` / `no` |
+| `%chatsync_team_is_owner%` | `yes` / `no` |
+| `%chatsync_team_is_leader%` | Владелец или совладелец |
 
-Права: `chatsync.team`, `chatsync.team.create`, `chatsync.team.admin`.  
-Плейсхолдеры: `%chatsync_team%`, `%chatsync_team_symbol%`, `%chatsync_in_team%` и др. — см. English.
+### Быстрая настройка
+
+```yaml
+language: "en"
+auto_language: true
+
+vanish:
+  hide_join_quit: true
+
+teams:
+  enabled: true
+  max_members: 8
+  max_co_owners: 3
+  default_symbol: "#"
+  symbol_pool: "#$~@%^*"
+  format: "&8[%color%%team%&8] &f%player%&7: &f%message%"
+```
 
 ### Сборка
 
-**JDK 21+** · `mvn clean package` → `chatsync-1.7.jar`
+Нужен **JDK 21+**.
+
+```bash
+mvn clean package
+# → target/chatsync-1.7.jar
+```
+
+Сборка против Paper API **1.21.4**. Тот же JAR работает на **1.21.x – 26.2**.
 
 ### Поддержка
 
-Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+Нашли баг или ошибку? Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 ---
 

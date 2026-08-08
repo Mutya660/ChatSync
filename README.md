@@ -2,7 +2,7 @@
 
 **Multifunctional chat plugin for Minecraft (Paper 1.21.x – 26.2)** · **v1.7**
 
-Global & local chat, private messages, teams/party chat, ignore, socialspy, `/me`, clear chat, statistics, playtime, broadcasts, death-message translation, **clickable names**, vanish-aware join/quit, full localization (**en / ru / de / fr**).
+Global & local chat, **teams with per-team chat prefixes**, private messages, statistics, playtime, broadcasts, vanish-aware join/quit, clickable names, full localization (**en / ru / de / fr**).
 
 <p align="center">
   <a href="https://modrinth.com/plugin/chatsync"><img src="https://img.shields.io/badge/Available_on-Modrinth-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white" alt="Modrinth"></a>
@@ -16,208 +16,116 @@ Global & local chat, private messages, teams/party chat, ignore, socialspy, `/me
   <a href="https://boosty.to/mutya660"><img src="https://img.shields.io/badge/Support_me_on-Boosty-F15F2C?style=for-the-badge" alt="Boosty"></a>
 </p>
 <p align="center">
-  <a href="https://papermc.io/"><img src="https://img.shields.io/badge/Paper-1.21%E2%80%9326.2-blue?logo=minecraft" alt="Paper versions"></a>
-  <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21%2B-orange?logo=openjdk" alt="Java"></a>
+  <img src="https://img.shields.io/badge/Paper-1.21%E2%80%9326.2-blue?logo=minecraft" alt="Paper">
+  <img src="https://img.shields.io/badge/Java-21%2B-orange?logo=openjdk" alt="Java">
 </p>
 
 ---
 
 ## English
 
-### Features
+### How teams work
 
-| Feature | Description |
-| :--- | :--- |
-| **Global / local chat** | Prefix `!` → global; otherwise local with radius. Cooldown & slowmode. Clickable names → `/msg`. |
-| **Team / party chat** | `/team` — create, invite (clickable Accept/Deny), leave, kick, disband, rename, color, **transfer ownership**, **co-owners**. Chat via `#message` or `/team chat`. |
-| **Localization** | `en`, `ru`, `de`, `fr`. `auto_language: true` follows the client language. |
-| **Death messages** | Optional RU pack (Minecraft 26.2 keys). Clickable names. |
-| **Advancements** | Clickable player name in advancement announcements. |
-| **Private messages** | `/msg`, `/reply`, sound, clickable names. |
-| **Roleplay** | `/me` with colors (`chatsync.color`). |
-| **Clear chat** | `/clear [player]` with confirmation. |
-| **Chat stats** | `/chatstats`, `/chatstats reset <player\|all>`. |
-| **Playtime** | `/playtime`, `/playtimetop`, `/lastseen`. |
-| **Broadcasts** | `/broadcast`, presets, hide author (`-h` / `hide`). Layout per language in `lang/*.yml`. |
-| **Vanish** | Hide join/quit when vanished (SuperVanish / PremiumVanish / Essentials). |
-| **Anti-spam alerts** | Staff with `chatsync.spam.notify`. |
-| **Integrations** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans (mutes), vanish plugins. |
+You can create **many teams** on the server (limit: `teams.max_teams`).  
+Each team has its **own chat symbol**, for example:
 
-### Screenshots
+| Team | Symbol | How to write in team chat |
+|------|--------|---------------------------|
+| Alpha | `#` | `#hello everyone` |
+| Beta | `$` | `$need help` |
+| Gamma | `~` | `~raid at 8` |
 
-<p align="center">
-  <img src="screenshots/en-chat.png" alt="">
-  <img src="screenshots/en-pm.png" alt="">
-  <img src="screenshots/en-broadcast.png" alt="">
-  <img src="screenshots/en-hover.png" alt="">
-</p>
+- Only **members** of that team can use its symbol.
+- Symbol is assigned automatically on create (from `default_symbol` / `symbol_pool`).
+- Owner/co-owner can change it: `/team symbol $`
+- You can still use `/team chat <message>` (uses **your** team).
+- Player is in **one** team at a time (leave to join another).
 
-### Commands & permissions
+### Commands
 
 | Command | Description | Permission |
-| :--- | :--- | :--- |
-| `/chatsync reload` | Reload config & languages | `chatsync.admin` |
-| `/msg` / `/reply` | Private messages | (default true) |
-| `/ignore` / `/ignorelist` | Ignore list | (default true) |
-| `/socialspy` | Spy PMs / local | `chatsync.spy` |
-| `/me` | Roleplay | `chatsync.me` |
-| `/clear [player]` | Clear chat | `chatsync.clear` |
-| `/chatstats` / `reset` | Stats | `chatsync.chatstats` / `.reset` |
-| `/playtime` / `/playtimetop` / `/lastseen` | Playtime | `chatsync.playtime` … |
-| `/broadcast …` | Announcements | `chatsync.broadcast` |
-| `/team …` | Team / party system | `chatsync.team` |
-| `/team create` | Create team | `chatsync.team.create` |
+|---------|-------------|------------|
+| `/chatsync reload` | Reload config and language files | `chatsync.admin` |
+| `/msg <player> <text>` | Private message | *(default true)* |
+| `/reply <text>` / `/r` | Reply to last PM | *(default true)* |
+| `/ignore <player>` | Toggle ignore | *(default true)* |
+| `/ignorelist` | List ignored players | *(default true)* |
+| `/socialspy` | Spy on PMs / local chat | `chatsync.spy` |
+| `/me <action>` | Roleplay line | `chatsync.me` |
+| `/clear [player]` | Clear chat (with confirm) | `chatsync.clear` |
+| `/chatstats [player\|top]` | Chat statistics | `chatsync.chatstats` |
+| `/chatstats reset <player\|all>` | Reset stats | `chatsync.chatstats.reset` |
+| `/playtime [player]` | Playtime | `chatsync.playtime` |
+| `/playtimetop` | Playtime leaderboard | `chatsync.playtimetop` |
+| `/lastseen <player>` | Last online | `chatsync.lastseen` |
+| `/broadcast <msg\|preset>` | Server announcement | `chatsync.broadcast` |
+| `/broadcast -h …` / `hide` | Announcement without author | `chatsync.broadcast` |
+| `/broadcast preset …` | Manage presets | `chatsync.broadcast.preset` |
+| **`/team create <name>`** | Create a team (+ auto chat symbol) | `chatsync.team` + `chatsync.team.create` |
+| **`/team invite <player>`** | Invite (clickable **Accept** / **Deny**) | `chatsync.team` (leader) |
+| **`/team accept`** / **`deny`** | Accept or deny invite | `chatsync.team` |
+| **`/team leave`** | Leave team | `chatsync.team` |
+| **`/team kick <player>`** | Kick member | `chatsync.team` (leader) |
+| **`/team disband`** | Delete team | `chatsync.team` (owner) |
+| **`/team chat <text>`** | Message to your team | `chatsync.team` |
+| **`#text` / `$text` / …** | Same, using **that team’s** symbol | member of that team |
+| **`/team name <new>`** | Rename team | leader |
+| **`/team color <code>`** | Set color (`&c`, `&c&l`, …) | leader |
+| **`/team symbol <char>`** | Set unique chat prefix (`#` `$` `~`) | leader |
+| **`/team info`** | Name, symbol, members (`*` owner, `+` co-owner) | member |
+| **`/team transfer <player>`** | Give primary ownership | owner |
+| **`/team promote <player>`** | Add co-owner | owner |
+| **`/team demote <player>`** | Remove co-owner | owner |
 
-**Team subcommands:** `create`, `invite`, `accept`, `deny`, `leave`, `kick`, `disband`, `chat`, `name`, `color`, `info`, `transfer`, `promote`, `demote`
+Aliases: `/party`, `/squad` → `/team`
+
+### Permissions
 
 | Permission | Default | Description |
-| :--- | :--- | :--- |
+|------------|---------|-------------|
+| `chatsync.admin` | op | `/chatsync reload` |
+| `chatsync.bypass_cooldown` | op | Bypass global/local cooldown |
+| `chatsync.spy` | op | Socialspy |
+| `chatsync.color` | op | Use `&` color codes in chat / me / broadcast |
+| `chatsync.me` | true | `/me` |
+| `chatsync.clear` | op | `/clear` |
+| `chatsync.chatstats` | true | View stats |
+| `chatsync.chatstats.others` | op | `/chatstats <player>` |
+| `chatsync.chatstats.reset` | op | Reset stats |
+| `chatsync.broadcast` | op | `/broadcast` |
+| `chatsync.broadcast.preset` | op | Manage presets |
+| `chatsync.playtime` | true | `/playtime` |
+| `chatsync.playtimetop` | true | `/playtimetop` |
+| `chatsync.lastseen` | true | `/lastseen` |
+| `chatsync.spam.notify` | op | Anti-spam staff alerts |
+| `chatsync.spam.bypass` | op | Bypass spam detection |
 | `chatsync.team` | true | Use `/team` |
 | `chatsync.team.create` | true | Create teams |
 | `chatsync.team.admin` | op | Admin bypass |
-| `chatsync.spam.notify` | op | Spam alerts |
-| `chatsync.bypass_cooldown` | op | Bypass chat cooldown |
 
 ### PlaceholderAPI
 
-```
-%chatsync_playtime%
-%chatsync_playtime_seconds%
-%chatsync_messages_total%
-%chatsync_messages_global%
-%chatsync_messages_local%
-%chatsync_messages_pm%
-%chatsync_messages_me%
-%chatsync_messages_broadcast%
-%chatsync_team% / %chatsync_team_name%
-%chatsync_team_color%
-%chatsync_team_owner%
-%chatsync_team_size%
-%chatsync_team_members%
-%chatsync_in_team%
-%chatsync_team_is_owner%
-%chatsync_team_is_leader%
-```
+| Placeholder | Description |
+|-------------|-------------|
+| `%chatsync_playtime%` | Formatted playtime |
+| `%chatsync_playtime_seconds%` | Playtime in seconds |
+| `%chatsync_messages_total%` | All counted messages |
+| `%chatsync_messages_global%` | Global chat count |
+| `%chatsync_messages_local%` | Local chat count |
+| `%chatsync_messages_pm%` | Private messages |
+| `%chatsync_messages_me%` | `/me` count |
+| `%chatsync_messages_broadcast%` | Broadcasts sent |
+| `%chatsync_team%` / `%chatsync_team_name%` | Team name (or empty) |
+| `%chatsync_team_symbol%` | Team chat prefix (`#`, `$`, …) |
+| `%chatsync_team_color%` | Team color codes |
+| `%chatsync_team_owner%` | Owner name |
+| `%chatsync_team_size%` | Member count |
+| `%chatsync_team_members%` | Member list |
+| `%chatsync_in_team%` | `yes` / `no` |
+| `%chatsync_team_is_owner%` | `yes` / `no` |
+| `%chatsync_team_is_leader%` | Owner or co-owner: `yes` / `no` |
 
-### Quick setup
-
-1. Put the JAR into `plugins/`.
-2. Start once, edit `plugins/ChatSync/config.yml`.
-3. `/chatsync reload`.
-
-```yaml
-language: "en"
-auto_language: true          # follow client language
-
-vanish:
-  hide_join_quit: true
-
-teams:
-  enabled: true
-  max_teams: 50
-  max_members: 8
-  max_co_owners: 3
-  chat_symbol: "#"
-  format: "&8[%color%%team%&8] &f%player%&7: &f%message%"
-```
-
-Announcement **layout** is in `lang/<code>.yml` (`broadcast.lines` / `lines_hidden`).  
-Player-facing texts are only in `lang/*.yml`.
-
-### Build
-
-**JDK 21+** required.
-
-```bash
-mvn clean package
-# → target/chatsync-1.7.jar
-```
-
-Compiled against Paper API **1.21.4**. Same JAR runs on **1.21.x – 26.2**.
-
-### Support
-
-Found a bug? Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
-
----
-
-## Русский
-
-**Многофункциональный плагин чата для Minecraft (Paper 1.21.x – 26.2)** · **v1.7**
-
-Глобальный и локальный чат, команды/party, ЛС, игнор, socialspy, `/me`, очистка, статистика, playtime, объявления, перевод смертей, **кликабельные ники**, скрытие join/quit в ванише, локализация (**en / ru / de / fr**).
-
-### Возможности
-
-| Возможность | Описание |
-| :--- | :--- |
-| **Глобальный / локальный чат** | `!` → глобал; иначе локал с радиусом. Кулдаун и slowmode. |
-| **Команды (team)** | `/team` — создание, приглашения с кнопками, кик, роспуск, цвет, имя, **передача владения**, **совладельцы**. Чат: `#текст` или `/team chat`. |
-| **Языки** | `en`, `ru`, `de`, `fr`. `auto_language: true` — по языку клиента. |
-| **Смерти** | Опциональный RU-пакет (ключи 26.2). Кликабельные ники. |
-| **Достижения** | Кликабельный ник в анонсе. |
-| **ЛС** | `/msg`, `/reply`. |
-| **Ролевой чат** | `/me`. |
-| **Очистка** | `/clear` с подтверждением. |
-| **Статистика** | `/chatstats`, сброс. |
-| **Время игры** | `/playtime`, `/playtimetop`, `/lastseen`. |
-| **Объявления** | `/broadcast`, пресеты, скрытие автора. |
-| **Ваниш** | Без join/quit в ванише (SuperVanish / PremiumVanish / Essentials). |
-| **Антиспам** | Алерты стаффу. |
-| **Интеграции** | LuckPerms, CoreProtect, PlaceholderAPI, DiscordSRV, LiteBans, ваниш-плагины. |
-
-### Скриншоты
-
-<p align="center">
-  <img src="screenshots/ru-chat.png" alt="">
-  <img src="screenshots/ru-pm.png" alt="">
-  <img src="screenshots/ru-broadcast.png" alt="">
-  <img src="screenshots/ru-hover.png" alt="">
-</p>
-
-### Команды и права
-
-| Команда | Описание | Право |
-| :--- | :--- | :--- |
-| `/chatsync reload` | Перезагрузка | `chatsync.admin` |
-| `/msg` / `/reply` | ЛС | (по умолчанию) |
-| `/ignore` / `/ignorelist` | Игнор | (по умолчанию) |
-| `/socialspy` | Просмотр ЛС | `chatsync.spy` |
-| `/me` | Роль | `chatsync.me` |
-| `/clear` | Очистка чата | `chatsync.clear` |
-| `/chatstats` | Статистика | `chatsync.chatstats` |
-| `/playtime` / `/playtimetop` / `/lastseen` | Онлайн | `chatsync.playtime` … |
-| `/broadcast` | Объявления | `chatsync.broadcast` |
-| `/team` | Система команд | `chatsync.team` |
-| `/team create` | Создать команду | `chatsync.team.create` |
-
-**Подкоманды team:** `create`, `invite`, `accept`, `deny`, `leave`, `kick`, `disband`, `chat`, `name`, `color`, `info`, `transfer`, `promote`, `demote`
-
-| Право | По умолчанию |
-| :--- | :--- |
-| `chatsync.team` | true |
-| `chatsync.team.create` | true |
-| `chatsync.team.admin` | op |
-| `chatsync.spam.notify` | op |
-
-### PlaceholderAPI
-
-```
-%chatsync_playtime%
-%chatsync_messages_total% …
-%chatsync_team%
-%chatsync_team_owner%
-%chatsync_team_size%
-%chatsync_in_team%
-%chatsync_team_is_owner%
-%chatsync_team_is_leader%
-```
-
-### Быстрая настройка
-
-1. JAR → `plugins/`.
-2. Первый запуск → `config.yml`.
-3. `/chatsync reload`.
+### Config (teams & vanish)
 
 ```yaml
 language: "en"
@@ -231,30 +139,97 @@ teams:
   max_teams: 50
   max_members: 8
   max_co_owners: 3
-  chat_symbol: "#"
+  default_symbol: "#"
+  symbol_pool: "#$~@%^*"    # auto-pick if # is taken
+  default_color: "&b"
+  allow_color_change: true
+  format: "&8[%color%%team%&8] &f%player%&7: &f%message%"
+  persist: true
 ```
 
-Оформление объявлений — в `lang/*.yml`. Тексты игрокам — только там.
+### Screenshots
+
+<p align="center">
+  <img src="screenshots/en-chat.png" alt="">
+  <img src="screenshots/en-pm.png" alt="">
+  <img src="screenshots/en-broadcast.png" alt="">
+  <img src="screenshots/en-hover.png" alt="">
+</p>
+
+### Build
+
+JDK **21+**. `mvn clean package` → `target/chatsync-1.7.jar`  
+Runs on Paper **1.21.x – 26.2**.
+
+### Support
+
+Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+
+---
+
+## Русский
+
+### Как работают команды (teams)
+
+На сервере можно создать **много команд** (`teams.max_teams`).  
+У **каждой** свой **символ чата**:
+
+| Команда | Символ | Как писать |
+|---------|--------|------------|
+| Alpha | `#` | `#привет` |
+| Beta | `$` | `$нужна помощь` |
+| Gamma | `~` | `~рейд в 8` |
+
+- Писать символом могут только **участники** этой команды.
+- Символ выдаётся при создании; сменить: `/team symbol $`
+- Либо `/team chat <текст>` (ваша команда).
+- Игрок состоит **в одной** команде одновременно.
+
+### Команды
+
+| Команда | Описание | Право |
+|---------|----------|-------|
+| `/chatsync reload` | Перезагрузка | `chatsync.admin` |
+| `/msg` `/reply` | ЛС | по умолчанию |
+| `/ignore` `/ignorelist` | Игнор | по умолчанию |
+| `/socialspy` | Слежка | `chatsync.spy` |
+| `/me` | Роль | `chatsync.me` |
+| `/clear` | Очистка чата | `chatsync.clear` |
+| `/chatstats` | Статистика | `chatsync.chatstats` |
+| `/playtime` `/playtimetop` `/lastseen` | Онлайн | `chatsync.playtime` … |
+| `/broadcast` | Объявления | `chatsync.broadcast` |
+| `/team create <имя>` | Создать (+ символ чата) | `chatsync.team.create` |
+| `/team invite` | Пригласить (кнопки) | лидер |
+| `/team accept` / `deny` | Принять / отклонить | |
+| `/team leave` / `kick` / `disband` | Выйти / кик / распуск | |
+| `/team chat` или `#текст` | Чат команды | участник |
+| `/team name` / `color` / `symbol` | Имя, цвет, **свой символ** | лидер |
+| `/team info` | Инфо (`*` владелец, `+` совладелец) | |
+| `/team transfer` / `promote` / `demote` | Владение / совладельцы | владелец |
+
+### Права и плейсхолдеры
+
+См. английские таблицы выше — те же ключи (`chatsync.team`, `%chatsync_team_symbol%` и т.д.).
+
+### Скриншоты
+
+<p align="center">
+  <img src="screenshots/ru-chat.png" alt="">
+  <img src="screenshots/ru-pm.png" alt="">
+  <img src="screenshots/ru-broadcast.png" alt="">
+  <img src="screenshots/ru-hover.png" alt="">
+</p>
 
 ### Сборка
 
-**JDK 21+**.
-
-```bash
-mvn clean package
-# → target/chatsync-1.7.jar
-```
-
-Сборка против Paper API **1.21.4**. JAR работает на **1.21.x – 26.2**.
+**JDK 21+**. `mvn clean package` → `chatsync-1.7.jar`
 
 ### Поддержка
 
-Баги и ошибки: Discord [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 ---
 
 *ChatSync v1.7 · [github.com/Mutya660/ChatSync](https://github.com/Mutya660/ChatSync)*
-
----
 
 <sub>This plugin was developed with the help of AI. / Плагин сделан с помощью ИИ.</sub>

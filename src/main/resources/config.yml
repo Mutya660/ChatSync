@@ -367,6 +367,15 @@ teams:
   max_name_length: 16
   # [EN] Prefix to talk in team chat (e.g. #hello). Also: /team chat <msg>
   # [RU] Символ командного чата (напр. #привет). Также: /team chat <msg>
+  # [EN] Default chat prefix for a new team (must be unique per team).
+  #      Each team can change it: /team symbol <char>
+  #      Examples: team A uses #, team B uses $, team C uses ~
+  # [RU] Символ чата новой команды (уникален). Меняется: /team symbol
+  default_symbol: "#"
+  # [EN] Pool of symbols auto-assigned when default is taken
+  # [RU] Пул символов, если дефолтный занят
+  symbol_pool: "#$~@%^*"
+  # [EN] Legacy single global symbol (unused if teams have own symbols)
   chat_symbol: "#"
   invite_timeout: 60
   default_color: "&b"

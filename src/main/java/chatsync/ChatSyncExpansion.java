@@ -77,6 +77,7 @@ public class ChatSyncExpansion extends PlaceholderExpansion {
             return switch (key) {
                 case "in_team" -> team != null ? "yes" : "no";
                 case "team", "team_name" -> team != null ? team.name : "";
+                case "team_symbol" -> team != null && team.symbol != null ? team.symbol : "";
                 case "team_color" -> team != null && team.color != null ? team.color : "";
                 case "team_owner" -> {
                     if (team == null) yield "";

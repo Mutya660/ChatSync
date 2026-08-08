@@ -21,15 +21,17 @@ public class TeamManager {
         public final String id;
         public String name;
         public String color; // legacy code like &b
+        public String symbol; // chat prefix e.g. # $ ~
         public UUID owner;
         public final LinkedHashSet<UUID> coOwners = new LinkedHashSet<>();
         public final LinkedHashSet<UUID> members = new LinkedHashSet<>();
 
-        public Team(String id, String name, String color, UUID owner) {
+        public Team(String id, String name, String color, UUID owner, String symbol) {
             this.id = id;
             this.name = name;
             this.color = color;
             this.owner = owner;
+            this.symbol = symbol;
             this.members.add(owner);
         }
 
@@ -96,12 +98,58 @@ public class TeamManager {
         }
         String id = UUID.randomUUID().toString().substring(0, 8);
         String color = plugin.getConfig().getString("teams.default_color", "&b");
-        Team team = new Team(id, name, color, owner.getUniqueId());
+        String symbol = nextFreeSymbol();
+        Team team = new Team(id, name, color, owner.getUniqueId(), symbol);
         teams.put(id, team);
         playerTeam.put(owner.getUniqueId(), id);
         save();
         return "ok";
     }
+
+    /** Default symbol from config, or next free from a pool. */
+    private String nextFreeSymbol() {
+        String def = plugin.getConfig().getString("teams.default_symbol", "#");
+        if (def != null && !def.isEmpty() && findTeamBySymbol(def) == null) return def;
+        String pool = plugin.getConfig().getString("teams.symbol_pool", "#$~@%^&*");
+        if (pool == null || pool.isEmpty()) pool = "#$~@%^&*";
+        for (int i = 0; i < pool.length(); i++) {
+            String s = String.valueOf(pool.charAt(i));
+            if (findTeamBySymbol(s) == null) return s;
+        }
+        // fallback unique
+        for (int i = 1; i < 100; i++) {
+            String s = "#" + i;
+            if (findTeamBySymbol(s) == null) return s;
+        }
+        return "#";
+    }
+
+    public Team findTeamBySymbol(String symbol) {
+        if (symbol == null || symbol.isEmpty()) return null;
+        for (Team t : teams.values()) {
+            if (symbol.equals(t.symbol)) return t;
+        }
+        return null;
+    }
+
+    public String setSymbol(Player owner, String symbol) {
+        Team team = getTeamOf(owner.getUniqueId());
+        if (team == null) return "no_team";
+        if (!team.isLeader(owner.getUniqueId())) return "not_owner";
+        if (symbol == null || symbol.isBlank()) return "bad_symbol";
+        symbol = symbol.trim();
+        if (symbol.contains(" ")) return "bad_symbol";
+        if (symbol.length() > 3) return "bad_symbol";
+        // cannot clash with global chat symbol
+        String globalSym = plugin.getConfig().getString("chat.global.symbol", "!");
+        if (symbol.equals(globalSym)) return "clash_global";
+        Team other = findTeamBySymbol(symbol);
+        if (other != null && other != team) return "taken";
+        team.symbol = symbol;
+        save();
+        return "ok";
+    }
+
 
     public String invite(Player inviter, Player target) {
         Team team = getTeamOf(inviter.getUniqueId());
@@ -299,7 +347,8 @@ public class TeamManager {
                 UUID owner = UUID.fromString(t.getString("owner", ""));
                 String name = t.getString("name", id);
                 String color = t.getString("color", "&b");
-                Team team = new Team(id, name, color, owner);
+                String symbol = t.getString("symbol", "#");
+                Team team = new Team(id, name, color, owner, symbol);
                 team.members.clear();
                 for (String s : t.getStringList("members")) {
                     try {
@@ -331,6 +380,7 @@ public class TeamManager {
             String path = "teams." + team.id;
             y.set(path + ".name", team.name);
             y.set(path + ".color", team.color);
+            y.set(path + ".symbol", team.symbol);
             y.set(path + ".owner", team.owner.toString());
             List<String> members = new ArrayList<>();
             for (UUID u : team.members) members.add(u.toString());

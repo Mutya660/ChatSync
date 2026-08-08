@@ -326,14 +326,26 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (rawMessage.isEmpty()) return;
 
-        // Team chat: prefix symbol (default #) or forced via /team chat
+        // Team chat: message starts with a team's own symbol (e.g. # $ ~)
         if (teamManager != null && teamManager.enabled()) {
-            String teamSymbol = getConfig().getString("teams.chat_symbol", "#");
-            if (teamSymbol != null && !teamSymbol.isEmpty() && rawMessage.startsWith(teamSymbol)) {
-                String teamMsg = rawMessage.substring(teamSymbol.length()).trim();
-                if (!teamMsg.isEmpty()) {
-                    sendTeamChat(sender, teamMsg);
+            TeamManager.Team bySym = null;
+            String matchedSym = null;
+            // longest symbol first (pool may have multi-char fallbacks)
+            java.util.List<TeamManager.Team> ordered = new java.util.ArrayList<>(teamManager.allTeams());
+            ordered.sort((a, b) -> Integer.compare(
+                    b.symbol == null ? 0 : b.symbol.length(),
+                    a.symbol == null ? 0 : a.symbol.length()));
+            for (TeamManager.Team t : ordered) {
+                if (t.symbol == null || t.symbol.isEmpty()) continue;
+                if (rawMessage.startsWith(t.symbol) && t.members.contains(sender.getUniqueId())) {
+                    bySym = t;
+                    matchedSym = t.symbol;
+                    break;
                 }
+            }
+            if (bySym != null) {
+                String teamMsg = rawMessage.substring(matchedSym.length()).trim();
+                if (!teamMsg.isEmpty()) sendTeamChat(sender, bySym, teamMsg);
                 return;
             }
         }
@@ -1346,7 +1358,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (name.equals("clear") && args.length == 2) return List.of("confirm");
         if (name.equals("team")) {
             if (args.length == 1) {
-                List<String> subs = List.of("create", "invite", "accept", "deny", "leave", "kick", "disband", "chat", "name", "color", "info", "transfer", "promote", "demote");
+                List<String> subs = List.of("create", "invite", "accept", "deny", "leave", "kick", "disband", "chat", "name", "color", "symbol", "info", "transfer", "promote", "demote");
                 List<String> out = new ArrayList<>();
                 for (String s : subs)
                     if (s.startsWith(args[0].toLowerCase())) out.add(s);
@@ -1750,13 +1762,22 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     // ── Team / party ──────────────────────────────────────────
 
-    private void sendTeamChat(Player sender, String message) {
+        private void sendTeamChat(Player sender, String message) {
+        if (teamManager == null) return;
+        TeamManager.Team team = teamManager.getTeamOf(sender.getUniqueId());
+        if (team == null) {
+            sender.sendMessage(color(t(sender, "team.no_team")));
+            return;
+        }
+        sendTeamChat(sender, team, message);
+    }
+
+    private void sendTeamChat(Player sender, TeamManager.Team team, String message) {
         if (teamManager == null || !teamManager.enabled()) {
             sender.sendMessage(color(t(sender, "team.disabled")));
             return;
         }
-        TeamManager.Team team = teamManager.getTeamOf(sender.getUniqueId());
-        if (team == null) {
+        if (team == null || !team.members.contains(sender.getUniqueId())) {
             sender.sendMessage(color(t(sender, "team.no_team")));
             return;
         }
@@ -1765,24 +1786,35 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return;
         }
         if (!sender.hasPermission("chatsync.color")) message = stripColorCodes(message);
+
         String format = getConfig().getString("teams.format",
                 "&8[%color%%team%&8] &f%player%&7: &f%message%");
-        String out = format
-                .replace("%color%", team.color == null ? "&b" : team.color)
-                .replace("%team%", team.name)
-                .replace("%message%", message);
-        // keep %player% for clickable name
-        if (!out.contains("%player%")) {
-            out = out.replace(sender.getName(), "%player%");
+        if (format == null || !format.contains("%player%")) {
+            format = "&8[%color%%team%&8] &f%player%&7: &f%message%";
         }
+        String out = format
+                .replace("%color%", team.color != null ? team.color : "&b")
+                .replace("%team%", team.name != null ? team.name : "team")
+                .replace("%symbol%", team.symbol != null ? team.symbol : "")
+                .replace("%message%", message);
+        // ensure placeholder for clickable name
+        if (!out.contains("%player%")) {
+            out = "&8[%team%] &f%player%&7: &f%message%"
+                    .replace("%team%", team.name)
+                    .replace("%message%", message);
+        }
+
         for (java.util.UUID id : team.members) {
             Player p = Bukkit.getPlayer(id);
-            if (p != null && p.isOnline()) {
-                p.sendMessage(buildClickableNameLine(out, sender.getName(), p));
-            }
+            if (p == null || !p.isOnline()) continue;
+            Component line = buildClickableNameLine(out, sender.getName(), p);
+            p.sendMessage(line);
         }
-        if (chatLogger != null) chatLogger.log("[TEAM] " + sender.getName() + ": [" + team.name + "] " + message);
+        if (chatLogger != null) {
+            chatLogger.log("[TEAM:" + team.name + "] " + sender.getName() + ": " + message);
+        }
     }
+
 
     private boolean cmdTeam(CommandSender sender, String[] args) {
         if (teamManager == null || !teamManager.enabled()) {
@@ -1813,7 +1845,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 String r = teamManager.create(player, name);
                 switch (r) {
                     case "ok" -> {
-                        player.sendMessage(color(t(player, "team.created").replace("%team%", name)));
+                        TeamManager.Team nt = teamManager.getTeamOf(player.getUniqueId());
+                        String sym = nt != null && nt.symbol != null ? nt.symbol : "#";
+                        player.sendMessage(color(t(player, "team.created")
+                                .replace("%team%", name)
+                                .replace("%symbol%", sym)));
                     }
                     case "already_in" -> player.sendMessage(color(t(player, "team.already_in")));
                     case "max_teams" -> player.sendMessage(color(t(player, "team.max_teams")));
@@ -1967,7 +2003,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             case "info" -> {
                 TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
                 if (team == null) { player.sendMessage(color(t(player, "team.no_team"))); return true; }
-                player.sendMessage(color(t(player, "team.info_header").replace("%team%", team.name).replace("%color%", team.color)));
+                player.sendMessage(color(t(player, "team.info_header").replace("%team%", team.name).replace("%color%", team.color).replace("%symbol%", team.symbol != null ? team.symbol : "")));
                 StringBuilder members = new StringBuilder();
                 for (java.util.UUID id : team.members) {
                     Player p = Bukkit.getPlayer(id);
@@ -2027,6 +2063,18 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     }
                     case "not_owner" -> player.sendMessage(color(t(player, "team.not_primary_owner")));
                     case "not_co" -> player.sendMessage(color(t(player, "team.not_co")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            case "symbol" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_symbol"))); return true; }
+                String r = teamManager.setSymbol(player, args[1]);
+                switch (r) {
+                    case "ok" -> player.sendMessage(color(t(player, "team.symbol_set").replace("%symbol%", args[1])));
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
+                    case "taken" -> player.sendMessage(color(t(player, "team.symbol_taken")));
+                    case "clash_global" -> player.sendMessage(color(t(player, "team.symbol_clash")));
+                    case "bad_symbol" -> player.sendMessage(color(t(player, "team.bad_symbol")));
                     default -> player.sendMessage(color(t(player, "team.no_team")));
                 }
             }

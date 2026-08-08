@@ -1,8 +1,8 @@
 name: ChatSync
-version: 1.6
+version: 1.7
 main: chatsync.ChatSync
 api-version: '1.21'
-softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans]
+softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans, SuperVanish, PremiumVanish, Essentials]
 description: Chat plugin for Paper 26.2 —  "Chat plugin with global/local chat, private messages, ignore, socialspy, /me, /clear, /chatstats, /broadcast, playtime and multi-language support."
 authors: [Mutya660]
 website: "https://modrinth.com/plugin/chatsync"
@@ -61,6 +61,11 @@ commands:
     usage: /lastseen <player>
     aliases: [seen]
 
+  team:
+    description: Team / party chat system
+    usage: /team <create|invite|accept|deny|leave|kick|disband|chat|name|color|info|transfer|promote|demote>
+    aliases: [party, squad]
+
 permissions:
   chatsync.bypass_cooldown:
     description: Chat plugin for Paper 26.2 —  Bypass the global chat cooldown
@@ -109,4 +114,13 @@ permissions:
     default: op
   chatsync.spam.bypass:
     description: Chat plugin for Paper 26.2 —  Bypass spam detection notifications
+    default: op
+  chatsync.team:
+    description: Use /team party system
+    default: true
+  chatsync.team.create:
+    description: Create a team
+    default: true
+  chatsync.team.admin:
+    description: Team admin bypass
     default: op

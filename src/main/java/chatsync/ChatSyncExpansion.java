@@ -2,21 +2,23 @@ package chatsync;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * PlaceholderAPI expansion for ChatSync.
- * Placeholders (use in TAB / scoreboard / holograms):
- *   %chatsync_playtime%          — formatted playtime of the player
- *   %chatsync_playtime_seconds%  — raw seconds
- *   %chatsync_messages_total%    — total chat messages (global+local+pm+me)
- *   %chatsync_messages_global%   — global messages
- *   %chatsync_messages_local%    — local messages
- *   %chatsync_messages_pm%       — private messages
- *   %chatsync_messages_me%       — /me messages
- *   %chatsync_messages_broadcast% — broadcast announcements
+ *
+ * Playtime:
+ *   %chatsync_playtime%  %chatsync_playtime_seconds%
+ * Messages:
+ *   %chatsync_messages_total%  %chatsync_messages_global%  %chatsync_messages_local%
+ *   %chatsync_messages_pm%  %chatsync_messages_me%  %chatsync_messages_broadcast%
+ * Team:
+ *   %chatsync_team%  %chatsync_team_name%  %chatsync_team_color%
+ *   %chatsync_team_owner%  %chatsync_team_size%  %chatsync_team_members%
+ *   %chatsync_in_team%  %chatsync_team_is_owner%  %chatsync_team_is_leader%
  */
 public class ChatSyncExpansion extends PlaceholderExpansion {
 
@@ -66,6 +68,37 @@ public class ChatSyncExpansion extends PlaceholderExpansion {
         if (key.equals("playtime_seconds")) {
             if (plugin.getPlaytimeManager() == null) return "0";
             return String.valueOf(plugin.getPlaytimeManager().getPlaytimeSeconds(player.getUniqueId()));
+        }
+
+        // Team
+        TeamManager tm = plugin.getTeamManager();
+        if (tm != null && (key.startsWith("team") || key.equals("in_team"))) {
+            TeamManager.Team team = tm.getTeamOf(player.getUniqueId());
+            return switch (key) {
+                case "in_team" -> team != null ? "yes" : "no";
+                case "team", "team_name" -> team != null ? team.name : "";
+                case "team_color" -> team != null && team.color != null ? team.color : "";
+                case "team_owner" -> {
+                    if (team == null) yield "";
+                    OfflinePlayer op = Bukkit.getOfflinePlayer(team.owner);
+                    yield op.getName() != null ? op.getName() : "";
+                }
+                case "team_size" -> team != null ? String.valueOf(team.members.size()) : "0";
+                case "team_members" -> {
+                    if (team == null) yield "";
+                    StringBuilder sb = new StringBuilder();
+                    for (java.util.UUID id : team.members) {
+                        OfflinePlayer op = Bukkit.getOfflinePlayer(id);
+                        String n = op.getName() != null ? op.getName() : "?";
+                        if (sb.length() > 0) sb.append(", ");
+                        sb.append(n);
+                    }
+                    yield sb.toString();
+                }
+                case "team_is_owner" -> team != null && team.isOwner(player.getUniqueId()) ? "yes" : "no";
+                case "team_is_leader" -> team != null && team.isLeader(player.getUniqueId()) ? "yes" : "no";
+                default -> null;
+            };
         }
 
         // Chat stats

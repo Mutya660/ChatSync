@@ -44,6 +44,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private CoreProtectHook  coreProtectHook;
     private PlaytimeManager  playtimeManager;
     private LiteBansHook     liteBansHook;
+    private VanishHook       vanishHook;
+    private TeamManager      teamManager;
 
     /** Ожидающие подтверждения сброса статистики: ключ отправителя → время истечения. */
     private final Map<UUID, Long> pendingStatsResets = new HashMap<>();
@@ -58,6 +60,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     public ChatStatsManager getStatsManager() { return statsManager; }
     public PlaytimeManager getPlaytimeManager() { return playtimeManager; }
+
+    public TeamManager getTeamManager() { return teamManager; }
 
     private static final List<String> SUPPORTED_LANGS = List.of("en", "ru", "de", "fr");
 
@@ -90,6 +94,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         this.coreProtectHook = new CoreProtectHook(this);
         this.playtimeManager = new PlaytimeManager(this);
         this.liteBansHook    = new LiteBansHook(this);
+        this.vanishHook      = new VanishHook(this);
+        this.teamManager     = new TeamManager(this);
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new DeathMessageTranslator(this), this);
@@ -108,6 +114,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         registerCmd("playtime",    this);
         registerCmd("playtimetop", this);
         registerCmd("lastseen",    this);
+        registerCmd("team",        this);
 
         if (getConfig().getBoolean("stats.enabled", true)) {
             long intervalTicks = 20L * Math.max(30, getConfig().getInt("stats.save_interval", 300));
@@ -251,7 +258,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             playtimeManager.onJoin(player.getUniqueId(), player.getName());
         }
         if (liteBansHook != null) liteBansHook.onJoin(player);
-        if (!tog("join_message")) { event.joinMessage(null); return; }
+        if (!tog("join_message") || (vanishHook != null && vanishHook.shouldHideJoinQuit(player))) {
+            event.joinMessage(null);
+            return;
+        }
         event.joinMessage(buildJoinQuitMessage(
                 getConfig().getString("messages.join", "&a+ &f%player%"), player));
     }
@@ -262,9 +272,13 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (playtimeManager != null && getConfig().getBoolean("playtime.enabled", true)) {
             playtimeManager.onQuit(player.getUniqueId(), player.getName());
         }
-        if (!tog("quit_message")) { event.quitMessage(null); }
-        else event.quitMessage(buildJoinQuitMessage(
-                getConfig().getString("messages.quit", "&c- &f%player%"), player));
+        if (!tog("quit_message") || (vanishHook != null && vanishHook.shouldHideJoinQuit(player))) {
+            event.quitMessage(null);
+        } else {
+            event.quitMessage(buildJoinQuitMessage(
+                    getConfig().getString("messages.quit", "&c- &f%player%"), player));
+        }
+        if (teamManager != null) teamManager.onQuit(player.getUniqueId());
         lastMessaged.remove(player.getUniqueId());
         socialSpy.remove(player.getUniqueId());
         globalCooldown.remove(player.getUniqueId());
@@ -311,6 +325,18 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         if (rawMessage.isEmpty()) return;
+
+        // Team chat: prefix symbol (default #) or forced via /team chat
+        if (teamManager != null && teamManager.enabled()) {
+            String teamSymbol = getConfig().getString("teams.chat_symbol", "#");
+            if (teamSymbol != null && !teamSymbol.isEmpty() && rawMessage.startsWith(teamSymbol)) {
+                String teamMsg = rawMessage.substring(teamSymbol.length()).trim();
+                if (!teamMsg.isEmpty()) {
+                    sendTeamChat(sender, teamMsg);
+                }
+                return;
+            }
+        }
 
         // LiteBans mute — ChatSync сам обрабатывает чат, поэтому проверяем явно
         if (liteBansHook != null && liteBansHook.isMuted(sender)) {
@@ -422,6 +448,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             case "playtime"    -> { return cmdPlaytime(sender, args); }
             case "playtimetop" -> { return cmdPlaytimeTop(sender, args); }
             case "lastseen"    -> { return cmdLastSeen(sender, args); }
+            case "team"        -> { return cmdTeam(sender, args); }
         }
         return false;
     }
@@ -1317,6 +1344,26 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return names;
         }
         if (name.equals("clear") && args.length == 2) return List.of("confirm");
+        if (name.equals("team")) {
+            if (args.length == 1) {
+                List<String> subs = List.of("create", "invite", "accept", "deny", "leave", "kick", "disband", "chat", "name", "color", "info", "transfer", "promote", "demote");
+                List<String> out = new ArrayList<>();
+                for (String s : subs)
+                    if (s.startsWith(args[0].toLowerCase())) out.add(s);
+                return out;
+            }
+            if (args.length == 2 && (args[0].equalsIgnoreCase("invite") || args[0].equalsIgnoreCase("kick")
+                    || args[0].equalsIgnoreCase("transfer") || args[0].equalsIgnoreCase("promote") || args[0].equalsIgnoreCase("demote"))) {
+                List<String> names = new ArrayList<>();
+                for (Player p : Bukkit.getOnlinePlayers())
+                    if (p.getName().toLowerCase().startsWith(args[1].toLowerCase()))
+                        names.add(p.getName());
+                return names;
+            }
+            if (args.length == 2 && args[0].equalsIgnoreCase("color")) {
+                return List.of("a", "b", "c", "d", "e", "f", "7", "8");
+            }
+        }
         if (name.equals("chatsync") && args.length == 1) return List.of("reload");
         if (name.equals("chatstats") && args.length == 2 && args[0].equalsIgnoreCase("reset")) {
             List<String> list = new ArrayList<>();
@@ -1692,4 +1739,284 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     Component color(String text) {
         return LegacyComponentSerializer.legacyAmpersand().deserialize(text);
     }
+
+    // ── Team / party ──────────────────────────────────────────
+
+    private void sendTeamChat(Player sender, String message) {
+        if (teamManager == null || !teamManager.enabled()) {
+            sender.sendMessage(color(t(sender, "team.disabled")));
+            return;
+        }
+        TeamManager.Team team = teamManager.getTeamOf(sender.getUniqueId());
+        if (team == null) {
+            sender.sendMessage(color(t(sender, "team.no_team")));
+            return;
+        }
+        if (liteBansHook != null && liteBansHook.isMuted(sender)) {
+            sender.sendMessage(color(t(sender, "chat.muted")));
+            return;
+        }
+        if (!sender.hasPermission("chatsync.color")) message = stripColorCodes(message);
+        String format = getConfig().getString("teams.format",
+                "&8[%color%%team%&8] &f%player%&7: &f%message%");
+        String out = format
+                .replace("%color%", team.color == null ? "&b" : team.color)
+                .replace("%team%", team.name)
+                .replace("%player%", sender.getName())
+                .replace("%message%", message);
+        Component component = color(out);
+        for (java.util.UUID id : team.members) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null && p.isOnline()) p.sendMessage(component);
+        }
+        if (chatLogger != null) chatLogger.log("TEAM", sender.getName(), "[" + team.name + "] " + message);
+    }
+
+    private boolean cmdTeam(CommandSender sender, String[] args) {
+        if (teamManager == null || !teamManager.enabled()) {
+            sender.sendMessage(color(tAny(sender, "team.disabled")));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(color(tAny(sender, "team.players_only")));
+            return true;
+        }
+        if (!player.hasPermission(getConfig().getString("teams.permission", "chatsync.team"))) {
+            player.sendMessage(color(t(player, "team.no_permission")));
+            return true;
+        }
+        if (args.length == 0) {
+            player.sendMessage(color(t(player, "team.usage")));
+            return true;
+        }
+        String sub = args[0].toLowerCase();
+        switch (sub) {
+            case "create" -> {
+                if (!player.hasPermission(getConfig().getString("teams.permission_create", "chatsync.team.create"))) {
+                    player.sendMessage(color(t(player, "team.no_permission")));
+                    return true;
+                }
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_create"))); return true; }
+                String name = args[1];
+                String r = teamManager.create(player, name);
+                switch (r) {
+                    case "ok" -> {
+                        player.sendMessage(color(t(player, "team.created").replace("%team%", name)));
+                    }
+                    case "already_in" -> player.sendMessage(color(t(player, "team.already_in")));
+                    case "max_teams" -> player.sendMessage(color(t(player, "team.max_teams")));
+                    case "name_taken" -> player.sendMessage(color(t(player, "team.name_taken")));
+                    case "name_long", "bad_name" -> player.sendMessage(color(t(player, "team.bad_name")));
+                    default -> player.sendMessage(color(t(player, "team.disabled")));
+                }
+            }
+            case "invite" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_invite"))); return true; }
+                Player target = Bukkit.getPlayerExact(args[1]);
+                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                String r = teamManager.invite(player, target);
+                switch (r) {
+                    case "ok" -> {
+                        TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
+                        player.sendMessage(color(t(player, "team.invite_sent")
+                                .replace("%player%", target.getName())
+                                .replace("%team%", team != null ? team.name : "")));
+                        // Clickable accept / deny
+                        String invMsg = t(target, "team.invite_received")
+                                .replace("%player%", player.getName())
+                                .replace("%team%", team != null ? team.name : "");
+                        Component base = color(invMsg + " ");
+                        Component accept = color(t(target, "team.btn_accept"))
+                                .clickEvent(ClickEvent.runCommand("/team accept"))
+                                .hoverEvent(HoverEvent.showText(color(t(target, "team.btn_accept_hover"))));
+                        Component deny = color(" " + t(target, "team.btn_deny"))
+                                .clickEvent(ClickEvent.runCommand("/team deny"))
+                                .hoverEvent(HoverEvent.showText(color(t(target, "team.btn_deny_hover"))));
+                        target.sendMessage(base.append(accept).append(deny));
+                    }
+                    case "no_team" -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
+                    case "target_in_team" -> player.sendMessage(color(t(player, "team.target_in_team")));
+                    case "full" -> player.sendMessage(color(t(player, "team.full")));
+                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            case "accept" -> {
+                String r = teamManager.accept(player);
+                switch (r) {
+                    case "ok" -> {
+                        TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
+                        player.sendMessage(color(t(player, "team.joined").replace("%team%", team != null ? team.name : "")));
+                        if (team != null) {
+                            for (java.util.UUID id : team.members) {
+                                Player p = Bukkit.getPlayer(id);
+                                if (p != null && !p.equals(player))
+                                    p.sendMessage(color(t(p, "team.member_joined")
+                                            .replace("%player%", player.getName())
+                                            .replace("%team%", team.name)));
+                            }
+                        }
+                    }
+                    case "no_invite" -> player.sendMessage(color(t(player, "team.no_invite")));
+                    case "already_in" -> player.sendMessage(color(t(player, "team.already_in")));
+                    case "team_gone" -> player.sendMessage(color(t(player, "team.team_gone")));
+                    case "full" -> player.sendMessage(color(t(player, "team.full")));
+                    default -> player.sendMessage(color(t(player, "team.no_invite")));
+                }
+            }
+            case "deny" -> {
+                String r = teamManager.deny(player);
+                player.sendMessage(color(t(player, r.equals("ok") ? "team.invite_denied" : "team.no_invite")));
+            }
+            case "leave" -> {
+                TeamManager.Team before = teamManager.getTeamOf(player.getUniqueId());
+                String r = teamManager.leave(player);
+                if (r.startsWith("ok")) {
+                    player.sendMessage(color(t(player, "team.left")));
+                    if (before != null) {
+                        for (java.util.UUID id : before.members) {
+                            Player p = Bukkit.getPlayer(id);
+                            if (p != null)
+                                p.sendMessage(color(t(p, "team.member_left").replace("%player%", player.getName())));
+                        }
+                    }
+                } else player.sendMessage(color(t(player, "team.no_team")));
+            }
+            case "kick" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_kick"))); return true; }
+                Player target = Bukkit.getPlayerExact(args[1]);
+                java.util.UUID tid = target != null ? target.getUniqueId() : null;
+                if (tid == null) {
+                    // offline by name not supported simply
+                    player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1])));
+                    return true;
+                }
+                String r = teamManager.kick(player, tid);
+                switch (r) {
+                    case "ok" -> {
+                        player.sendMessage(color(t(player, "team.kicked").replace("%player%", target.getName())));
+                        target.sendMessage(color(t(target, "team.you_kicked")));
+                    }
+                    case "no_team" -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
+                    case "not_member" -> player.sendMessage(color(t(player, "team.not_member")));
+                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
+                    case "cannot_kick_owner" -> player.sendMessage(color(t(player, "team.cannot_kick_owner")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            case "disband" -> {
+                TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
+                if (team == null) { player.sendMessage(color(t(player, "team.no_team"))); return true; }
+                String teamName = team.name;
+                java.util.List<java.util.UUID> members = new java.util.ArrayList<>(team.members);
+                String r = teamManager.disband(player);
+                if (r.equals("ok")) {
+                    for (java.util.UUID id : members) {
+                        Player p = Bukkit.getPlayer(id);
+                        if (p != null) p.sendMessage(color(t(p, "team.disbanded").replace("%team%", teamName)));
+                    }
+                } else if (r.equals("not_owner")) player.sendMessage(color(t(player, "team.not_owner")));
+                else player.sendMessage(color(t(player, "team.no_team")));
+            }
+            case "chat", "c" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_chat"))); return true; }
+                String msg = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+                sendTeamChat(player, msg);
+            }
+            case "name", "rename" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_name"))); return true; }
+                String r = teamManager.rename(player, args[1]);
+                switch (r) {
+                    case "ok" -> player.sendMessage(color(t(player, "team.renamed").replace("%team%", args[1])));
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
+                    case "name_taken" -> player.sendMessage(color(t(player, "team.name_taken")));
+                    case "bad_name" -> player.sendMessage(color(t(player, "team.bad_name")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            case "color" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_color"))); return true; }
+                String r = teamManager.setColor(player, args[1]);
+                switch (r) {
+                    case "ok" -> player.sendMessage(color(t(player, "team.color_set").replace("%color%", args[1])));
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
+                    case "bad_color" -> player.sendMessage(color(t(player, "team.bad_color")));
+                    case "disabled" -> player.sendMessage(color(t(player, "team.color_disabled")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            case "info" -> {
+                TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
+                if (team == null) { player.sendMessage(color(t(player, "team.no_team"))); return true; }
+                player.sendMessage(color(t(player, "team.info_header").replace("%team%", team.name).replace("%color%", team.color)));
+                StringBuilder members = new StringBuilder();
+                for (java.util.UUID id : team.members) {
+                    Player p = Bukkit.getPlayer(id);
+                    String n = p != null ? p.getName() : Bukkit.getOfflinePlayer(id).getName();
+                    if (n == null) n = id.toString().substring(0, 8);
+                    if (team.isOwner(id)) n = n + "*";
+                    else if (team.coOwners.contains(id)) n = n + "+";
+                    if (members.length() > 0) members.append("&7, &f");
+                    members.append(n);
+                }
+                player.sendMessage(color(t(player, "team.info_members").replace("%members%", members.toString())));
+                player.sendMessage(color(t(player, "team.info_legend")));
+            }
+            case "transfer" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_transfer"))); return true; }
+                Player target = Bukkit.getPlayerExact(args[1]);
+                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                String r = teamManager.transfer(player, target.getUniqueId());
+                switch (r) {
+                    case "ok" -> {
+                        player.sendMessage(color(t(player, "team.transferred").replace("%player%", target.getName())));
+                        target.sendMessage(color(t(target, "team.you_owner")));
+                    }
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_primary_owner")));
+                    case "not_member" -> player.sendMessage(color(t(player, "team.not_member")));
+                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            case "promote" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_promote"))); return true; }
+                Player target = Bukkit.getPlayerExact(args[1]);
+                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                String r = teamManager.promote(player, target.getUniqueId());
+                switch (r) {
+                    case "ok" -> {
+                        player.sendMessage(color(t(player, "team.promoted").replace("%player%", target.getName())));
+                        target.sendMessage(color(t(target, "team.you_co_owner")));
+                    }
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_primary_owner")));
+                    case "not_member" -> player.sendMessage(color(t(player, "team.not_member")));
+                    case "already_co" -> player.sendMessage(color(t(player, "team.already_co")));
+                    case "max_co" -> player.sendMessage(color(t(player, "team.max_co")));
+                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            case "demote" -> {
+                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_demote"))); return true; }
+                Player target = Bukkit.getPlayerExact(args[1]);
+                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                String r = teamManager.demote(player, target.getUniqueId());
+                switch (r) {
+                    case "ok" -> {
+                        player.sendMessage(color(t(player, "team.demoted").replace("%player%", target.getName())));
+                        target.sendMessage(color(t(target, "team.you_demoted")));
+                    }
+                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_primary_owner")));
+                    case "not_co" -> player.sendMessage(color(t(player, "team.not_co")));
+                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                }
+            }
+            default -> player.sendMessage(color(t(player, "team.usage")));
+        }
+        return true;
+    }
+
+
 }

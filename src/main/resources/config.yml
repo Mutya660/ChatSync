@@ -1,7 +1,6 @@
 # ═══════════════════════════════════════════════════════════════
 #  ChatSync - Configuration by mutya660
 #  Modrinth: https://modrinth.com/plugin/chatsync
-# GitHub: https://github.com/Mutya660/ChatSync
 #
 #  Every setting below has a bilingual comment:
 #  [EN] English explanation
@@ -341,3 +340,37 @@ toggles:
   # [EN] Make the player's name clickable in advancement-announcement messages, to quickly /msg them
   # [RU] Делать ник игрока кликабельным в сообщениях о получении достижений для быстрого /msg
   clickable_advancement_name: true
+
+# ── Vanish (SuperVanish / PremiumVanish / Essentials) ─────────
+vanish:
+  # [EN] Hide join/quit messages when the player is vanished
+  # [RU] Скрывать вход/выход, если игрок в ванише
+  hide_join_quit: true
+
+# ── Teams / party chat ────────────────────────────────────────
+teams:
+  # [EN] Enable team system (/team)
+  # [RU] Включить систему команд (/team)
+  enabled: true
+  permission: "chatsync.team"
+  permission_create: "chatsync.team.create"
+  permission_admin: "chatsync.team.admin"
+  # [EN] Max teams on the server
+  # [RU] Макс. число команд на сервере
+  max_teams: 50
+  # [EN] Max members per team
+  # [RU] Макс. участников в команде
+  max_members: 8
+  # [EN] Max co-owners per team
+  # [RU] Макс. совладельцев
+  max_co_owners: 3
+  max_name_length: 16
+  # [EN] Prefix to talk in team chat (e.g. #hello). Also: /team chat <msg>
+  # [RU] Символ командного чата (напр. #привет). Также: /team chat <msg>
+  chat_symbol: "#"
+  invite_timeout: 60
+  default_color: "&b"
+  allow_color_change: true
+  persist: true
+  # [EN] Format: %color% %team% %player% %message%
+  format: "&8[%color%%team%&8] &f%player%&7: &f%message%"

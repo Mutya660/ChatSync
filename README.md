@@ -45,14 +45,10 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
 ### Screenshots
 
 <p align="center">
-  <img src="screenshots/chat-global-local.png" alt="chat">
-  <img src="screenshots/private-message.png" alt="pm">
-  <img src="screenshots/broadcast.png" alt="broadcast">
-  <img src="screenshots/broadcast-no-author.png" alt="broadcast hidden">
-  <img src="screenshots/broadcast-hover.png" alt="hover">
-  <img src="screenshots/chatstats-top.png" alt="chatstats">
-  <img src="screenshots/playtime.png" alt="playtime">
-  <img src="screenshots/playtimetop.png" alt="playtimetop">
+  <img src="screenshots/en-chat.png" alt="">
+  <img src="screenshots/en-pm.png" alt="">
+  <img src="screenshots/en-broadcast.png" alt="">
+  <img src="screenshots/en-hover.png" alt="">
 </p>
 
 
@@ -87,7 +83,8 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
 Key options:
 
 ```yaml
-language: "en"          # default for console / unknown locales
+language: "en"          # fallback language
+auto_language: true     # follow client language (default on)
 
 chat:
   global:
@@ -182,14 +179,10 @@ Found a bug or error? Write on Discord: [discord.gg/zQevSujnbe](https://discord.
 ### Скриншоты
 
 <p align="center">
-  <img src="screenshots/chat-global-local.png" alt="chat">
-  <img src="screenshots/private-message.png" alt="pm">
-  <img src="screenshots/broadcast.png" alt="broadcast">
-  <img src="screenshots/broadcast-no-author.png" alt="broadcast hidden">
-  <img src="screenshots/broadcast-hover.png" alt="hover">
-  <img src="screenshots/chatstats-top.png" alt="chatstats">
-  <img src="screenshots/playtime.png" alt="playtime">
-  <img src="screenshots/playtimetop.png" alt="playtimetop">
+  <img src="screenshots/ru-chat.png" alt="">
+  <img src="screenshots/ru-pm.png" alt="">
+  <img src="screenshots/ru-broadcast.png" alt="">
+  <img src="screenshots/ru-hover.png" alt="">
 </p>
 
 
@@ -218,6 +211,7 @@ Found a bug or error? Write on Discord: [discord.gg/zQevSujnbe](https://discord.
 
 ```yaml
 language: "en"
+auto_language: true
 
 broadcast:
   presets:                 # тексты пресетов — английские по умолчанию

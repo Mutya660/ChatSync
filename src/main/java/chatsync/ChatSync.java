@@ -180,6 +180,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     private String getLang(Player player) {
+        // auto_language (default true): follow client locale; else force config language
+        if (!getConfig().getBoolean("auto_language", true)) {
+            return getConfig().getString("language", "en");
+        }
         String locale = player.locale().toString().toLowerCase().replace("-", "_");
         String mapped = LOCALE_MAP.get(locale);
         if (mapped != null) return mapped;

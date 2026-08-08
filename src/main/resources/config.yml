@@ -18,9 +18,16 @@
 #       ПРАВА, ЦВЕТА, ПЕРЕКЛЮЧАТЕЛИ и прочие нелокализуемые настройки поведения.
 # ═══════════════════════════════════════════════════════════════
 
-# [EN] Default language for console and unsupported client locales. Supported: en, ru, de, fr
-# [RU] Язык по умолчанию для консоли и неподдерживаемых локалей клиента. Поддерживается: en, ru, de, fr
+# [EN] Default language for console and when auto_language is false / locale unsupported.
+#      Supported: en, ru, de, fr
+# [RU] Язык по умолчанию для консоли и когда auto_language выкл / локаль неподдерживаемая.
+#      Поддерживается: en, ru, de, fr
 language: "en"
+# [EN] true = messages follow the player's client language (Minecraft settings).
+#      false = always use `language` above for everyone.
+# [RU] true = язык сообщений как в настройках клиента игрока.
+#      false = у всех всегда язык из `language` выше.
+auto_language: true
 
 # ── Chat ──────────────────────────────────────────────────────
 chat:

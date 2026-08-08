@@ -11,7 +11,7 @@ Global & local chat, private messages, ignore, socialspy, `/me`, chat clear with
   <a href="https://hangar.papermc.io/mutya660/ChatSyns"><img src="https://img.shields.io/badge/Available_on-Hangar-2C2E31?style=for-the-badge" alt="Hangar"></a>
   <a href="https://www.curseforge.com/minecraft/bukkit-plugins/chatsyns"><img src="https://img.shields.io/badge/Available_on-CurseForge-F16436?style=for-the-badge&logo=curseforge&logoColor=white" alt="CurseForge"></a>
   <a href="https://github.com/Mutya660/ChatSync"><img src="https://img.shields.io/badge/Available_on-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
-  <a href="https://papermc.io/"><img src="https://img.shields.io/badge/Available_for-Paper-1B1B1B?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper"></a>
+  <a href="https://hangar.papermc.io/mutya660/ChatSyns"><img src="https://img.shields.io/badge/Available_for-Paper-1B1B1B?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper"></a>
   <a href="https://discord.gg/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://boosty.to/mutya660"><img src="https://img.shields.io/badge/Support_me_on-Boosty-F15F2C?style=for-the-badge" alt="Boosty"></a>
 </p>

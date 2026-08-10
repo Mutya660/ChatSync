@@ -1628,11 +1628,11 @@ private Component buildChatComponent(String format, Player sender, String rawMes
             return Component.empty();
         }
 
+        Component head = null;
         try {
             Object contents = buildPlayerHeadContents(player);
             if (contents != null) {
-                Component head = toObjectComponent(contents);
-                if (head != null) return head;
+                head = toObjectComponent(contents);
             }
         } catch (Throwable t) {
             if (getConfig().getBoolean("chat.heads.debug", false)) {
@@ -1640,33 +1640,31 @@ private Component buildChatComponent(String format, Player sender, String rawMes
             }
         }
 
-        String fb = getConfig().getString("chat.heads.fallback", "");
-        if (fb == null || fb.isEmpty()) {
-            if (getConfig().getBoolean("chat.heads.debug", false)) {
-                getLogger().warning("[heads] empty for " + player.getName());
+        if (head == null) {
+            String fb = getConfig().getString("chat.heads.fallback", "");
+            if (fb == null || fb.isEmpty()) {
+                if (getConfig().getBoolean("chat.heads.debug", false)) {
+                    getLogger().warning("[heads] empty for " + player.getName());
+                }
+                return Component.empty();
             }
-            return Component.empty();
+            head = LEGACY.deserialize(fb);
         }
-        return LEGACY.deserialize(fb);
+
+        // Space after head so it doesn't stick to [G]/] / name
+        String gap = getConfig().getString("chat.heads.gap", " ");
+        if (gap == null) gap = " ";
+        if (gap.isEmpty()) return head;
+        return Component.text().append(head).append(LEGACY.deserialize(gap)).build();
     }
 
     /**
-     * Build PlayerHead ObjectContents via public Adventure API only.
-     * Never call methods on *Impl$BuilderImpl — module access fails.
+     * Player head contents with real skin textures (profile / SkinsRestorer).
+     * name+id alone often resolves to default Steve/Alex on the client.
      */
     private Object buildPlayerHeadContents(Player player) throws Exception {
-        // A) ObjectContents.playerHead(Player)
-        try {
-            Class<?> oc = Class.forName("net.kyori.adventure.text.object.ObjectContents");
-            try {
-                return oc.getMethod("playerHead", org.bukkit.entity.Player.class).invoke(null, player);
-            } catch (NoSuchMethodException ignored) {}
-            try {
-                return oc.getMethod("playerHead", org.bukkit.OfflinePlayer.class).invoke(null, player);
-            } catch (NoSuchMethodException ignored) {}
-        } catch (ClassNotFoundException ignored) {}
+        String[] tex = resolveSkinTextures(player); // [value, signature] signature may be null
 
-        // B) Fluent builder — use Method return types (public interfaces)
         Object builder = null;
         Class<?> builderType = null;
 
@@ -1682,25 +1680,251 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                 if (builder != null && builderType != null) break;
             } catch (ReflectiveOperationException ignored) {}
         }
-        if (builder == null || builderType == null) return null;
 
-        builder = fluent(builder, builderType, "name", new Class<?>[]{String.class}, player.getName());
-        builder = fluent(builder, builderType, "id", new Class<?>[]{java.util.UUID.class}, player.getUniqueId());
-        builder = fluent(builder, builderType, "hat", new Class<?>[]{boolean.class}, Boolean.TRUE);
+        // Prefer builder + textures (correct skin). Fall back to playerHead(Player).
+        if (builder != null && builderType != null) {
+            builder = fluent(builder, builderType, "name", new Class<?>[]{String.class}, player.getName());
+            builder = fluent(builder, builderType, "id", new Class<?>[]{java.util.UUID.class}, player.getUniqueId());
+            builder = fluent(builder, builderType, "hat", new Class<?>[]{boolean.class}, Boolean.TRUE);
 
-        try {
-            java.lang.reflect.Method build = builderType.getMethod("build");
-            return build.invoke(builder);
-        } catch (NoSuchMethodException e) {
-            return builder;
+            if (tex != null && tex[0] != null && !tex[0].isEmpty()) {
+                applyTextureProperty(builder, builderType, tex[0], tex.length > 1 ? tex[1] : null);
+            }
+
+            try {
+                return builderType.getMethod("build").invoke(builder);
+            } catch (NoSuchMethodException e) {
+                return builder;
+            }
         }
+
+        // Last resort: ObjectContents.playerHead(Player) — may still be Steve/Alex without textures
+        try {
+            Class<?> oc = Class.forName("net.kyori.adventure.text.object.ObjectContents");
+            try {
+                return oc.getMethod("playerHead", org.bukkit.entity.Player.class).invoke(null, player);
+            } catch (NoSuchMethodException ignored) {}
+            try {
+                return oc.getMethod("playerHead", org.bukkit.OfflinePlayer.class).invoke(null, player);
+            } catch (NoSuchMethodException ignored) {}
+        } catch (ClassNotFoundException ignored) {}
+
+        return null;
+    }
+
+    /**
+     * @return String[]{textureValue, signature} or null
+     */
+    private String[] resolveSkinTextures(Player player) {
+        // 1) Paper PlayerProfile properties
+        try {
+            Object profile = player.getClass().getMethod("getPlayerProfile").invoke(player);
+            String[] fromProfile = texturesFromProfile(profile);
+            if (fromProfile != null) return fromProfile;
+        } catch (Throwable ignored) {}
+
+        // 2) SkinsRestorer API (soft)
+        if (Bukkit.getPluginManager().isPluginEnabled("SkinsRestorer")) {
+            try {
+                String[] fromSr = texturesFromSkinsRestorer(player);
+                if (fromSr != null) return fromSr;
+            } catch (Throwable t) {
+                if (getConfig().getBoolean("chat.heads.debug", false)) {
+                    getLogger().warning("[heads] SkinsRestorer: " + t.getMessage());
+                }
+            }
+        }
+
+        // 3) Bukkit GameProfile via reflection (CraftPlayer)
+        try {
+            Object handle = player.getClass().getMethod("getHandle").invoke(player);
+            Object gp = null;
+            for (String mName : new String[]{"getGameProfile", "gameProfile", "getProfile"}) {
+                try {
+                    gp = handle.getClass().getMethod(mName).invoke(handle);
+                    if (gp != null) break;
+                } catch (NoSuchMethodException ignored) {}
+            }
+            if (gp != null) {
+                Object props = gp.getClass().getMethod("getProperties").invoke(gp);
+                // PropertyMap: get("textures")
+                try {
+                    Object coll = props.getClass().getMethod("get", Object.class).invoke(props, "textures");
+                    if (coll instanceof java.util.Collection && !((java.util.Collection<?>) coll).isEmpty()) {
+                        Object prop = ((java.util.Collection<?>) coll).iterator().next();
+                        String value = String.valueOf(prop.getClass().getMethod("getValue").invoke(prop));
+                        String sig = null;
+                        try {
+                            Object s = prop.getClass().getMethod("getSignature").invoke(prop);
+                            if (s != null) sig = String.valueOf(s);
+                        } catch (Throwable ignored) {}
+                        if (value != null && !value.isEmpty() && !value.equals("null")) {
+                            return new String[]{value, sig};
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+
+        return null;
+    }
+
+    private String[] texturesFromProfile(Object profile) {
+        if (profile == null) return null;
+        try {
+            Object props = profile.getClass().getMethod("getProperties").invoke(profile);
+            if (!(props instanceof java.util.Collection)) return null;
+            for (Object prop : (java.util.Collection<?>) props) {
+                String pname;
+                try {
+                    pname = String.valueOf(prop.getClass().getMethod("getName").invoke(prop));
+                } catch (NoSuchMethodException e) {
+                    try {
+                        pname = String.valueOf(prop.getClass().getMethod("name").invoke(prop));
+                    } catch (NoSuchMethodException e2) {
+                        continue;
+                    }
+                }
+                if (!"textures".equalsIgnoreCase(pname)) continue;
+                String value = String.valueOf(prop.getClass().getMethod("getValue").invoke(prop));
+                String sig = null;
+                try {
+                    Object s = prop.getClass().getMethod("getSignature").invoke(prop);
+                    if (s != null) sig = String.valueOf(s);
+                } catch (Throwable ignored) {}
+                if (value != null && !value.isEmpty() && !value.equals("null")) {
+                    return new String[]{value, sig};
+                }
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private String[] texturesFromSkinsRestorer(Player player) throws Exception {
+        // SkinsRestorer API v15+: SkinsRestorerProvider.get().getPlayerStorage()...
+        Class<?> provider = Class.forName("net.skinsrestorer.api.SkinsRestorerProvider");
+        Object api = provider.getMethod("get").invoke(null);
+        if (api == null) return null;
+
+        // Try getSkinData / player storage variants across SR versions
+        Object skinData = null;
+        try {
+            Object playerStorage = api.getClass().getMethod("getPlayerStorage").invoke(api);
+            Object opt = playerStorage.getClass()
+                    .getMethod("getSkinOfPlayer", java.util.UUID.class)
+                    .invoke(playerStorage, player.getUniqueId());
+            if (opt instanceof java.util.Optional && ((java.util.Optional<?>) opt).isPresent()) {
+                skinData = ((java.util.Optional<?>) opt).get();
+            }
+        } catch (NoSuchMethodException ignored) {}
+
+        if (skinData == null) {
+            try {
+                Object skinStorage = api.getClass().getMethod("getSkinStorage").invoke(api);
+                // getSkinData(name)
+                skinData = skinStorage.getClass()
+                        .getMethod("getSkinData", String.class)
+                        .invoke(skinStorage, player.getName());
+                if (skinData instanceof java.util.Optional) {
+                    java.util.Optional<?> opt = (java.util.Optional<?>) skinData;
+                    skinData = opt.isPresent() ? opt.get() : null;
+                }
+            } catch (ReflectiveOperationException ignored) {}
+        }
+
+        if (skinData == null) return null;
+
+        // Property / SkinProperty getValue getSignature
+        try {
+            Object prop = skinData;
+            // Some versions wrap in SkinData with getTexture / getProperty
+            for (String mName : new String[]{"getProperty", "getTexture", "getSkinProperty"}) {
+                try {
+                    prop = skinData.getClass().getMethod(mName).invoke(skinData);
+                    if (prop != null) break;
+                } catch (NoSuchMethodException ignored) {}
+            }
+            String value = null;
+            String sig = null;
+            try {
+                value = String.valueOf(prop.getClass().getMethod("getValue").invoke(prop));
+            } catch (NoSuchMethodException e) {
+                try {
+                    value = String.valueOf(prop.getClass().getMethod("value").invoke(prop));
+                } catch (NoSuchMethodException e2) {
+                    return null;
+                }
+            }
+            try {
+                Object s = prop.getClass().getMethod("getSignature").invoke(prop);
+                if (s != null) sig = String.valueOf(s);
+            } catch (Throwable ignored) {}
+            if (value != null && !value.isEmpty() && !value.equals("null")) {
+                return new String[]{value, sig};
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private void applyTextureProperty(Object builder, Class<?> builderType, String value, String signature) {
+        try {
+            Class<?> ph = Class.forName("net.kyori.adventure.text.object.PlayerHeadObjectContents");
+            Object prop;
+            try {
+                prop = ph.getMethod("property", String.class, String.class, String.class)
+                        .invoke(null, "textures", value, signature);
+            } catch (NoSuchMethodException e) {
+                prop = ph.getMethod("property", String.class, String.class)
+                        .invoke(null, "textures", value);
+            }
+            // profileProperty / profileProperties / addProperty
+            for (String mName : new String[]{"profileProperty", "addProfileProperty", "property"}) {
+                try {
+                    java.lang.reflect.Method m = builderType.getMethod(mName, prop.getClass().getInterfaces().length > 0
+                            ? findPropertyType(ph, prop) : prop.getClass());
+                    Object out = m.invoke(builder, prop);
+                    if (out != null) { /* fluent */ }
+                    return;
+                } catch (NoSuchMethodException ignored) {}
+            }
+            // try interface type from property return
+            try {
+                Class<?> propType = Class.forName(
+                        "net.kyori.adventure.text.object.PlayerHeadObjectContents$ProfileProperty");
+                java.lang.reflect.Method m = builderType.getMethod("profileProperty", propType);
+                m.invoke(builder, prop);
+                return;
+            } catch (ReflectiveOperationException ignored) {}
+            try {
+                Class<?> propType = Class.forName(
+                        "net.kyori.adventure.text.object.PlayerHeadObjectContents$ProfileProperty");
+                builderType.getMethod("profileProperties", java.util.Collection.class)
+                        .invoke(builder, java.util.List.of(prop));
+            } catch (ReflectiveOperationException ignored) {}
+        } catch (Throwable t) {
+            if (getConfig().getBoolean("chat.heads.debug", false)) {
+                getLogger().warning("[heads] texture property: " + t.getMessage());
+            }
+        }
+    }
+
+    private static Class<?> findPropertyType(Class<?> ph, Object prop) {
+        for (Class<?> iface : prop.getClass().getInterfaces()) {
+            if (iface.getName().contains("ProfileProperty") || iface.getName().contains("Property")) {
+                return iface;
+            }
+        }
+        // nested class
+        for (Class<?> c : ph.getClasses()) {
+            if (c.getSimpleName().contains("Property")) return c;
+        }
+        return prop.getClass();
     }
 
     private static Object fluent(Object target, Class<?> api, String method, Class<?>[] types, Object... args) {
         try {
             java.lang.reflect.Method m = api.getMethod(method, types);
             Object out = m.invoke(target, args);
-            // fluent builders return this; void setters return null
             return out != null ? out : target;
         } catch (Throwable t) {
             return target;

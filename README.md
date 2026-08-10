@@ -2,17 +2,17 @@
 
 **Multifunctional chat plugin for Minecraft (Paper 1.21.x – 26.2)** · **v1.7.1**
 
-Global & local chat, private messages, ignore, socialspy, `/me`, clear chat, statistics, playtime, broadcasts, death-message translation, clickable names, vanish-aware join/quit, full localization (**en / ru / de / fr**).
+Global & local chat, private messages, ignore, socialspy, `/me`, clear chat, statistics, playtime, broadcasts, teams, death-message translation, clickable names, player heads, vanish-aware join/quit, full localization (**en / ru / de / fr**).
 
 <p align="center">
   <a href="https://modrinth.com/plugin/chatsync"><img src="https://img.shields.io/badge/Available_on-Modrinth-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white" alt="Modrinth"></a>
   <a href="https://www.spigotmc.org/resources/chatsync.137778/"><img src="https://img.shields.io/badge/Available_on-SpigotMC-ED8106?style=for-the-badge&logo=spigotmc&logoColor=white" alt="SpigotMC"></a>
-  <a href="https://www.curseforge.com/minecraft/bukkit-plugins/chatsyns"><img src="https://img.shields.io/badge/Available_on-CurseForge-F16436?style=for-the-badge&logo=curseforge&logoColor=white" alt="CurseForge"></a>
+  <a href="https://www.curseforge.com/minecraft/bukkit-plugins/chatsync"><img src="https://img.shields.io/badge/Available_on-CurseForge-F16436?style=for-the-badge&logo=curseforge&logoColor=white" alt="CurseForge"></a>
 </p>
 <p align="center">
   <a href="https://papermc.io/"><img src="https://img.shields.io/badge/Available_for-Paper-1B1B1B?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper"></a>
-  <a href="https://discord.gg/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://boosty.to/mutya660"><img src="https://img.shields.io/badge/Support_me_on-Boosty-F15F2C?style=for-the-badge" alt="Boosty"></a>
+  <a href="https://discord.com/invite/zQevSujnbe"><img src="https://img.shields.io/badge/Chat_with_me_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://boosty.to/mutya660/donate"><img src="https://img.shields.io/badge/Support_me_on-Boosty-F15F2C?style=for-the-badge" alt="Boosty"></a>
 </p>
 <p align="center">
   <a href="https://github.com/Mutya660/ChatSync"><img src="https://img.shields.io/badge/Available_on-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
@@ -175,7 +175,7 @@ teams:
 
 ### Support
 
-Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+Discord: [discord.com/invite/zQevSujnbe](https://discord.com/invite/zQevSujnbe)
 
 ---
 
@@ -306,11 +306,14 @@ language: "en"
 auto_language: true
 
 chat:
-  username_color: "&7"
   heads:
-    enabled: false
+    enabled: true
+    force_first: true
+    gap: " "
   global:
-    format: "&8[&aG&8] %head%%luckperms_prefix% {username-color}%player%&7 > &f%message%"
+    format: "%head%&8[&aG&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 » &f%message%"
+  local:
+    format: "%head%&8[&fL&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 » &f%message%"
 
 vanish:
   hide_join_quit: true
@@ -336,9 +339,22 @@ mvn clean package
 
 ### Поддержка
 
-Нашли баг или ошибку? Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
+Нашли баг или ошибку? Discord: [discord.com/invite/zQevSujnbe](https://discord.com/invite/zQevSujnbe)
 
 ---
+
+
+### Links / Ссылки
+
+| | |
+| :--- | :--- |
+| **GitHub** | https://github.com/Mutya660/ChatSync |
+| **Modrinth** | https://modrinth.com/plugin/chatsync |
+| **SpigotMC** | https://www.spigotmc.org/resources/chatsync.137778/ |
+| **CurseForge** | https://www.curseforge.com/minecraft/bukkit-plugins/chatsync |
+| **Discord** | https://discord.com/invite/zQevSujnbe |
+| **Boosty** | https://boosty.to/mutya660/donate |
+
 
 *ChatSync v1.7.1*
 

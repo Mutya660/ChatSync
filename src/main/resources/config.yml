@@ -34,6 +34,9 @@ chat:
   # [RU] Головы в чате: %head% в format. enabled: true
   heads:
     enabled: true
+    # [EN] Always put head first in player-related messages (chat, PM, team, join/quit, me, spy)
+    # [RU] Всегда ставить голову первой в сообщениях с игроком
+    force_first: true
     # [EN] Native heads need Paper + client 1.21.9+. For older clients install
     #      InlineHeads (+ MiniPlaceholders) — https://github.com/BertTowne/InlineHeads
     # [RU] Нативные головы: Paper + клиент 1.21.9+. Иначе поставь InlineHeads + MiniPlaceholders
@@ -51,7 +54,7 @@ chat:
     #      Color BEFORE %message% controls message color (e.g. &f%message%)
     # [RU] Плейсхолдеры: %head% %player% %message% %luckperms_prefix% %luckperms_suffix%
     #       — цвет ника; цвет ПЕРЕД %message% задаёт цвет текста
-    format: "&8[&aG&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
+    format: "%head%&8[&aG&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Cooldown in seconds between global messages per player. 0 = disabled.
     #      Players with chatsync.bypass_cooldown permission are exempt.
     # [RU] Кулдаун в секундах между глобальными сообщениями одного игрока. 0 = отключено.
@@ -68,7 +71,7 @@ chat:
     cooldown: 2
     # [EN] Local chat format shown to players
     # [RU] Формат локального чата, который видят игроки
-    format: "&8[&fL&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
+    format: "%head%&8[&fL&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Whether to also print local chat messages to the console log
     # [RU] Дублировать ли сообщения локального чата в лог консоли
     log_to_console: true
@@ -80,7 +83,7 @@ chat:
   me:
     # [EN] Format of /me messages. Placeholders: %player%, %message%
     # [RU] Формат сообщений /me. Плейсхолдеры: %player%, %message%
-    format: "&7* %player% %message%"
+    format: "%head%&7* %player% %message%"
     # [EN] Radius in blocks for who can see /me messages. -1 = visible to everyone on the server
     # [RU] Радиус в блоках для видимости сообщений /me. -1 = видно всем на сервере
     radius: -1
@@ -89,10 +92,10 @@ chat:
 pm:
   # [EN] Format shown to staff with /socialspy for private messages
   # [RU] Формат, который видят администраторы через /socialspy для личных сообщений
-  format_spy: "&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%"
+  format_spy: "%head%&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%"
   # [EN] Format for local chat messages shown to admins with /socialspy (out-of-radius listeners)
   # [RU] Формат для сообщений локального чата, которые видят администраторы через /socialspy (вне радиуса)
-  format_spy_local: "&8[SPY-L] &7%player%&8: &7%message%"
+  format_spy_local: "%head%&8[SPY-L] &7%player%&8: &7%message%"
   sound:
     # [EN] Whether to play a sound to the receiver of a private message
     # [RU] Проигрывать ли звук получателю личного сообщения
@@ -126,10 +129,10 @@ death_messages:
 messages:
   # [EN] Join message format. Placeholder: %player%
   # [RU] Формат сообщения о входе. Плейсхолдер: %player%
-  join: "&a+ &f%player%"
+  join: "%head%&a+ &f%player%"
   # [EN] Quit message format. Placeholder: %player%
   # [RU] Формат сообщения о выходе. Плейсхолдер: %player%
-  quit: "&c- &f%player%"
+  quit: "%head%&c- &f%player%"
 
 # ── Commands: configurable permission nodes ────────────────────
 # [EN] Lets you rename which permission node each command checks,
@@ -268,7 +271,7 @@ broadcast:
   #      у каждого языка свой текст «Объявление от …».
   # [EN] Optional legacy single-line fallback if lang lists are empty
   # [RU] Запасной однострочный формат, если в lang списки пустые
-  format: "&eAnnouncement &ffrom &e%sender%"
+  format: "%head%&eAnnouncement &ffrom &e%sender%"
   format_hidden: "&eAnnouncement"
   # [EN] Show the sender name. Admins can hide via /broadcast hide or -h
   # [RU] Показывать автора. Скрыть: /broadcast hide или -h
@@ -399,4 +402,4 @@ teams:
   #      Пример: /team color c&l
   persist: true
   # [EN] Format: %color% %team% %player% %message%
-  format: "&8[%color%%team%&8] &f%player%&7: &f%message%"
+  format: "%head%&8[%color%%team%&8] &f%player%&7: &f%message%"

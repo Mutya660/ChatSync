@@ -1270,29 +1270,46 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
      * Клик подставляет /msg <ник> в чат. Hover — настраиваемый (см. hover.* в config).
      */
     private Component buildClickableNameLine(String template, String playerName, CommandSender viewer) {
+        if (template == null) template = "";
+        Player headPlayer = Bukkit.getPlayerExact(playerName);
+        final boolean wantHead = template.contains("%head%")
+                || getConfig().getBoolean("chat.heads.force_first", true);
+        template = stripHeadPlaceholder(template);
+
         final String PH = "%player%";
         int idx = template.indexOf(PH);
+        Component body;
         if (idx < 0) {
             idx = template.indexOf(playerName);
-            if (idx < 0) return color(template);
+            if (idx < 0) {
+                body = color(template);
+            } else {
+                String before = template.substring(0, idx);
+                String after  = template.substring(idx + playerName.length());
+                Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, null, viewer);
+                body = Component.text()
+                        .append(color(before))
+                        .append(nameComp)
+                        .append(color(after))
+                        .build();
+            }
+        } else {
             String before = template.substring(0, idx);
-            String after  = template.substring(idx + playerName.length());
-            Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, null, viewer);
-            return Component.text()
+            String after  = template.substring(idx + PH.length());
+            Component nameComp = clickableName(
+                    extractTrailingColor(before) + playerName, playerName, null, viewer);
+            body = Component.text()
                     .append(color(before))
                     .append(nameComp)
                     .append(color(after))
                     .build();
         }
-        String before = template.substring(0, idx);
-        String after  = template.substring(idx + PH.length());
-        Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, null, viewer);
-        return Component.text()
-                .append(color(before))
-                .append(nameComp)
-                .append(color(after))
-                .build();
+        if (wantHead && headPlayer != null) {
+            return Component.text().append(buildHeadComponent(headPlayer)).append(body).build();
+        }
+        return body;
     }
+
 
     /** Кликабельный ник с hover (playtime опционально). */
     Component clickableName(String coloredName, String playerName, UUID uuid, CommandSender viewer) {
@@ -1505,11 +1522,35 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     //  Component builders
     // ──────────────────────────────────────────────────────────────
 
-    private Component buildChatComponent(String format, Player sender, String rawMessage, Player viewer) {
+    
+    /** If format contains %head% (or heads.force_first), prepend head for online player. */
+    private Component maybePrefixHead(Player player, String template, Component body) {
+        if (player == null || !getConfig().getBoolean("chat.heads.enabled", true)) {
+            return body;
+        }
+        boolean inFormat = template != null && template.contains("%head%");
+        boolean force = getConfig().getBoolean("chat.heads.force_first", true);
+        if (!inFormat && !force) return body;
+        Component head = buildHeadComponent(player);
+        return Component.text().append(head).append(body).build();
+    }
+
+    private String stripHeadPlaceholder(String template) {
+        if (template == null) return "";
+        return template.replace("%head%", "");
+    }
+
+private Component buildChatComponent(String format, Player sender, String rawMessage, Player viewer) {
         if (format == null) format = "&7%player%&7: &f%message%";
-        // {username-color} — цвет ника: LuckPerms (meta/prefix), иначе config
+        // {username-color} — цвет ника: LuckPerms (meta/prefix)
         String userColor = resolveUsernameColor(sender);
         format = format.replace("{username-color}", userColor).replace("%username-color%", userColor);
+        // голова всегда первой, если включено
+        if (getConfig().getBoolean("chat.heads.enabled", true)
+                && getConfig().getBoolean("chat.heads.force_first", true)
+                && !format.contains("%head%")) {
+            format = "%head%" + format;
+        }
 
         // Собираем компонент по сегментам, чтобы цвет %message% и %player% не терялся
         // при раздельной десериализации (стиль Adventure не переносится между append).
@@ -1710,49 +1751,70 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
 
     private Component buildNameComponent(String template, Player player, String ignoredHover) {
+        if (template == null) template = "";
+        final boolean wantHead = template.contains("%head%")
+                || getConfig().getBoolean("chat.heads.force_first", true);
+        template = stripHeadPlaceholder(template);
+
         final String PH = "%player%";
         int idx = template.indexOf(PH);
-        if (idx == -1)
-            return LEGACY.deserialize(resolvePlaceholders(template, player));
-
-        String before = resolvePlaceholders(template.substring(0, idx), player);
-        String after  = resolvePlaceholders(template.substring(idx + PH.length()), player);
-
-        Component nameComp = clickableName(
-                extractTrailingColor(before) + player.getName(),
-                player.getName(),
-                player.getUniqueId(),
-                player);
-
-        return Component.text()
-                .append(LEGACY.deserialize(before))
-                .append(nameComp)
-                .append(LEGACY.deserialize(after))
-                .build();
+        Component body;
+        if (idx == -1) {
+            body = LEGACY.deserialize(resolvePlaceholders(template, player));
+        } else {
+            String before = resolvePlaceholders(template.substring(0, idx), player);
+            String after  = resolvePlaceholders(template.substring(idx + PH.length()), player);
+            Component nameComp = clickableName(
+                    extractTrailingColor(before) + player.getName(),
+                    player.getName(),
+                    player.getUniqueId(),
+                    player);
+            body = Component.text()
+                    .append(LEGACY.deserialize(before))
+                    .append(nameComp)
+                    .append(LEGACY.deserialize(after))
+                    .build();
+        }
+        if (wantHead) {
+            return Component.text().append(buildHeadComponent(player)).append(body).build();
+        }
+        return body;
     }
 
+
     private Component formatPM(String format, Player target, Player other, String ignoredHover) {
+        if (format == null) format = "";
+        final boolean wantHead = format.contains("%head%")
+                || getConfig().getBoolean("chat.heads.force_first", true);
+        format = stripHeadPlaceholder(format);
+
         int idx = format.indexOf("%sender%");
         String ph = "%sender%";
         if (idx == -1) { idx = format.indexOf("%receiver%"); ph = "%receiver%"; }
-        if (idx == -1)
-            return LEGACY.deserialize(resolvePlaceholders(format, target));
-
-        String before = format.substring(0, idx);
-        String after  = format.substring(idx + ph.length());
-
-        Component nameComp = clickableName(
-                extractTrailingColor(before) + other.getName(),
-                other.getName(),
-                other.getUniqueId(),
-                target);
-
-        return Component.text()
-                .append(LEGACY.deserialize(resolvePlaceholders(before, target)))
-                .append(nameComp)
-                .append(LEGACY.deserialize(resolvePlaceholders(after, target)))
-                .build();
+        Component body;
+        if (idx == -1) {
+            body = LEGACY.deserialize(resolvePlaceholders(format, target));
+        } else {
+            String before = format.substring(0, idx);
+            String after  = format.substring(idx + ph.length());
+            Component nameComp = clickableName(
+                    extractTrailingColor(before) + other.getName(),
+                    other.getName(),
+                    other.getUniqueId(),
+                    target);
+            body = Component.text()
+                    .append(color(before))
+                    .append(nameComp)
+                    .append(color(after))
+                    .build();
+        }
+        // head of the other player (who you're talking about / with)
+        if (wantHead && other != null) {
+            return Component.text().append(buildHeadComponent(other)).append(body).build();
+        }
+        return body;
     }
+
 
     // ──────────────────────────────────────────────────────────────
     //  Discord

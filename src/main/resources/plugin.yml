@@ -2,7 +2,7 @@ name: ChatSync
 version: 1.7.1
 main: chatsync.ChatSync
 api-version: '1.21'
-softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans, SuperVanish, PremiumVanish, Essentials, InlineHeads, MiniPlaceholders, SkinsRestorer]
+softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans, SuperVanish, PremiumVanish, Essentials, SkinsRestorer]
 description: Chat plugin for Paper 26.2 —  "Chat plugin with global/local chat, private messages, ignore, socialspy, /me, /clear, /chatstats, /broadcast, playtime and multi-language support."
 authors: [Mutya660]
 website: "https://modrinth.com/plugin/chatsync"

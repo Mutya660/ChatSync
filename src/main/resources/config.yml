@@ -44,10 +44,9 @@ chat:
     # [EN] Log head failures to console
     # [RU] Лог в консоль, если голова не собралась
     debug: false
-    # [EN] Native heads need Paper + client 1.21.9+. For older clients install
-    #      InlineHeads (+ MiniPlaceholders) — https://github.com/BertTowne/InlineHeads
-    # [RU] Нативные головы: Paper + клиент 1.21.9+. Иначе поставь InlineHeads + MiniPlaceholders
-    # [EN] Fallback if head cannot render (use "" to show nothing — avoids □ square)
+    # [EN] Native heads: Paper + client 1.21.9+. Uses profile / SkinsRestorer textures.
+    # [RU] Нативные головы: Paper + клиент 1.21.9+. Текстуры из профиля / SkinsRestorer.
+    # [EN] Fallback if head cannot render ("" = nothing, avoids □)
     # [RU] Fallback если голова не рисуется ("" = ничего, без квадрата □)
     fallback: ""
   global:

@@ -58,4 +58,52 @@ public class LuckPermsHook {
         String suffix = meta.getSuffix();
         return suffix != null ? suffix : "";
     }
+
+    /**
+     * Color for the player name from LuckPerms:
+     * 1) meta key "username-color" or "namecolor" (e.g. &c or &#FF5555)
+     * 2) otherwise last color code found in the prefix
+     */
+    public String getNameColor(Player player) {
+        if (!available) return "";
+        User user = api.getUserManager().getUser(player.getUniqueId());
+        if (user == null) return "";
+        CachedMetaData meta = user.getCachedData().getMetaData();
+        String metaColor = meta.getMetaValue("username-color");
+        if (metaColor == null || metaColor.isBlank())
+            metaColor = meta.getMetaValue("namecolor");
+        if (metaColor != null && !metaColor.isBlank()) {
+            String c = metaColor.trim().replace('§', '&');
+            if (!c.startsWith("&") && !c.startsWith("#")) c = "&" + c;
+            if (c.startsWith("#")) c = "&" + c; // #RRGGBB → &#RRGGBB
+            return c;
+        }
+        String prefix = meta.getPrefix();
+        if (prefix == null || prefix.isEmpty()) return "";
+        return extractTrailingColor(prefix);
+    }
+
+    private static String extractTrailingColor(String text) {
+        if (text == null || text.isEmpty()) return "";
+        String s = text.replace('§', '&');
+        // hex &#RRGGBB at end
+        java.util.regex.Matcher hx = java.util.regex.Pattern
+                .compile("(?i)&#[0-9a-f]{6}(?!.*&#[0-9a-f]{6})")
+                .matcher(s);
+        String lastHex = null;
+        while (hx.find()) lastHex = hx.group();
+        // also find last &x code
+        String lastLegacy = "";
+        java.util.regex.Matcher lg = java.util.regex.Pattern
+                .compile("(?i)&(?:#[0-9a-f]{6}|[0-9a-fk-or])")
+                .matcher(s);
+        while (lg.find()) {
+            String g = lg.group();
+            if (g.length() > 2) lastHex = g; // hex form &
+            else lastLegacy = g;
+        }
+        if (lastHex != null) return lastHex;
+        return lastLegacy;
+    }
 }
+

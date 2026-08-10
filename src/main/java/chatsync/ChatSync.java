@@ -1507,9 +1507,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private Component buildChatComponent(String format, Player sender, String rawMessage, Player viewer) {
         if (format == null) format = "&7%player%&7: &f%message%";
-        // {username-color} / %username-color% — цвет ника из конфига
-        String userColor = getConfig().getString("chat.username_color", "&7");
-        if (userColor == null || userColor.isEmpty()) userColor = "&7";
+        // {username-color} — цвет ника: LuckPerms (meta/prefix), иначе config
+        String userColor = resolveUsernameColor(sender);
         format = format.replace("{username-color}", userColor).replace("%username-color%", userColor);
 
         // Собираем компонент по сегментам, чтобы цвет %message% и %player% не терялся
@@ -1538,12 +1537,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         Component result = Component.empty();
         StringBuilder literalSoFar = new StringBuilder();
-        for (String tok : tokens) {
+        for (int ti = 0; ti < tokens.size(); ti++) {
+            String tok = tokens.get(ti);
+            String next = (ti + 1 < tokens.size()) ? tokens.get(ti + 1) : null;
             if (tok.equals("%head%")) {
                 result = result.append(buildHeadComponent(sender));
             } else if (tok.equals("%player%")) {
                 String col = extractTrailingColor(literalSoFar.toString());
-                if (col.isEmpty()) col = userColor;
+                if ((col == null || col.isEmpty()) && userColor != null && !userColor.isEmpty()) {
+                    col = userColor;
+                }
+                if (col == null) col = "";
                 Component nameComp = clickableName(
                         col + sender.getName(),
                         sender.getName(),
@@ -1553,19 +1557,20 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 literalSoFar.append(col).append(sender.getName());
             } else if (tok.equals("%message%")) {
                 String col = extractTrailingColor(literalSoFar.toString());
-                // Если в самом сообщении уже есть цветовые коды — оставляем;
-                // иначе применяем цвет из формата (перед %message%).
                 String msg = rawMessage == null ? "" : rawMessage;
-                if (!msg.isEmpty() && msg.charAt(0) != '&' && msg.charAt(0) != '§') {
+                if (col != null && !col.isEmpty()) {
                     msg = col + msg;
                 }
-                result = result.append(LEGACY.deserialize(
-                        resolvePlaceholders(msg, sender)));
+                result = result.append(LEGACY.deserialize(msg));
             } else {
                 String lit = resolvePlaceholders(tok, sender);
                 literalSoFar.append(lit);
-                if (!lit.isEmpty()) {
-                    result = result.append(LEGACY.deserialize(lit));
+                String visible = lit;
+                if (next != null && (next.equals("%player%") || next.equals("%message%"))) {
+                    visible = stripTrailingColorCodes(lit);
+                }
+                if (visible != null && !visible.isEmpty()) {
+                    result = result.append(LEGACY.deserialize(visible));
                 }
             }
         }
@@ -1577,29 +1582,35 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
      * Иначе — fallback-текст из конфига (можно оставить пустым).
      */
     private Component buildHeadComponent(Player player) {
-        if (!getConfig().getBoolean("chat.heads.enabled", false)) {
+        if (!getConfig().getBoolean("chat.heads.enabled", true)) {
             return Component.empty();
         }
+        // Real head glyph (Adventure object) — works on recent Paper + client
         try {
-            // Adventure PlayerHead object (newer Paper / 1.21.6+)
-            Class<?> phClass = Class.forName("net.kyori.adventure.text.object.PlayerHeadObjectContents");
-            Object builder = phClass.getMethod("playerHead").invoke(null);
-            try {
-                builder.getClass().getMethod("name", String.class).invoke(builder, player.getName());
-            } catch (NoSuchMethodException ignored) {}
-            try {
-                builder.getClass().getMethod("id", java.util.UUID.class).invoke(builder, player.getUniqueId());
-            } catch (NoSuchMethodException ignored) {}
-            Object contents = builder.getClass().getMethod("build").invoke(builder);
-            java.lang.reflect.Method objectMethod = Component.class.getMethod("object",
-                    Class.forName("net.kyori.adventure.text.object.ObjectContents"));
-            return (Component) objectMethod.invoke(null, contents);
-        } catch (Throwable t) {
-            String fb = getConfig().getString("chat.heads.fallback", "");
-            if (fb == null || fb.isEmpty()) return Component.empty();
-            return LEGACY.deserialize(fb);
-        }
+            Class<?> contentsClass = Class.forName("net.kyori.adventure.text.object.PlayerHeadObjectContents");
+            Object builder = contentsClass.getMethod("playerHead").invoke(null);
+            Class<?> bClass = builder.getClass();
+            try { bClass.getMethod("name", String.class).invoke(builder, player.getName()); } catch (Throwable ignored) {}
+            try { bClass.getMethod("id", java.util.UUID.class).invoke(builder, player.getUniqueId()); } catch (Throwable ignored) {}
+            Object contents = bClass.getMethod("build").invoke(builder);
+            for (java.lang.reflect.Method m : Component.class.getMethods()) {
+                if (!m.getName().equals("object") || m.getParameterCount() != 1) continue;
+                Object head = m.invoke(null, contents);
+                if (head instanceof Component) return (Component) head;
+            }
+        } catch (Throwable ignored) {}
+
+        // Fallback icon + hover with player name
+        String fb = getConfig().getString("chat.heads.fallback", "&7[☺]&r ");
+        if (fb == null) fb = "";
+        Component icon = fb.isEmpty() ? Component.text("• ") : LEGACY.deserialize(fb);
+        try {
+            icon = icon.hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                    Component.text(player.getName())));
+        } catch (Throwable ignored) {}
+        return icon;
     }
+
 
 
     private Component buildNameComponent(String template, Player player, String ignoredHover) {
@@ -1671,7 +1682,34 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     //  Helpers
     // ──────────────────────────────────────────────────────────────
 
-    private String resolvePlaceholders(String text, Player player) {
+    
+    /**
+     * Username color for {username-color}:
+     * 1) LuckPerms meta username-color / namecolor
+     * 2) Last color code in LuckPerms prefix
+     * 3) chat.username_color from config
+     */
+    private String resolveUsernameColor(Player player) {
+        if (luckPermsHook != null && luckPermsHook.isAvailable()) {
+            String fromLp = luckPermsHook.getNameColor(player);
+            if (fromLp != null && !fromLp.isEmpty()) return fromLp;
+        }
+        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            try {
+                Class<?> papi = Class.forName("me.clip.placeholderapi.PlaceholderAPI");
+                java.lang.reflect.Method m = papi.getMethod("setPlaceholders", Player.class, String.class);
+                String prefix = (String) m.invoke(null, player, "%luckperms_prefix%");
+                if (prefix != null && !prefix.isEmpty() && !prefix.equals("%luckperms_prefix%")) {
+                    String c = extractTrailingColor(prefix);
+                    if (c != null && !c.isEmpty()) return c;
+                }
+            } catch (Exception ignored) {}
+        }
+        return ""; // no config fallback
+    }
+
+
+private String resolvePlaceholders(String text, Player player) {
         if (text == null) return "";
         text = text.replace("%player%", player.getName());
 

@@ -37,6 +37,9 @@ chat:
     # [EN] Always put head first in player-related messages (chat, PM, team, join/quit, me, spy)
     # [RU] Всегда ставить голову первой в сообщениях с игроком
     force_first: true
+    # [EN] Log head failures to console
+    # [RU] Лог в консоль, если голова не собралась
+    debug: false
     # [EN] Native heads need Paper + client 1.21.9+. For older clients install
     #      InlineHeads (+ MiniPlaceholders) — https://github.com/BertTowne/InlineHeads
     # [RU] Нативные головы: Paper + клиент 1.21.9+. Иначе поставь InlineHeads + MiniPlaceholders

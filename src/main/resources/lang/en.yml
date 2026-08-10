@@ -3,7 +3,7 @@
 
 commands:
   reload:
-    success: "&a[ChatSync] Configuration reloaded successfully!"
+    success: "&7[ChatSync] &aConfiguration reloaded successfully!"
     no_permission: "&c[!] You don't have permission to run this command."
     usage: "&7Usage: &f/team create|invite|accept|deny|leave|kick|disband|chat|name|color|symbol|info|transfer|promote|demote"
   msg:
@@ -31,7 +31,7 @@ commands:
     no_permission: "&cYou don't have permission to use SocialSpy."
 
 chat:
-  local_noone: "&7[!] Nobody can hear you. Use &f!<message>&7 for global chat."
+  local_noone: "&7Nobody can hear you."
   cooldown: "&c[!] Wait &f%seconds%s &cbefore sending another global message."
   local_cooldown: "&c[!] Slowmode: wait &f%seconds%s &cbefore sending another message."
   muted: "&c[!] You are muted and cannot chat."

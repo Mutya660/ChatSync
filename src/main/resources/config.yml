@@ -1,6 +1,7 @@
 # ═══════════════════════════════════════════════════════════════
 #  ChatSync - Configuration by mutya660
 #  Modrinth: https://modrinth.com/plugin/chatsync
+#  Github: https://github.com/Mutya660/ChatSync
 #
 #  Every setting below has a bilingual comment:
 #  [EN] English explanation
@@ -60,7 +61,7 @@ chat:
     #      Color BEFORE %message% controls message color (e.g. &f%message%)
     # [RU] Плейсхолдеры: %head% %player% %message% %luckperms_prefix% %luckperms_suffix%
     #       — цвет ника; цвет ПЕРЕД %message% задаёт цвет текста
-    format: "%head%&8[&aG&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
+    format: "%head%&8[&aG&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 » &f%message%"
     # [EN] Cooldown in seconds between global messages per player. 0 = disabled.
     #      Players with chatsync.bypass_cooldown permission are exempt.
     # [RU] Кулдаун в секундах между глобальными сообщениями одного игрока. 0 = отключено.
@@ -77,7 +78,7 @@ chat:
     cooldown: 2
     # [EN] Local chat format shown to players
     # [RU] Формат локального чата, который видят игроки
-    format: "%head%&8[&fL&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
+    format: "%head%&8[&fL&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 » &f%message%"
     # [EN] Whether to also print local chat messages to the console log
     # [RU] Дублировать ли сообщения локального чата в лог консоли
     log_to_console: true
@@ -135,10 +136,10 @@ death_messages:
 messages:
   # [EN] Join message format. Placeholder: %player%
   # [RU] Формат сообщения о входе. Плейсхолдер: %player%
-  join: "%head%&a+ &f%player%"
+  join: "%head%&a→ &f%player%"
   # [EN] Quit message format. Placeholder: %player%
   # [RU] Формат сообщения о выходе. Плейсхолдер: %player%
-  quit: "%head%&c- &f%player%"
+  quit: "%head%&c← &f%player%"
 
 # ── Commands: configurable permission nodes ────────────────────
 # [EN] Lets you rename which permission node each command checks,

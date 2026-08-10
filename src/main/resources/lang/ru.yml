@@ -3,7 +3,7 @@
 
 commands:
   reload:
-    success: "&a[ChatSync] Конфигурация успешно перезагружена!"
+    success: "&7[ChatSync] &aКонфигурация успешно перезагружена!"
     no_permission: "&c[!] У вас нет прав на выполнение этой команды."
     usage: "&7Использование: &f/team create|invite|accept|deny|leave|kick|disband|chat|name|color|symbol|info|transfer|promote|demote"
   msg:
@@ -31,7 +31,7 @@ commands:
     no_permission: "&cУ вас нет прав для использования SocialSpy."
 
 chat:
-  local_noone: "&7[!] Тебя никто не слышит. Напиши &f!<сообщение>&7 для глобального чата."
+  local_noone: "&7Тебя никто не слышит."
   cooldown: "&c[!] Подожди ещё &f%seconds%с &cперед следующим глобальным сообщением."
   local_cooldown: "&c[!] Slowmode: подожди ещё &f%seconds%с &cперед следующим сообщением."
   muted: "&c[!] Вы в муте и не можете писать в чат."

@@ -34,9 +34,12 @@ chat:
   # [RU] Головы в чате: %head% в format. enabled: true
   heads:
     enabled: true
-    # [EN] Fallback text if the client/server cannot render a real head
-    # [RU] Текст, если настоящая голова недоступна
-    fallback: "&7•&r "
+    # [EN] Native heads need Paper + client 1.21.9+. For older clients install
+    #      InlineHeads (+ MiniPlaceholders) — https://github.com/BertTowne/InlineHeads
+    # [RU] Нативные головы: Paper + клиент 1.21.9+. Иначе поставь InlineHeads + MiniPlaceholders
+    # [EN] Fallback if head cannot render (use "" to show nothing — avoids □ square)
+    # [RU] Fallback если голова не рисуется ("" = ничего, без квадрата □)
+    fallback: ""
   global:
     # [EN] Whether a message must start with the symbol below to be sent to global chat
     # [RU] Должно ли сообщение начинаться с символа ниже, чтобы попасть в глобальный чат
@@ -48,7 +51,7 @@ chat:
     #      Color BEFORE %message% controls message color (e.g. &f%message%)
     # [RU] Плейсхолдеры: %head% %player% %message% %luckperms_prefix% %luckperms_suffix%
     #       — цвет ника; цвет ПЕРЕД %message% задаёт цвет текста
-    format: "&8[&aG&8] %head%%luckperms_prefix% %player% %luckperms_suffix%&7 > &f%message%"
+    format: "&8[&aG&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Cooldown in seconds between global messages per player. 0 = disabled.
     #      Players with chatsync.bypass_cooldown permission are exempt.
     # [RU] Кулдаун в секундах между глобальными сообщениями одного игрока. 0 = отключено.
@@ -65,7 +68,7 @@ chat:
     cooldown: 2
     # [EN] Local chat format shown to players
     # [RU] Формат локального чата, который видят игроки
-    format: "&8[&fL&8] %head%%luckperms_prefix% %player% %luckperms_suffix%&7 > &f%message%"
+    format: "&8[&fL&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Whether to also print local chat messages to the console log
     # [RU] Дублировать ли сообщения локального чата в лог консоли
     log_to_console: true

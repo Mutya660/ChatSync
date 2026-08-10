@@ -1585,31 +1585,127 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!getConfig().getBoolean("chat.heads.enabled", true)) {
             return Component.empty();
         }
-        // Real head glyph (Adventure object) — works on recent Paper + client
+
+        // 1) InlineHeads (resource-pack heads — works on more versions)
+        //    https://github.com/BertTowne/InlineHeads
         try {
-            Class<?> contentsClass = Class.forName("net.kyori.adventure.text.object.PlayerHeadObjectContents");
-            Object builder = contentsClass.getMethod("playerHead").invoke(null);
-            Class<?> bClass = builder.getClass();
-            try { bClass.getMethod("name", String.class).invoke(builder, player.getName()); } catch (Throwable ignored) {}
-            try { bClass.getMethod("id", java.util.UUID.class).invoke(builder, player.getUniqueId()); } catch (Throwable ignored) {}
-            Object contents = bClass.getMethod("build").invoke(builder);
-            for (java.lang.reflect.Method m : Component.class.getMethods()) {
-                if (!m.getName().equals("object") || m.getParameterCount() != 1) continue;
-                Object head = m.invoke(null, contents);
-                if (head instanceof Component) return (Component) head;
+            org.bukkit.plugin.Plugin ih = Bukkit.getPluginManager().getPlugin("InlineHeads");
+            if (ih != null && ih.isEnabled()) {
+                // Placeholder style used by InlineHeads + MiniPlaceholders: <player_head:Name>
+                if (Bukkit.getPluginManager().isPluginEnabled("MiniPlaceholders")) {
+                    try {
+                        Class<?> mm = Class.forName("net.kyori.adventure.text.minimessage.MiniMessage");
+                        Object mini = mm.getMethod("miniMessage").invoke(null);
+                        String tag = "<player_head:" + player.getName() + ">";
+                        // apply MiniPlaceholders if possible
+                        try {
+                            Class<?> mp = Class.forName("io.github.miniplaceholders.api.MiniPlaceholders");
+                            Object resolver = mp.getMethod("audiencePlaceholders").invoke(null);
+                            java.lang.reflect.Method deserialize = null;
+                            for (java.lang.reflect.Method m : mini.getClass().getMethods()) {
+                                if (m.getName().equals("deserialize") && m.getParameterCount() >= 1) {
+                                    deserialize = m;
+                                    break;
+                                }
+                            }
+                            if (deserialize != null) {
+                                Object component = deserialize.invoke(mini, tag);
+                                if (component instanceof Component) return (Component) component;
+                            }
+                        } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) {}
+                }
+                // Direct service: InlineHeadsService#getHead(String)
+                try {
+                    Class<?> svcClass = Class.forName("com.berttowne.inlineheads.InlineHeadsService");
+                    Object svc = ih.getClass().getMethod("getService").invoke(ih);
+                    if (svc == null) {
+                        // try Bukkit services
+                        for (Class<?> c : new Class<?>[]{svcClass}) {
+                            org.bukkit.plugin.RegisteredServiceProvider<?> rsp =
+                                    Bukkit.getServicesManager().getRegistration(c);
+                            if (rsp != null) svc = rsp.getProvider();
+                        }
+                    }
+                    if (svc != null) {
+                        Object head = svc.getClass().getMethod("getHead", String.class)
+                                .invoke(svc, player.getName());
+                        if (head instanceof Component) return (Component) head;
+                    }
+                } catch (Throwable ignored) {}
             }
         } catch (Throwable ignored) {}
 
-        // Fallback icon + hover with player name
-        String fb = getConfig().getString("chat.heads.fallback", "&7[☺]&r ");
-        if (fb == null) fb = "";
-        Component icon = fb.isEmpty() ? Component.text("• ") : LEGACY.deserialize(fb);
+        // 2) Native Adventure player-head object (Minecraft 1.21.9+ / modern Paper)
+        //    Must set UUID — empty id shows Steve / broken glyph (InteractiveChat #219)
         try {
-            icon = icon.hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
-                    Component.text(player.getName())));
+            // ObjectContents.playerHead(Player) if present
+            try {
+                Class<?> oc = Class.forName("net.kyori.adventure.text.object.ObjectContents");
+                for (java.lang.reflect.Method m : oc.getMethods()) {
+                    if (!m.getName().equals("playerHead")) continue;
+                    Class<?>[] pts = m.getParameterTypes();
+                    Object contents = null;
+                    if (pts.length == 1 && pts[0].isAssignableFrom(Player.class)) {
+                        contents = m.invoke(null, player);
+                    } else if (pts.length == 1 && pts[0].getName().contains("OfflinePlayer")) {
+                        contents = m.invoke(null, player);
+                    } else if (pts.length == 0) {
+                        Object builder = m.invoke(null);
+                        Class<?> b = builder.getClass();
+                        try { b.getMethod("name", String.class).invoke(builder, player.getName()); } catch (Throwable ignored) {}
+                        try { b.getMethod("id", java.util.UUID.class).invoke(builder, player.getUniqueId()); } catch (Throwable ignored) {}
+                        try { b.getMethod("hat", boolean.class).invoke(builder, true); } catch (Throwable ignored) {}
+                        // attach skin texture from Paper profile when possible
+                        try {
+                            Object profile = player.getClass().getMethod("getPlayerProfile").invoke(player);
+                            if (profile != null) {
+                                Object props = profile.getClass().getMethod("getProperties").invoke(profile);
+                                if (props instanceof java.util.Collection) {
+                                    for (Object prop : (java.util.Collection<?>) props) {
+                                        String pname = String.valueOf(prop.getClass().getMethod("getName").invoke(prop));
+                                        if (!"textures".equalsIgnoreCase(pname)) continue;
+                                        String value = String.valueOf(prop.getClass().getMethod("getValue").invoke(prop));
+                                        Object sig = null;
+                                        try { sig = prop.getClass().getMethod("getSignature").invoke(prop); } catch (Throwable ignored) {}
+                                        try {
+                                            Class<?> phc = Class.forName("net.kyori.adventure.text.object.PlayerHeadObjectContents");
+                                            Object pprop = phc.getMethod("property", String.class, String.class, String.class)
+                                                    .invoke(null, "textures", value, sig instanceof String ? sig : null);
+                                            // builder.profileProperties(list) variants
+                                            try {
+                                                b.getMethod("profileProperty", pprop.getClass()).invoke(builder, pprop);
+                                            } catch (Throwable ignored) {
+                                                try {
+                                                    java.util.List<Object> list = java.util.List.of(pprop);
+                                                    b.getMethod("profileProperties", java.util.Collection.class).invoke(builder, list);
+                                                } catch (Throwable ignored2) {}
+                                            }
+                                        } catch (Throwable ignored) {}
+                                    }
+                                }
+                            }
+                        } catch (Throwable ignored) {}
+                        contents = b.getMethod("build").invoke(builder);
+                    }
+                    if (contents != null) {
+                        for (java.lang.reflect.Method cm : Component.class.getMethods()) {
+                            if (cm.getName().equals("object") && cm.getParameterCount() == 1) {
+                                Object head = cm.invoke(null, contents);
+                                if (head instanceof Component) return (Component) head;
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
         } catch (Throwable ignored) {}
-        return icon;
+
+        // 3) Fallback — never use a broken glyph (□). Empty or configured text only.
+        String fb = getConfig().getString("chat.heads.fallback", "");
+        if (fb == null || fb.isEmpty()) return Component.empty();
+        return LEGACY.deserialize(fb);
     }
+
 
 
 

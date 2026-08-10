@@ -1,6 +1,6 @@
 # ChatSync
 
-**Multifunctional chat plugin for Minecraft (Paper 1.21.x – 26.2)** · **v1.7**
+**Multifunctional chat plugin for Minecraft (Paper 1.21.x – 26.2)** · **v1.7.1**
 
 Global & local chat, private messages, ignore, socialspy, `/me`, clear chat, statistics, playtime, broadcasts, death-message translation, clickable names, vanish-aware join/quit, full localization (**en / ru / de / fr**).
 
@@ -30,7 +30,7 @@ Global & local chat, private messages, ignore, socialspy, `/me`, clear chat, sta
 
 | Feature | Description |
 | :--- | :--- |
-| **Global / local chat** | Prefix `!` → global; otherwise local with radius. Cooldown & slowmode. Clickable names. |
+| **Global / local chat** | Prefix `!` → global; otherwise local with radius. Cooldown & slowmode. Clickable names. `{username-color}`, `%head%` (optional heads), message color via code before `%message%`. |
 | **Localization** | `en`, `ru`, `de`, `fr`. `auto_language: true` follows the client language. |
 | **Death messages** | Optional RU pack (Minecraft 26.2). Clickable names. |
 | **Private messages** | `/msg`, `/reply`. |
@@ -149,6 +149,14 @@ Each team has its **own chat symbol** (e.g. `#`, `$`, `~`). Only members can wri
 language: "en"
 auto_language: true
 
+chat:
+  username_color: "&7"     # {username-color} in formats
+  heads:
+    enabled: false         # true = show %head% (Paper)
+    fallback: ""
+  global:
+    format: "&8[&aG&8] %head%%luckperms_prefix% {username-color}%player%&7 > &f%message%"
+
 vanish:
   hide_join_quit: true
 
@@ -163,7 +171,7 @@ teams:
 
 ### Build
 
-**JDK 21+** · `mvn clean package` → `target/chatsync-1.7.jar` · Paper **1.21.x – 26.2**
+**JDK 21+** · `mvn clean package` → `target/chatsync-1.7.1.jar` · Paper **1.21.x – 26.2**
 
 ### Support
 
@@ -177,7 +185,7 @@ Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 
 | Возможность | Описание |
 | :--- | :--- |
-| **Глобальный / локальный чат** | Префикс `!` → глобал; иначе локальный с радиусом. Кулдаун и slowmode. Кликабельные ники → `/msg`. |
+| **Глобальный / локальный чат** | `!` → глобал; иначе локал. `{username-color}`, `%head%` (головы), цвет текста — код перед `%message%`. |
 | **Локализация** | `en`, `ru`, `de`, `fr`. `auto_language: true` — язык как в настройках клиента. |
 | **Сообщения о смерти** | Опциональный RU-пакет (ключи Minecraft 26.2). Кликабельные ники. |
 | **Достижения** | Кликабельный ник в анонсе. |
@@ -297,6 +305,13 @@ Discord: [discord.gg/zQevSujnbe](https://discord.gg/zQevSujnbe)
 language: "en"
 auto_language: true
 
+chat:
+  username_color: "&7"
+  heads:
+    enabled: false
+  global:
+    format: "&8[&aG&8] %head%%luckperms_prefix% {username-color}%player%&7 > &f%message%"
+
 vanish:
   hide_join_quit: true
 
@@ -306,7 +321,6 @@ teams:
   max_co_owners: 3
   default_symbol: "#"
   symbol_pool: "#$~@%^*"
-  format: "&8[%color%%team%&8] &f%player%&7: &f%message%"
 ```
 
 ### Сборка
@@ -315,7 +329,7 @@ teams:
 
 ```bash
 mvn clean package
-# → target/chatsync-1.7.jar
+# → target/chatsync-1.7.1.jar
 ```
 
 Сборка против Paper API **1.21.4**. Тот же JAR работает на **1.21.x – 26.2**.
@@ -326,6 +340,6 @@ mvn clean package
 
 ---
 
-*ChatSync v1.7*
+*ChatSync v1.7.1*
 
 <sub>This plugin was developed with the help of AI. / Плагин сделан с помощью ИИ.</sub>

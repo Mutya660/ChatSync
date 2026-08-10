@@ -47,8 +47,8 @@ chat:
     # [EN] Format placeholders: %head% %player% %message% %luckperms_prefix% %luckperms_suffix%
     #      Color BEFORE %message% controls message color (e.g. &f%message%)
     # [RU] Плейсхолдеры: %head% %player% %message% %luckperms_prefix% %luckperms_suffix%
-    #      {username-color} — цвет ника; цвет ПЕРЕД %message% задаёт цвет текста
-    format: "&8[&aG&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
+    #       — цвет ника; цвет ПЕРЕД %message% задаёт цвет текста
+    format: "&8[&aG&8] %head%%luckperms_prefix% %player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Cooldown in seconds between global messages per player. 0 = disabled.
     #      Players with chatsync.bypass_cooldown permission are exempt.
     # [RU] Кулдаун в секундах между глобальными сообщениями одного игрока. 0 = отключено.
@@ -65,7 +65,7 @@ chat:
     cooldown: 2
     # [EN] Local chat format shown to players
     # [RU] Формат локального чата, который видят игроки
-    format: "&8[&fL&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
+    format: "&8[&fL&8] %head%%luckperms_prefix% %player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Whether to also print local chat messages to the console log
     # [RU] Дублировать ли сообщения локального чата в лог консоли
     log_to_console: true

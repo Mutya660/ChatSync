@@ -1889,14 +1889,19 @@ private String resolvePlaceholders(String text, Player player) {
 
     private String stripTrailingColorCodes(String text) {
         if (text == null || text.isEmpty()) return "";
+        // Remove only trailing color codes (&x / &#RRGGBB), keep spaces
+        // so " > &#D01C1C" stays " > " before %message%.
         String s = text.replace('§', '&');
         while (true) {
             String t = extractTrailingColor(s);
             if (t.isEmpty()) break;
-            int idx = s.toLowerCase().lastIndexOf(t.toLowerCase());
+            String lower = s.toLowerCase();
+            int idx = lower.lastIndexOf(t.toLowerCase());
             if (idx < 0) break;
-            s = s.substring(0, idx);
-            while (s.endsWith(" ")) s = s.substring(0, s.length() - 1);
+            // ensure this match is the trailing color sequence (only spaces after it)
+            String after = s.substring(idx + t.length());
+            if (!after.trim().isEmpty()) break;
+            s = s.substring(0, idx) + after; // keep spaces that were after the code (usually none)
         }
         return s;
     }

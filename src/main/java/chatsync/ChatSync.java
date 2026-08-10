@@ -1849,27 +1849,58 @@ private String resolvePlaceholders(String text, Player player) {
 
     /** Last legacy color/format code in text (&x or §x), skipping trailing spaces. */
     private String extractTrailingColor(String text) {
-        if (text == null || text.isEmpty()) return "&f";
+        if (text == null || text.isEmpty()) return "";
         String s = text.replace('§', '&');
-        // walk from end, skip spaces
-        int i = s.length() - 1;
-        while (i >= 0 && s.charAt(i) == ' ') i--;
-        // collect consecutive &x codes at the end (e.g. &c&l)
-        StringBuilder codes = new StringBuilder();
-        while (i >= 1) {
-            if (s.charAt(i - 1) == '&') {
-                char c = Character.toLowerCase(s.charAt(i));
+        int i = s.length();
+        while (i > 0 && s.charAt(i - 1) == ' ') i--;
+        StringBuilder found = new StringBuilder();
+        while (i > 0) {
+            if (i >= 8 && s.charAt(i - 8) == '&' && s.charAt(i - 7) == '#') {
+                String hex = s.substring(i - 8, i);
+                if (hex.matches("(?i)&#[0-9a-f]{6}")) {
+                    found.insert(0, hex);
+                    i -= 8;
+                    while (i > 0 && s.charAt(i - 1) == ' ') i--;
+                    continue;
+                }
+            }
+            if (i >= 5 && s.charAt(i - 5) == '&' && s.charAt(i - 4) == '#') {
+                String hex = s.substring(i - 5, i);
+                if (hex.matches("(?i)&#[0-9a-f]{3}")) {
+                    found.insert(0, hex);
+                    i -= 5;
+                    while (i > 0 && s.charAt(i - 1) == ' ') i--;
+                    continue;
+                }
+            }
+            if (i >= 2 && s.charAt(i - 2) == '&') {
+                char c = Character.toLowerCase(s.charAt(i - 1));
                 if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || "klmnor".indexOf(c) >= 0) {
-                    codes.insert(0, "&" + c);
+                    found.insert(0, "&" + c);
                     i -= 2;
-                    while (i >= 0 && s.charAt(i) == ' ') i--;
+                    while (i > 0 && s.charAt(i - 1) == ' ') i--;
                     continue;
                 }
             }
             break;
         }
-        return codes.length() > 0 ? codes.toString() : "&f";
+        return found.toString();
     }
+
+    private String stripTrailingColorCodes(String text) {
+        if (text == null || text.isEmpty()) return "";
+        String s = text.replace('§', '&');
+        while (true) {
+            String t = extractTrailingColor(s);
+            if (t.isEmpty()) break;
+            int idx = s.toLowerCase().lastIndexOf(t.toLowerCase());
+            if (idx < 0) break;
+            s = s.substring(0, idx);
+            while (s.endsWith(" ")) s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
 
     private boolean isIgnoring(Player who, Player whom) {
         Set<UUID> list = ignoreList.get(who.getUniqueId());

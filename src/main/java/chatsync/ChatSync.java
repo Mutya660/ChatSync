@@ -21,6 +21,13 @@ import java.util.Locale;
 
 public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
 
+    /** &-codes + hex &#RRGGBB / &#RGB */
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.builder()
+            .character('&')
+            .hexColors()
+            .useUnusualXRepeatedCharacterHexFormat()
+            .build();
+
     // ──────────────────────────────────────────────────────────────
     //  State
     // ──────────────────────────────────────────────────────────────
@@ -304,7 +311,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         event.setCancelled(true);
 
         Player sender     = event.getPlayer();
-        String rawMessage = LegacyComponentSerializer.legacyAmpersand().serialize(event.message());
+        String rawMessage = LEGACY.serialize(event.message());
 
         if (!sender.hasPermission("chatsync.color")) rawMessage = stripColorCodes(rawMessage);
 
@@ -1499,34 +1506,107 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     // ──────────────────────────────────────────────────────────────
 
     private Component buildChatComponent(String format, Player sender, String rawMessage, Player viewer) {
-        final String PP = "%player%", MP = "%message%";
-        int idx = format.indexOf(PP);
-        if (idx == -1)
-            return LegacyComponentSerializer.legacyAmpersand()
-                    .deserialize(resolvePlaceholders(format, sender).replace(MP, rawMessage));
+        if (format == null) format = "&7%player%&7: &f%message%";
+        // {username-color} / %username-color% — цвет ника из конфига
+        String userColor = getConfig().getString("chat.username_color", "&7");
+        if (userColor == null || userColor.isEmpty()) userColor = "&7";
+        format = format.replace("{username-color}", userColor).replace("%username-color%", userColor);
 
-        String before = resolvePlaceholders(format.substring(0, idx), sender);
-        String after  = resolvePlaceholders(format.substring(idx + PP.length()), sender).replace(MP, rawMessage);
+        // Собираем компонент по сегментам, чтобы цвет %message% и %player% не терялся
+        // при раздельной десериализации (стиль Adventure не переносится между append).
+        java.util.List<String> tokens = new java.util.ArrayList<>();
+        String[] markers = {"%head%", "%player%", "%message%"};
+        String rest = format;
+        while (true) {
+            int best = -1;
+            String bestM = null;
+            for (String m : markers) {
+                int i = rest.indexOf(m);
+                if (i >= 0 && (best < 0 || i < best)) {
+                    best = i;
+                    bestM = m;
+                }
+            }
+            if (bestM == null) {
+                if (!rest.isEmpty()) tokens.add(rest);
+                break;
+            }
+            if (best > 0) tokens.add(rest.substring(0, best));
+            tokens.add(bestM);
+            rest = rest.substring(best + bestM.length());
+        }
 
-        Component nameComp = clickableName(
-                extractTrailingColor(before) + sender.getName(),
-                sender.getName(),
-                sender.getUniqueId(),
-                viewer);
-
-        return Component.text()
-                .append(LegacyComponentSerializer.legacyAmpersand().deserialize(before))
-                .append(nameComp)
-                .append(LegacyComponentSerializer.legacyAmpersand().deserialize(after))
-                .build();
+        Component result = Component.empty();
+        StringBuilder literalSoFar = new StringBuilder();
+        for (String tok : tokens) {
+            if (tok.equals("%head%")) {
+                result = result.append(buildHeadComponent(sender));
+            } else if (tok.equals("%player%")) {
+                String col = extractTrailingColor(literalSoFar.toString());
+                if (col.isEmpty()) col = userColor;
+                Component nameComp = clickableName(
+                        col + sender.getName(),
+                        sender.getName(),
+                        sender.getUniqueId(),
+                        viewer);
+                result = result.append(nameComp);
+                literalSoFar.append(col).append(sender.getName());
+            } else if (tok.equals("%message%")) {
+                String col = extractTrailingColor(literalSoFar.toString());
+                // Если в самом сообщении уже есть цветовые коды — оставляем;
+                // иначе применяем цвет из формата (перед %message%).
+                String msg = rawMessage == null ? "" : rawMessage;
+                if (!msg.isEmpty() && msg.charAt(0) != '&' && msg.charAt(0) != '§') {
+                    msg = col + msg;
+                }
+                result = result.append(LEGACY.deserialize(
+                        resolvePlaceholders(msg, sender)));
+            } else {
+                String lit = resolvePlaceholders(tok, sender);
+                literalSoFar.append(lit);
+                if (!lit.isEmpty()) {
+                    result = result.append(LEGACY.deserialize(lit));
+                }
+            }
+        }
+        return result;
     }
+
+    /**
+     * Голова игрока в чате (если клиент/Paper поддерживает object component).
+     * Иначе — fallback-текст из конфига (можно оставить пустым).
+     */
+    private Component buildHeadComponent(Player player) {
+        if (!getConfig().getBoolean("chat.heads.enabled", false)) {
+            return Component.empty();
+        }
+        try {
+            // Adventure PlayerHead object (newer Paper / 1.21.6+)
+            Class<?> phClass = Class.forName("net.kyori.adventure.text.object.PlayerHeadObjectContents");
+            Object builder = phClass.getMethod("playerHead").invoke(null);
+            try {
+                builder.getClass().getMethod("name", String.class).invoke(builder, player.getName());
+            } catch (NoSuchMethodException ignored) {}
+            try {
+                builder.getClass().getMethod("id", java.util.UUID.class).invoke(builder, player.getUniqueId());
+            } catch (NoSuchMethodException ignored) {}
+            Object contents = builder.getClass().getMethod("build").invoke(builder);
+            java.lang.reflect.Method objectMethod = Component.class.getMethod("object",
+                    Class.forName("net.kyori.adventure.text.object.ObjectContents"));
+            return (Component) objectMethod.invoke(null, contents);
+        } catch (Throwable t) {
+            String fb = getConfig().getString("chat.heads.fallback", "");
+            if (fb == null || fb.isEmpty()) return Component.empty();
+            return LEGACY.deserialize(fb);
+        }
+    }
+
 
     private Component buildNameComponent(String template, Player player, String ignoredHover) {
         final String PH = "%player%";
         int idx = template.indexOf(PH);
         if (idx == -1)
-            return LegacyComponentSerializer.legacyAmpersand()
-                    .deserialize(resolvePlaceholders(template, player));
+            return LEGACY.deserialize(resolvePlaceholders(template, player));
 
         String before = resolvePlaceholders(template.substring(0, idx), player);
         String after  = resolvePlaceholders(template.substring(idx + PH.length()), player);
@@ -1538,9 +1618,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 player);
 
         return Component.text()
-                .append(LegacyComponentSerializer.legacyAmpersand().deserialize(before))
+                .append(LEGACY.deserialize(before))
                 .append(nameComp)
-                .append(LegacyComponentSerializer.legacyAmpersand().deserialize(after))
+                .append(LEGACY.deserialize(after))
                 .build();
     }
 
@@ -1549,8 +1629,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String ph = "%sender%";
         if (idx == -1) { idx = format.indexOf("%receiver%"); ph = "%receiver%"; }
         if (idx == -1)
-            return LegacyComponentSerializer.legacyAmpersand()
-                    .deserialize(resolvePlaceholders(format, target));
+            return LEGACY.deserialize(resolvePlaceholders(format, target));
 
         String before = format.substring(0, idx);
         String after  = format.substring(idx + ph.length());
@@ -1562,9 +1641,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 target);
 
         return Component.text()
-                .append(LegacyComponentSerializer.legacyAmpersand().deserialize(resolvePlaceholders(before, target)))
+                .append(LEGACY.deserialize(resolvePlaceholders(before, target)))
                 .append(nameComp)
-                .append(LegacyComponentSerializer.legacyAmpersand().deserialize(resolvePlaceholders(after, target)))
+                .append(LEGACY.deserialize(resolvePlaceholders(after, target)))
                 .build();
     }
 
@@ -1720,7 +1799,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private void logToConsole(String message) {
         Bukkit.getConsoleSender().sendMessage(
-                LegacyComponentSerializer.legacyAmpersand().deserialize(message));
+                LEGACY.deserialize(message));
     }
 
     /** Пишет строку в асинхронный файловый лог чата, если это включено в config.yml. */
@@ -1730,10 +1809,28 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
     }
 
+    /** Last legacy color/format code in text (&x or §x), skipping trailing spaces. */
     private String extractTrailingColor(String text) {
-        if (text.length() >= 2 && text.charAt(text.length() - 2) == '&')
-            return text.substring(text.length() - 2);
-        return "&f";
+        if (text == null || text.isEmpty()) return "&f";
+        String s = text.replace('§', '&');
+        // walk from end, skip spaces
+        int i = s.length() - 1;
+        while (i >= 0 && s.charAt(i) == ' ') i--;
+        // collect consecutive &x codes at the end (e.g. &c&l)
+        StringBuilder codes = new StringBuilder();
+        while (i >= 1) {
+            if (s.charAt(i - 1) == '&') {
+                char c = Character.toLowerCase(s.charAt(i));
+                if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || "klmnor".indexOf(c) >= 0) {
+                    codes.insert(0, "&" + c);
+                    i -= 2;
+                    while (i >= 0 && s.charAt(i) == ' ') i--;
+                    continue;
+                }
+            }
+            break;
+        }
+        return codes.length() > 0 ? codes.toString() : "&f";
     }
 
     private boolean isIgnoring(Player who, Player whom) {
@@ -1748,7 +1845,14 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     private String stripColorCodes(String text) {
-        return text.replaceAll("(?i)&[0-9a-fk-or]", "");
+        if (text == null) return "";
+        // legacy &x and hex &#RRGGBB / &#RGB (also §)
+        String s = text.replace('§', '&');
+        s = s.replaceAll("(?i)&#[0-9a-f]{6}", "");
+        s = s.replaceAll("(?i)&#[0-9a-f]{3}", "");
+        s = s.replaceAll("(?i)&x(&[0-9a-f]){6}", "");
+        s = s.replaceAll("(?i)&[0-9a-fk-or]", "");
+        return s;
     }
 
     /** Читает toggles.<key> из config.yml, по умолчанию true */
@@ -1757,7 +1861,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     Component color(String text) {
-        return LegacyComponentSerializer.legacyAmpersand().deserialize(text);
+        if (text == null || text.isEmpty()) return Component.empty();
+        return LEGACY.deserialize(text);
     }
 
     // ── Team / party ──────────────────────────────────────────

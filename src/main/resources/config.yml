@@ -30,6 +30,17 @@ auto_language: true
 
 # ── Chat ──────────────────────────────────────────────────────
 chat:
+  # [EN] Default color for player names ({username-color} / %username-color% in formats)
+  # [RU] Цвет ника по умолчанию ({username-color} / %username-color% в форматах)
+  username_color: "&7"
+  # [EN] Player heads in chat (%head% in format). Needs recent Paper for real heads;
+  #      otherwise fallback text is used (can be empty).
+  # [RU] Головы в чате (%head%). На новых Paper — настоящие головы; иначе fallback.
+  heads:
+    enabled: false
+    # [EN] Text if head component is not supported (e.g. "" or "&8• ")
+    # [RU] Текст, если головы не поддерживаются
+    fallback: ""
   global:
     # [EN] Whether a message must start with the symbol below to be sent to global chat
     # [RU] Должно ли сообщение начинаться с символа ниже, чтобы попасть в глобальный чат
@@ -37,9 +48,12 @@ chat:
     # [EN] The symbol that marks a message as global (e.g. "!hello")
     # [RU] Символ, который делает сообщение глобальным (например, "!привет")
     symbol: "!"
-    # [EN] Global chat format. Placeholders: %player%, %message%, %luckperms_prefix%, %luckperms_suffix%
-    # [RU] Формат глобального чата. Плейсхолдеры: %player%, %message%, %luckperms_prefix%, %luckperms_suffix%
-    format: "&8[&aG&8] %luckperms_prefix% &7%player% %luckperms_suffix%&7 > &7%message%"
+    # [EN] Format placeholders: %head% %player% %message% %luckperms_prefix% %luckperms_suffix%
+    #      {username-color} — color for names from chat.username_color
+    #      Color BEFORE %message% controls message color (e.g. &f%message%)
+    # [RU] Плейсхолдеры: %head% %player% %message% %luckperms_prefix% %luckperms_suffix%
+    #      {username-color} — цвет ника; цвет ПЕРЕД %message% задаёт цвет текста
+    format: "&8[&aG&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Cooldown in seconds between global messages per player. 0 = disabled.
     #      Players with chatsync.bypass_cooldown permission are exempt.
     # [RU] Кулдаун в секундах между глобальными сообщениями одного игрока. 0 = отключено.
@@ -56,7 +70,7 @@ chat:
     cooldown: 2
     # [EN] Local chat format shown to players
     # [RU] Формат локального чата, который видят игроки
-    format: "&8[&fL&8] %luckperms_prefix% &f%player% %luckperms_suffix%&f > &f%message%"
+    format: "&8[&fL&8] %head%%luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 > &f%message%"
     # [EN] Whether to also print local chat messages to the console log
     # [RU] Дублировать ли сообщения локального чата в лог консоли
     log_to_console: true

@@ -1,5 +1,5 @@
 name: ChatSync
-version: 1.7
+version: 1.7.1
 main: chatsync.ChatSync
 api-version: '1.21'
 softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans, SuperVanish, PremiumVanish, Essentials]

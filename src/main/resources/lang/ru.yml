@@ -58,8 +58,8 @@ messages:
   join_hover_playtime: "&7Нажми, чтобы написать &f%player%\n&8Время игры: &e%playtime%"
 
 pm:
-  format_sender:   "&eВы &e→ &e%receiver%&e: &e%message%"
-  format_receiver: "&e%sender% &e→ &eВы&e: &e%message%"
+  format_sender:   "%head_self%&eВы &e→ %head_other%&e%receiver%&e: &e%message%"
+  format_receiver: "%head_other%&e%sender% &e→ %head_self%&eВы&e: &e%message%"
   format_console_sender: "&eВы &e→ &eКонсоль&e: &e%message%"
   player_not_found: "&cИгрок &f%player% &cне в сети."
   no_reply_target: "&cНет никого, кому можно ответить."

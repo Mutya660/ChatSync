@@ -58,8 +58,8 @@ messages:
   join_hover_playtime: "&7Klicken, um &f%player% &7eine Nachricht zu senden\n&8Spielzeit: &e%playtime%"
 
 pm:
-  format_sender:   "&eDu &e→ &e%receiver%&e: &e%message%"
-  format_receiver: "&e%sender% &e→ &eDu&e: &e%message%"
+  format_sender:   "%head_self%&eDu &e→ %head_other%&e%receiver%&e: &e%message%"
+  format_receiver: "%head_other%&e%sender% &e→ %head_self%&eDu&e: &e%message%"
   format_console_sender: "&eDu &e→ &eKonsole&e: &e%message%"
   player_not_found: "&cSpieler &f%player% &cist nicht online."
   no_reply_target: "&cNiemand, dem du antworten könntest."

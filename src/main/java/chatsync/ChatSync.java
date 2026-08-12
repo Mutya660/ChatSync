@@ -602,7 +602,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         Player target = Bukkit.getPlayer(args[0]);
         if (target == null || !target.isOnline()) {
-            pSender.sendMessage(color(t(pSender, "pm.player_not_found").replace("%player%", args[0])));
+            String nf = t(pSender, "pm.player_not_found");
+            if (!nf.contains("%player%")) nf = nf + " &8(%player%)";
+            pSender.sendMessage(buildClickableNameLine(nf, args[0], pSender));
             return true;
         }
         if (target.equals(pSender)) { pSender.sendMessage(color(t(pSender, "commands.msg.self"))); return true; }
@@ -2194,38 +2196,67 @@ private Component buildChatComponent(String format, Player sender, String rawMes
     }
 
 
-    private Component formatPM(String format, Player target, Player other, String ignoredHover) {
+    private Component formatPM(String format, Player self, Player other, String ignoredHover) {
         if (format == null) format = "";
-        final boolean wantHead = format.contains("%head%")
-                || getConfig().getBoolean("chat.heads.force_first", true);
-        format = stripHeadPlaceholder(format);
+        // Tokens: %head_self% %head_other% %head% %sender% %receiver% %message%
+        // %head% legacy = other player's head once at start if force_first
+        boolean force = getConfig().getBoolean("chat.heads.force_first", true)
+                && getConfig().getBoolean("chat.heads.enabled", true);
+        if (force && !format.contains("%head_self%") && !format.contains("%head_other%") && !format.contains("%head%")) {
+            format = "%head_self%%head_other%" + format;
+        }
+        format = format.replace("%head%", "%head_other%"); // legacy
 
-        int idx = format.indexOf("%sender%");
-        String ph = "%sender%";
-        if (idx == -1) { idx = format.indexOf("%receiver%"); ph = "%receiver%"; }
-        Component body;
-        if (idx == -1) {
-            body = LEGACY.deserialize(resolvePlaceholders(format, target));
-        } else {
-            String before = format.substring(0, idx);
-            String after  = format.substring(idx + ph.length());
-            Component nameComp = clickableName(
-                    extractTrailingColor(before) + other.getName(),
-                    other.getName(),
-                    other.getUniqueId(),
-                    target);
-            body = Component.text()
-                    .append(color(before))
-                    .append(nameComp)
-                    .append(color(after))
-                    .build();
+        net.kyori.adventure.text.TextComponent.Builder out = Component.text();
+        String rest = format;
+        while (!rest.isEmpty()) {
+            int next = rest.length();
+            String which = null;
+            for (String token : new String[]{"%head_self%", "%head_other%", "%sender%", "%receiver%", "%message%"}) {
+                int i = rest.indexOf(token);
+                if (i >= 0 && i < next) {
+                    next = i;
+                    which = token;
+                }
+            }
+            if (which == null) {
+                out.append(color(rest));
+                break;
+            }
+            if (next > 0) {
+                out.append(color(rest.substring(0, next)));
+            }
+            String afterToken = rest.substring(next + which.length());
+            String colorCarry = extractTrailingColor(rest.substring(0, next));
+            switch (which) {
+                case "%head_self%" -> {
+                    if (self != null) out.append(buildHeadComponent(self));
+                }
+                case "%head_other%" -> {
+                    if (other != null) out.append(buildHeadComponent(other));
+                }
+                case "%sender%", "%receiver%" -> {
+                    Player named = other;
+                    if (named != null) {
+                        out.append(clickableName(
+                                colorCarry + named.getName(),
+                                named.getName(),
+                                named.getUniqueId(),
+                                self));
+                    }
+                }
+                case "%message%" -> {
+                    // message already substituted into format string usually;
+                    // if still present as token, leave empty
+                }
+                default -> {}
+            }
+            rest = afterToken;
         }
-        // head of the other player (who you're talking about / with)
-        if (wantHead && other != null) {
-            return Component.text().append(buildHeadComponent(other)).append(body).build();
-        }
-        return body;
+        return out.build();
     }
+
+
 
 
     // ──────────────────────────────────────────────────────────────

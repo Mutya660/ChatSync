@@ -47,13 +47,9 @@ public class AdvancementMessageTranslator implements Listener {
                     .append(updated)
                     .build();
         }
-        // Heads in-game only — DiscordSRV would show "[name head]"
-        Component forDiscord = stripObjectComponents(updated);
-        event.message(null);
-        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-            p.sendMessage(updated);
-        }
-        plugin.relayGameMessageToDiscord(forDiscord);
+        // DiscordSRV reads event.message() — must stay non-null.
+        // Strip object heads to avoid "[name head]" in Discord.
+        event.message(stripObjectComponents(updated));
     }
 
     private Component stripObjectComponents(Component component) {

@@ -108,13 +108,10 @@ public class DeathMessageTranslator implements Listener {
 
         if (forPlayers == null) return;
 
-        // DiscordSRV serializes object-components as "[name head]" — keep heads in-game only
-        Component forDiscord = stripObjectComponents(forPlayers);
-        event.deathMessage(null);
-        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-            p.sendMessage(forPlayers);
-        }
-        plugin.relayGameMessageToDiscord(forDiscord);
+        // DiscordSRV uses event.deathMessage() — must be non-null.
+        // Strip object heads so Discord does not show "[name head]".
+        // Clickable names remain; head icons are omitted in death lines (Discord-safe).
+        event.deathMessage(stripObjectComponents(forPlayers));
     }
 
     /** Remove Adventure object components (player heads) so DiscordSRV plain text is clean. */

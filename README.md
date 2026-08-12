@@ -234,12 +234,7 @@ pm:
 
 </details>
 
-### Build
 
-```bash
-mvn clean package
-# → target/chatsync-1.7.2.jar
-```
 
 **JDK 21+**. Paper API **1.21.4**. Same JAR runs on **1.21.x – 26.2**.
 
@@ -320,12 +315,7 @@ Bugs / questions: [Discord](https://discord.com/invite/zQevSujnbe) (`mutya660`)
 
 Скин головы консоли: `console_pm.head_texture` (base64 с [minecraft-heads.com](https://minecraft-heads.com) / [mineskin.org](https://mineskin.org)).
 
-### Сборка
 
-```bash
-mvn clean package
-# → target/chatsync-1.7.2.jar
-```
 
 **JDK 21+**. Paper API **1.21.4**. Работает на **1.21.x – 26.2**.
 

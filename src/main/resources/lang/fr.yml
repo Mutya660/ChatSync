@@ -9,13 +9,15 @@ commands:
   chatsync:
     usage: "&7Usage : &f/chatsync info|reload"
     info_lines:
-      - "&8&m--------------------------------"
-      - "&b&l ChatSync &8| &7Information"
-      - "&8&m--------------------------------"
-      - "&7 &fPlugin de chat multifonction pour Minecraft"
-      - "&7 &eVersion : &f%version%"
-      - "&7 &aAuteur : &fMutya660"
-      - "&8&m--------------------------------"
+      - ""
+      - "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "&b&l  ChatSync &8» &7Information"
+      - "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "&7  Plugin de chat multifonction pour Minecraft"
+      - "&7  Version &8» &e%version%"
+      - "&7  Auteur  &8» &aMutya660"
+      - "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - ""
   msg:
     usage: "&7Utilisation : &f/msg <joueur|console> <message>"
     self: "&cVous ne pouvez pas vous envoyer un message."
@@ -39,7 +41,7 @@ commands:
     empty: "&7Votre liste d'ignore est vide."
     header: "&7Joueurs ignorés &8(&f%count%&8)&7 :"
     entry_prefix: "&f"
-      click_unignore: "&cClique pour retirer &f%player% &cde la liste d'ignore"
+    click_unignore: "&cClique pour retirer &f%player% &cde la liste d'ignore"
   socialspy:
     enabled: "&eSocialSpy &aactivé&e."
     disabled: "&eSocialSpy &cdésactivé&e."

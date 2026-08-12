@@ -187,7 +187,18 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         for (String lang : SUPPORTED_LANGS) {
             String resource = "lang/" + lang + ".yml";
             File file = new File(getDataFolder(), resource);
-            if (!file.exists()) saveResource(resource, false);
+            if (!file.exists()) {
+                saveResource(resource, false);
+            } else {
+                // Re-extract from JAR if file is broken / missing critical keys
+                YamlConfiguration probe = YamlConfiguration.loadConfiguration(file);
+                if (probe.getString("commands.reload.success") == null
+                        || probe.getString("playtime.other") == null
+                        || probe.getString("pm.player_not_found") == null) {
+                    getLogger().warning("Language file " + resource + " is outdated or broken — restoring from JAR.");
+                    saveResource(resource, true);
+                }
+            }
             langConfigs.put(lang, YamlConfiguration.loadConfiguration(file));
         }
         getLogger().info("Loaded " + langConfigs.size() + " language(s): " + String.join(", ", langConfigs.keySet()));
@@ -212,9 +223,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private String t(String lang, String key) {
         YamlConfiguration cfg = langConfigs.get(lang);
-        if (cfg != null && cfg.contains(key)) return cfg.getString(key, key);
-        YamlConfiguration en = langConfigs.get("en");
-        if (en != null && en.contains(key)) return en.getString(key, key);
+        if (cfg != null) {
+            String v = cfg.getString(key);
+            if (v != null && !v.isEmpty()) return v;
+        }
+        if (!"en".equals(lang)) {
+            YamlConfiguration en = langConfigs.get("en");
+            if (en != null) {
+                String v = en.getString(key);
+                if (v != null && !v.isEmpty()) return v;
+            }
+        }
         return key;
     }
 
@@ -513,13 +532,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
             return;
         }
-        sender.sendMessage(color("&8&m--------------------------------"));
-        sender.sendMessage(color("&b&l ChatSync &8| &7Information"));
-        sender.sendMessage(color("&8&m--------------------------------"));
-        sender.sendMessage(color("&7 &fMultifunctional chat plugin for Minecraft"));
-        sender.sendMessage(color("&7 &eVersion: &f" + ver));
-        sender.sendMessage(color("&7 &aAuthor: &fMutya660"));
-        sender.sendMessage(color("&8&m--------------------------------"));
+        sender.sendMessage(color(""));
+        sender.sendMessage(color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        sender.sendMessage(color("&b&l  ChatSync &8» &7Information"));
+        sender.sendMessage(color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        sender.sendMessage(color("&7  Multifunctional chat plugin for Minecraft"));
+        sender.sendMessage(color("&7  Version &8» &e" + ver));
+        sender.sendMessage(color("&7  Author  &8» &aMutya660"));
+        sender.sendMessage(color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        sender.sendMessage(color(""));
     }
 
     private boolean cmdMsg(CommandSender sender, String[] args) {

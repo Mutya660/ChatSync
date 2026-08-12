@@ -5,10 +5,23 @@ commands:
   reload:
     success: "&7[ChatSync] &aConfiguration reloaded successfully!"
     no_permission: "&c[!] You don't have permission to run this command."
-    usage: "&7Usage: &f/team create|invite|accept|deny|leave|kick|disband|chat|name|color|symbol|info|transfer|promote|demote"
+    usage: "&7Usage: &f/chatsync reload"
+  chatsync:
+    usage: "&7Usage: &f/chatsync info|reload"
+    info_lines:
+      - "&8&m--------------------------------"
+      - "&b&l ChatSync &8| &7Information"
+      - "&8&m--------------------------------"
+      - "&7 &fMultifunctional chat plugin for Minecraft"
+      - "&7 &eVersion: &f%version%"
+      - "&7 &aAuthor: &fMutya660"
+      - "&8&m--------------------------------"
   msg:
-    usage: "&7Usage: &f/msg <player> <message>"
+    usage: "&7Usage: &f/msg <player|console> <message>"
     self: "&cYou can't message yourself."
+    players_only: "&cPlayers only."
+    console_players_only: "&cOnly players can message the console."
+    console_no_permission: "&cYou don't have permission to message the console."
   reply:
     usage: "&7Usage: &f/reply <message>"
     no_target: "&cNo one to reply to."
@@ -25,6 +38,7 @@ commands:
     empty: "&7Your ignore list is empty."
     header: "&7Ignored players &8(&f%count%&8)&7:"
     entry_prefix: "&f"
+      click_unignore: "&cClick to remove &f%player% &cfrom ignore list"
   socialspy:
     enabled: "&eSocialSpy &aenabled&e."
     disabled: "&eSocialSpy &cdisabled&e."
@@ -43,6 +57,7 @@ messages:
 pm:
   format_sender:   "&eYou &e→ &e%receiver%&e: &e%message%"
   format_receiver: "&e%sender% &e→ &eYou&e: &e%message%"
+  format_console_sender: "&eYou &e→ &eConsole&e: &e%message%"
   player_not_found: "&cPlayer &f%player% &cis not online."
   no_reply_target: "&cYou have nobody to reply to."
 

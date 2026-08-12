@@ -148,6 +148,10 @@ messages:
 commands:
   reload:
     permission: "chatsync.admin"
+  msg:
+    # [EN] Permission for /msg console <text>
+    # [RU] Право на /msg console <текст>
+    console_permission: "chatsync.msg.console"
   me:
     permission: "chatsync.me"
   clear:
@@ -361,11 +365,6 @@ toggles:
   # [RU] Делать ник игрока кликабельным в сообщениях о получении достижений для быстрого /msg
   clickable_advancement_name: true
 
-# ── Vanish (SuperVanish / PremiumVanish / Essentials) ─────────
-vanish:
-  # [EN] Hide join/quit messages when the player is vanished
-  # [RU] Скрывать вход/выход, если игрок в ванише
-  hide_join_quit: true
 
 # ── Teams / party chat ────────────────────────────────────────
 teams:
@@ -409,3 +408,110 @@ teams:
   persist: true
   # [EN] Format: %color% %team% %player% %message%
   format: "%head%&8[%color%%team%&8] &f%player%&7: &f%message%"
+
+
+# ── Clickable names ────────────────────────────────────────────
+clickable_names:
+  # [EN] Master switch for clickable player names in plugin messages
+  # [RU] Общий переключатель кликабельных ников в сообщениях плагина
+  enabled: true
+  # [EN] Command suggested on click ( %player% = name ). Default: private message
+  # [RU] Команда по клику ( %player% = ник ). По умолчанию — личное сообщение
+  click_command: "/msg %player% "
+  # [EN] Click action: SUGGEST_COMMAND | RUN_COMMAND | COPY_TO_CLIPBOARD
+  # [RU] Действие клика: SUGGEST_COMMAND | RUN_COMMAND | COPY_TO_CLIPBOARD
+  click_action: "SUGGEST_COMMAND"
+  # [EN] Also put head before names in command outputs (playtime, lastseen, tops…)
+  # [RU] Ставить голову перед ником в выводе команд (playtime, lastseen, топы…)
+  heads_in_commands: true
+
+# ── Ignore list ────────────────────────────────────────────────
+ignore:
+  # [EN] Clicking a name in /ignorelist runs /ignore <name> (unignore)
+  # [RU] Клик по нику в /ignorelist выполняет /ignore <ник> (снять игнор)
+  click_to_unignore: true
+  # [EN] Click name in "now ignoring" message to unignore
+  # [RU] Клик по нику в сообщении «вы игнорируете» снимает игнор
+  click_on_added_message: true
+  # [EN] Allow ignoring offline players by name (uses UUID cache / OfflinePlayer)
+  # [RU] Разрешить игнор оффлайн-игроков по нику
+  allow_offline: true
+  # [EN] Max players one player can ignore (0 = unlimited)
+  # [RU] Макс. игроков в игнор-листе (0 = без лимита)
+  max_ignored: 0
+
+
+# ── Console PM (/msg console) ──────────────────────────────────
+console_pm:
+  # [EN] Enable /msg console <text>
+  # [RU] Включить /msg console <текст>
+  enabled: true
+  # [EN] Log format for the server console ( %player% %message% )
+  # [RU] Формат строки в консоли
+  console_format: "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%"
+  # [EN] Also write to ChatSync log file when logging.enabled
+  # [RU] Писать также в лог-файл плагина
+  log_to_file: true
+  # [EN] Count toward /chatstats PM counter
+  # [RU] Учитывать в статистике ЛС
+  count_stats: true
+
+# ── Vanish + /lastseen ─────────────────────────────────────────
+vanish:
+  # [EN] Hide join/quit messages when the player is vanished
+  # [RU] Скрывать вход/выход, если игрок в ванише
+  hide_join_quit: true
+  # [EN] /lastseen: treat vanished players as offline for viewers without see-perms
+  # [RU] /lastseen: ваниш = оффлайн для тех, кто не видит ваниш
+  hide_lastseen_online: true
+  # [EN] Permissions that allow seeing vanished players as online in /lastseen
+  # [RU] Права, с которыми /lastseen показывает ваниш как «онлайн»
+  see_permissions:
+    - "sv.see"
+    - "pv.see"
+    - "essentials.vanish.see"
+    - "chatsync.vanish.see"
+
+# ── SocialSpy ──────────────────────────────────────────────────
+socialspy:
+  # [EN] Permission node for /socialspy
+  # [RU] Право на /socialspy
+  permission: "chatsync.spy"
+  # [EN] Spy on local chat outside radius
+  # [RU] Подслушивать локальный чат вне радиуса
+  local_chat: true
+  # [EN] Spy on private messages
+  # [RU] Подслушивать личные сообщения
+  private_messages: true
+
+# ── Sounds (extra) ─────────────────────────────────────────────
+sounds:
+  # [EN] Sound when someone mentions your name in global/local chat (empty = off)
+  # [RU] Звук при упоминании вашего ника в чате (пусто = выкл)
+  mention:
+    enable: false
+    name: "BLOCK_NOTE_BLOCK_PLING"
+    volume: 1.0
+    pitch: 1.5
+  # [EN] Sound on team invite received
+  # [RU] Звук при приглашении в команду
+  team_invite:
+    enable: true
+    name: "ENTITY_EXPERIENCE_ORB_PICKUP"
+    volume: 1.0
+    pitch: 1.0
+
+# ── Advanced ───────────────────────────────────────────────────
+advanced:
+  # [EN] Strip color codes from players without chatsync.color
+  # [RU] Срезать цветовые коды у игроков без chatsync.color
+  strip_colors_without_permission: true
+  # [EN] Permission that allows using & color codes in chat / me / msg
+  # [RU] Право на &-цвета в чате / me / msg
+  color_permission: "chatsync.color"
+  # [EN] Debug extra plugin logs (not only heads)
+  # [RU] Доп. отладочные логи плагина
+  debug: false
+  # [EN] Save ignore lists across restarts (plugins/ChatSync/ignores.yml)
+  # [RU] Сохранять игнор-листы между рестартами
+  persist_ignores: true

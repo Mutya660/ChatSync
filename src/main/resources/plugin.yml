@@ -1,5 +1,5 @@
 name: ChatSync
-version: 1.7.1
+version: 1.7.2
 main: chatsync.ChatSync
 api-version: '1.21'
 softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans, SuperVanish, PremiumVanish, Essentials, SkinsRestorer]
@@ -10,7 +10,7 @@ website: "https://modrinth.com/plugin/chatsync"
 commands:
   msg:
     description: Chat plugin for Paper 26.2 —  Send a private message to a player
-    usage: /msg <player> <message>
+    usage: /msg <player|console> <message>
     aliases: [m, tell, t, w]
   reply:
     description: Chat plugin for Paper 26.2 —  Reply to your last private message
@@ -28,10 +28,9 @@ commands:
     usage: /socialspy
     permission: chatsync.spy
   chatsync:
-    description: Chat plugin for Paper 26.2 —  ChatSync admin commands
-    usage: /chatsync reload
+    description: ChatSync info and admin commands
+    usage: /chatsync [info|reload]
     aliases: [csync]
-    permission: chatsync.admin
   me:
     description: Chat plugin for Paper 26.2 —  Send a roleplay-style message in the third person
     usage: /me <action>
@@ -71,7 +70,10 @@ permissions:
     description: Chat plugin for Paper 26.2 —  Bypass the global chat cooldown
     default: op
   chatsync.admin:
-    description: Chat plugin for Paper 26.2 —  Access to /chatsync reload
+    description: Access to /chatsync reload
+    default: op
+  chatsync.msg.console:
+    description: Send a private message to the server console (/msg console)
     default: op
   chatsync.spy:
     description: Chat plugin for Paper 26.2 —  Access to /socialspy

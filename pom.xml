@@ -6,7 +6,7 @@
 
     <groupId>io.github.chatsync</groupId>
     <artifactId>chatsync</artifactId>
-    <version>1.7.1</version>
+    <version>1.7.2</version>
 
     <properties>
         <!-- Java 21: builds on common JDKs and runs on Paper 1.21.x … 26.2 -->

@@ -55,9 +55,16 @@ public class ChatSyncExpansion extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onPlaceholderRequest(Player player, @NotNull String params) {
-        if (player == null) return "";
-
         String key = params.toLowerCase();
+
+        if (key.equals("version") || key.equals("ver")) {
+            return plugin.getDescription().getVersion();
+        }
+        if (key.equals("author") || key.equals("developer")) {
+            return "Mutya660";
+        }
+
+        if (player == null) return "";
 
         // Playtime
         if (key.equals("playtime") || key.equals("playtime_formatted")) {

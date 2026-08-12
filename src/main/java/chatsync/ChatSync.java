@@ -313,7 +313,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         Player sender     = event.getPlayer();
         String rawMessage = LEGACY.serialize(event.message());
 
-        if (!sender.hasPermission("chatsync.color")) rawMessage = stripColorCodes(rawMessage);
+        if (!sender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) rawMessage = stripColorCodes(rawMessage);
 
         boolean requireSymbol = getConfig().getBoolean("chat.global.require_symbol", true);
         String  globalSymbol  = getConfig().getString("chat.global.symbol", "!");
@@ -473,23 +473,111 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     private boolean cmdChatSync(CommandSender sender, String[] args) {
-        if (!sender.hasPermission(getConfig().getString("commands.reload.permission", "chatsync.admin"))) {
-            sender.sendMessage(color(tAny(sender, "commands.reload.no_permission")));
-            return true;
-        }
-        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+        String sub = args.length > 0 ? args[0].toLowerCase() : "info";
+
+        if (sub.equals("reload")) {
+            if (!sender.hasPermission(getConfig().getString("commands.reload.permission", "chatsync.admin"))) {
+                sender.sendMessage(color(tAny(sender, "commands.reload.no_permission")));
+                return true;
+            }
             reloadConfig();
             loadLangFiles();
             sender.sendMessage(color(tAny(sender, "commands.reload.success")));
-        } else {
-            sender.sendMessage(color(tAny(sender, "commands.reload.usage")));
+            return true;
         }
+
+        // /chatsync info (default) — available to everyone
+        if (sub.equals("info") || sub.equals("version") || sub.equals("about") || args.length == 0) {
+            sendPluginInfo(sender);
+            return true;
+        }
+
+        sender.sendMessage(color(tAny(sender, "commands.chatsync.usage")));
         return true;
     }
 
+    private void sendPluginInfo(CommandSender sender) {
+        String ver = getDescription().getVersion();
+        // Prefer lang lines if present; otherwise built-in layout matching Discord mockup
+        java.util.List<String> lines = (sender instanceof Player p)
+                ? tList(p, "commands.chatsync.info_lines")
+                : tListDefault("commands.chatsync.info_lines");
+        if (lines != null && !lines.isEmpty()) {
+            for (String line : lines) {
+                if (line == null) continue;
+                sender.sendMessage(color(line
+                        .replace("%version%", ver)
+                        .replace("%chatsync_version%", ver)
+                        .replace("%author%", "Mutya660")
+                        .replace("%developer%", "Mutya660"));
+            }
+            return;
+        }
+        sender.sendMessage(color("&8&m--------------------------------"));
+        sender.sendMessage(color("&b&l ChatSync &8| &7Information"));
+        sender.sendMessage(color("&8&m--------------------------------"));
+        sender.sendMessage(color("&7 &fMultifunctional chat plugin for Minecraft"));
+        sender.sendMessage(color("&7 &eVersion: &f" + ver));
+        sender.sendMessage(color("&7 &aAuthor: &fMutya660"));
+        sender.sendMessage(color("&8&m--------------------------------"));
+    }
+
     private boolean cmdMsg(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player pSender)) { sender.sendMessage("Players only."); return true; }
-        if (args.length < 2) { pSender.sendMessage(color(t(pSender, "commands.msg.usage"))); return true; }
+        if (args.length < 2) {
+            sender.sendMessage(color(tAny(sender, "commands.msg.usage")));
+            return true;
+        }
+
+        // /msg console <text> — write to server console (tests / alert log watchers)
+        if (args[0].equalsIgnoreCase("console")) {
+            if (!getConfig().getBoolean("console_pm.enabled", true)) {
+                sender.sendMessage(color(tAny(sender, "commands.msg.usage")));
+                return true;
+            }
+            if (!(sender instanceof Player pSender)) {
+                sender.sendMessage(color(tAny(sender, "commands.msg.console_players_only")));
+                return true;
+            }
+            if (!pSender.hasPermission(getConfig().getString("commands.msg.console_permission", "chatsync.msg.console"))) {
+                pSender.sendMessage(color(t(pSender, "commands.msg.console_no_permission")));
+                return true;
+            }
+            String message = joinArgs(args, 1);
+            if (message.isBlank()) {
+                pSender.sendMessage(color(t(pSender, "commands.msg.usage")));
+                return true;
+            }
+            if (!pSender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) message = stripColorCodes(message);
+
+            String cfmt = getConfig().getString("console_pm.console_format",
+                    "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%");
+            if (cfmt == null) cfmt = "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%";
+            getLogger().info("[ChatSync PM → Console] " + pSender.getName() + ": " + message.replace('§', '&'));
+            Bukkit.getConsoleSender().sendMessage(color(
+                    cfmt.replace("%player%", pSender.getName()).replace("%message%", message)));
+
+            String senderFmt = t(pSender, "pm.format_console_sender");
+            if (senderFmt == null || senderFmt.isEmpty() || senderFmt.equals("pm.format_console_sender")) {
+                senderFmt = "&eYou &e→ &eConsole&e: &e%message%";
+            }
+            pSender.sendMessage(color(senderFmt.replace("%message%", message)));
+
+            if (getConfig().getBoolean("console_pm.log_to_file", true) && chatLogger != null) {
+                try { chatLogger.log("[PM→Console] " + pSender.getName() + ": " + message); } catch (Throwable ignored) {}
+            }
+            if (getConfig().getBoolean("console_pm.count_stats", true) && statsManager != null) {
+                try {
+                    statsManager.record(pSender.getUniqueId(), pSender.getName(),
+                            ChatStatsManager.MessageType.PM);
+                } catch (Throwable ignored) {}
+            }
+            return true;
+        }
+
+        if (!(sender instanceof Player pSender)) {
+            sender.sendMessage(color(tAny(sender, "commands.msg.players_only")));
+            return true;
+        }
 
         Player target = Bukkit.getPlayer(args[0]);
         if (target == null || !target.isOnline()) {
@@ -542,14 +630,31 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         Set<UUID> ignored = ignoreList.computeIfAbsent(pSender.getUniqueId(), k -> new HashSet<>());
         if (ignored.contains(target.getUniqueId())) {
             ignored.remove(target.getUniqueId());
-            pSender.sendMessage(color(t(pSender, "commands.ignore.removed").replace("%player%", target.getName())));
+            pSender.sendMessage(buildClickableNameLine(t(pSender, "commands.ignore.removed"), target.getName(), pSender));
             if (tog("ignore_notify_target"))
-                target.sendMessage(color(t(target, "commands.ignore.target_removed").replace("%player%", pSender.getName())));
+                target.sendMessage(buildClickableNameLine(t(target, "commands.ignore.target_removed"), pSender.getName(), target));
         } else {
             ignored.add(target.getUniqueId());
-            pSender.sendMessage(color(t(pSender, "commands.ignore.added").replace("%player%", target.getName())));
+            // Click name to unignore again
+            String added = t(pSender, "commands.ignore.added");
+            Component addedMsg;
+            if (added.contains("%player%")) {
+                int idx = added.indexOf("%player%");
+                String before = added.substring(0, idx);
+                String after = added.substring(idx + "%player%".length());
+                Component nameComp = color(extractTrailingColor(before) + target.getName())
+                        .clickEvent(ClickEvent.runCommand("/ignore " + target.getName()))
+                        .hoverEvent(HoverEvent.showText(color(
+                                t(pSender, "commands.ignorelist.click_unignore").replace("%player%", target.getName())
+                                        .replace("commands.ignorelist.click_unignore",
+                                                "&cClick to unignore &f" + target.getName()))));
+                addedMsg = Component.text().append(color(before)).append(nameComp).append(color(after)).build();
+            } else {
+                addedMsg = buildClickableNameLine(added, target.getName(), pSender);
+            }
+            pSender.sendMessage(addedMsg);
             if (tog("ignore_notify_target"))
-                target.sendMessage(color(t(target, "commands.ignore.target_added").replace("%player%", pSender.getName())));
+                target.sendMessage(buildClickableNameLine(t(target, "commands.ignore.target_added"), pSender.getName(), target));
         }
         return true;
     }
@@ -561,21 +666,46 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             pSender.sendMessage(color(t(pSender, "commands.ignorelist.empty")));
             return true;
         }
-        // Собираем имена (через OfflinePlayer для тех, кто оффлайн)
-        List<String> names = new ArrayList<>();
+
+        List<java.util.Map.Entry<UUID, String>> entries = new ArrayList<>();
         for (UUID uid : ignored) {
             Player online = Bukkit.getPlayer(uid);
+            String name;
             if (online != null) {
-                names.add(online.getName());
+                name = online.getName();
             } else {
                 @SuppressWarnings("deprecation")
                 org.bukkit.OfflinePlayer op = Bukkit.getOfflinePlayer(uid);
-                names.add(op.getName() != null ? op.getName() : uid.toString());
+                name = op.getName() != null ? op.getName() : uid.toString();
             }
+            entries.add(java.util.Map.entry(uid, name));
         }
-        String header = t(pSender, "commands.ignorelist.header").replace("%count%", String.valueOf(names.size()));
+
+        String header = t(pSender, "commands.ignorelist.header").replace("%count%", String.valueOf(entries.size()));
         pSender.sendMessage(color(header));
-        pSender.sendMessage(color(t(pSender, "commands.ignorelist.entry_prefix") + String.join("&7, &f", names)));
+
+        // Clickable names: click runs /ignore <name> to remove from ignore list
+        net.kyori.adventure.text.TextComponent.Builder line = Component.text();
+        String prefix = t(pSender, "commands.ignorelist.entry_prefix");
+        if (prefix == null) prefix = "&f";
+        String hoverTpl = t(pSender, "commands.ignorelist.click_unignore");
+        if (hoverTpl == null || hoverTpl.isEmpty() || hoverTpl.equals("commands.ignorelist.click_unignore")) {
+            hoverTpl = "&cClick to unignore &f%player%";
+        }
+        boolean first = true;
+        for (java.util.Map.Entry<UUID, String> e : entries) {
+            if (!first) line.append(color("&7, "));
+            first = false;
+            String name = e.getValue();
+            Component nameComp = color(prefix + name);
+            if (getConfig().getBoolean("ignore.click_to_unignore", true)) {
+                nameComp = nameComp
+                        .clickEvent(ClickEvent.runCommand("/ignore " + name))
+                        .hoverEvent(HoverEvent.showText(color(hoverTpl.replace("%player%", name))));
+            }
+            line.append(nameComp);
+        }
+        pSender.sendMessage(line.build());
         return true;
     }
 
@@ -613,7 +743,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         String rawMessage = joinArgs(args, 0);
-        if (!pSender.hasPermission("chatsync.color")) rawMessage = stripColorCodes(rawMessage);
+        if (!pSender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) rawMessage = stripColorCodes(rawMessage);
 
         checkAndNotifySpam(pSender, rawMessage, "me");
 
@@ -945,7 +1075,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return true;
         }
 
-        if (sender instanceof Player pSender && !pSender.hasPermission("chatsync.color")) {
+        if (sender instanceof Player pSender && !pSender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) {
             rawMessage = stripColorCodes(rawMessage);
         }
 
@@ -1112,7 +1242,30 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         String line = tAny(sender, "playtime.other")
                 .replace("%time%", formatDuration(seconds, sender));
-        sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
+        if (!line.contains("%player%")) {
+            line = line + " &8(%player%)";
+        }
+        // Prefer UUID-aware clickable name
+        Component msg = buildClickableNameLine(line, resolved.name(), sender);
+        // Rebuild with uuid for better hover/playtime
+        try {
+            int idx = line.indexOf("%player%");
+            if (idx >= 0) {
+                String before = line.substring(0, idx);
+                String after = line.substring(idx + "%player%".length());
+                Component nameComp = clickableName(
+                        extractTrailingColor(before) + resolved.name(),
+                        resolved.name(),
+                        resolved.uuid(),
+                        sender);
+                msg = Component.text()
+                        .append(color(before))
+                        .append(nameComp)
+                        .append(color(after))
+                        .build();
+            }
+        } catch (Throwable ignored) {}
+        sender.sendMessage(msg);
         return true;
     }
 
@@ -1162,7 +1315,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         Player online = Bukkit.getPlayer(resolved.uuid());
-        if (online != null && online.isOnline()) {
+        if (isOnlineVisible(sender, online)) {
             sender.sendMessage(buildClickableNameLine(
                     tAny(sender, "playtime.lastseen_online"), resolved.name(), sender));
             return true;
@@ -1272,8 +1425,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private Component buildClickableNameLine(String template, String playerName, CommandSender viewer) {
         if (template == null) template = "";
         Player headPlayer = Bukkit.getPlayerExact(playerName);
+        UUID nameUuid = headPlayer != null ? headPlayer.getUniqueId() : null;
+        if (nameUuid == null && playtimeManager != null) {
+            try { nameUuid = playtimeManager.findUuidByName(playerName); } catch (Throwable ignored) {}
+        }
+        if (nameUuid == null && statsManager != null) {
+            try { nameUuid = statsManager.findUuidByName(playerName); } catch (Throwable ignored) {}
+        }
         final boolean wantHead = template.contains("%head%")
-                || getConfig().getBoolean("chat.heads.force_first", true);
+                || (getConfig().getBoolean("chat.heads.force_first", true)
+                    && getConfig().getBoolean("clickable_names.heads_in_commands", true));
         template = stripHeadPlaceholder(template);
 
         final String PH = "%player%";
@@ -1286,7 +1447,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             } else {
                 String before = template.substring(0, idx);
                 String after  = template.substring(idx + playerName.length());
-                Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, null, viewer);
+                Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, nameUuid, viewer);
                 body = Component.text()
                         .append(color(before))
                         .append(nameComp)
@@ -1297,7 +1458,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             String before = template.substring(0, idx);
             String after  = template.substring(idx + PH.length());
             Component nameComp = clickableName(
-                    extractTrailingColor(before) + playerName, playerName, null, viewer);
+                    extractTrailingColor(before) + playerName, playerName, nameUuid, viewer);
             body = Component.text()
                     .append(color(before))
                     .append(nameComp)
@@ -1313,8 +1474,24 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     /** Кликабельный ник с hover (playtime опционально). */
     Component clickableName(String coloredName, String playerName, UUID uuid, CommandSender viewer) {
-        Component nameComp = color(coloredName)
-                .clickEvent(ClickEvent.suggestCommand("/msg " + playerName + " "));
+        if (!getConfig().getBoolean("clickable_names.enabled", true)) {
+            return color(coloredName);
+        }
+        String cmd = getConfig().getString("clickable_names.click_command", "/msg %player% ");
+        if (cmd == null) cmd = "/msg %player% ";
+        cmd = cmd.replace("%player%", playerName);
+        String action = getConfig().getString("clickable_names.click_action", "SUGGEST_COMMAND");
+        if (action == null) action = "SUGGEST_COMMAND";
+        ClickEvent click;
+        String act = action.toUpperCase(java.util.Locale.ROOT);
+        if (act.equals("RUN_COMMAND")) {
+            click = ClickEvent.runCommand(cmd.startsWith("/") ? cmd : "/" + cmd);
+        } else if (act.equals("COPY_TO_CLIPBOARD")) {
+            click = ClickEvent.copyToClipboard(playerName);
+        } else {
+            click = ClickEvent.suggestCommand(cmd);
+        }
+        Component nameComp = color(coloredName).clickEvent(click);
         if (getConfig().getBoolean("hover.enabled", true)) {
             nameComp = nameComp.hoverEvent(HoverEvent.showText(buildHoverComponent(viewer, playerName, uuid)));
         }
@@ -1369,12 +1546,23 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         String name = command.getName().toLowerCase();
+        if (name.equals("chatsync") || name.equals("csync")) {
+            if (args.length == 1) {
+                List<String> subs = new ArrayList<>();
+                for (String s : List.of("info", "reload", "version", "about")) {
+                    if (s.startsWith(args[0].toLowerCase())) subs.add(s);
+                }
+                return subs;
+            }
+            return List.of();
+        }
         if (args.length == 1 && (name.equals("msg") || name.equals("ignore") || name.equals("clear")
                 || name.equals("chatstats") || name.equals("playtime") || name.equals("lastseen"))) {
             List<String> names = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers())
                 if (p.getName().toLowerCase().startsWith(args[0].toLowerCase()))
                     names.add(p.getName());
+            if (name.equals("msg") && "console".startsWith(args[0].toLowerCase())) names.add("console");
             if (name.equals("clear")) names.add("confirm");
             if (name.equals("chatstats") && "reset".startsWith(args[0].toLowerCase())) names.add("reset");
             return names;
@@ -2266,6 +2454,33 @@ private String resolvePlaceholders(String text, Player player) {
     }
 
 
+    /** Online and visible to viewer (hides SuperVanish / PremiumVanish / Essentials vanish). */
+    private boolean isOnlineVisible(CommandSender viewer, Player target) {
+        if (target == null || !target.isOnline()) return false;
+        if (!getConfig().getBoolean("vanish.hide_lastseen_online", true)) {
+            return true;
+        }
+        boolean vanished = vanishHook != null && vanishHook.isVanished(target);
+        if (viewer instanceof Player p) {
+            try {
+                if (!p.canSee(target)) return false;
+            } catch (Throwable ignored) {}
+            if (vanished) {
+                java.util.List<String> perms = getConfig().getStringList("vanish.see_permissions");
+                if (perms == null || perms.isEmpty()) {
+                    perms = java.util.List.of("sv.see", "pv.see", "essentials.vanish.see", "chatsync.vanish.see");
+                }
+                for (String perm : perms) {
+                    if (perm != null && !perm.isEmpty() && p.hasPermission(perm)) return true;
+                }
+                return false;
+            }
+            return true;
+        }
+        return !vanished;
+    }
+
+
     private boolean isIgnoring(Player who, Player whom) {
         Set<UUID> list = ignoreList.get(who.getUniqueId());
         return list != null && list.contains(whom.getUniqueId());
@@ -2323,7 +2538,7 @@ private String resolvePlaceholders(String text, Player player) {
             sender.sendMessage(color(t(sender, "chat.muted")));
             return;
         }
-        if (!sender.hasPermission("chatsync.color")) message = stripColorCodes(message);
+        if (!sender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) message = stripColorCodes(message);
 
         String format = getConfig().getString("teams.format",
                 "&8[%color%%team%&8] &f%player%&7: &f%message%");

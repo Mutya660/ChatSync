@@ -60,7 +60,9 @@ messages:
 pm:
   format_sender:   "%head_self%&eВы &e→ %head_other%&e%receiver%&e: &e%message%"
   format_receiver: "%head_other%&e%sender% &e→ %head_self%&eВы&e: &e%message%"
-  format_console_sender: "&eВы &e→ &eКонсоль&e: &e%message%"
+  format_from_console: "%head_console%&e%console% &e→ &eВы&e: &e%message%"
+  format_console_to_player: "&eКонсоль &e→ &e%player%&e: &e%message%"
+  format_console_sender: "%head_self%&eВы &e→ %head_console%&eКонсоль&e: &e%message%"
   player_not_found: "&cИгрок &f%player% &cне в сети."
   no_reply_target: "&cНет никого, кому можно ответить."
 

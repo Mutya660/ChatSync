@@ -581,9 +581,43 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
             String senderFmt = t(pSender, "pm.format_console_sender");
             if (senderFmt == null || senderFmt.isEmpty() || senderFmt.equals("pm.format_console_sender")) {
-                senderFmt = "&eYou &e→ &eConsole&e: &e%message%";
+                senderFmt = "%head_self%&eYou &e→ %head_console%&eConsole&e: &e%message%";
             }
-            pSender.sendMessage(color(senderFmt.replace("%message%", message)));
+            senderFmt = senderFmt.replace("%message%", message);
+            net.kyori.adventure.text.TextComponent.Builder out = Component.text();
+            String rest = senderFmt;
+            boolean anyHeadToken = rest.contains("%head_self%") || rest.contains("%head_console%") || rest.contains("%head%");
+            while (!rest.isEmpty()) {
+                int iSelf = rest.indexOf("%head_self%");
+                int iCons = rest.indexOf("%head_console%");
+                int iHead = rest.indexOf("%head%");
+                int next = rest.length();
+                String tok = null;
+                if (iSelf >= 0 && iSelf < next) { next = iSelf; tok = "%head_self%"; }
+                if (iCons >= 0 && iCons < next) { next = iCons; tok = "%head_console%"; }
+                if (iHead >= 0 && iHead < next) { next = iHead; tok = "%head%"; }
+                if (tok == null) {
+                    out.append(color(rest));
+                    break;
+                }
+                if (next > 0) out.append(color(rest.substring(0, next)));
+                if (tok.equals("%head_console%")) {
+                    out.append(buildConsoleHeadComponent());
+                } else {
+                    out.append(buildHeadComponent(pSender));
+                }
+                rest = rest.substring(next + tok.length());
+            }
+            if (!anyHeadToken && getConfig().getBoolean("chat.heads.enabled", true)
+                    && getConfig().getBoolean("chat.heads.force_first", true)) {
+                pSender.sendMessage(Component.text()
+                        .append(buildHeadComponent(pSender))
+                        .append(buildConsoleHeadComponent())
+                        .append(out.build())
+                        .build());
+            } else {
+                pSender.sendMessage(out.build());
+            }
 
             if (getConfig().getBoolean("console_pm.log_to_file", true) && chatLogger != null) {
                 try { chatLogger.log("[PM→Console] " + pSender.getName() + ": " + message); } catch (Throwable ignored) {}
@@ -597,11 +631,23 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return true;
         }
 
-        if (!(sender instanceof Player pSender)) {
-            sender.sendMessage(color(tAny(sender, "commands.msg.players_only")));
+        // Console → player PM
+        if (!(sender instanceof Player)) {
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target == null || !target.isOnline()) {
+                sender.sendMessage(color(tAny(sender, "pm.player_not_found").replace("%player%", args[0])));
+                return true;
+            }
+            String message = joinArgs(args, 1);
+            if (message.isBlank()) {
+                sender.sendMessage(color(tAny(sender, "commands.msg.usage")));
+                return true;
+            }
+            sendPMFromConsole(sender, target, message);
             return true;
         }
 
+        Player pSender = (Player) sender;
         Player target = Bukkit.getPlayer(args[0]);
         if (target == null || !target.isOnline()) {
             String nf = t(pSender, "pm.player_not_found");
@@ -618,6 +664,75 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         sendPM(pSender, target, joinArgs(args, 1));
         return true;
     }
+
+    /** /msg from server console to a player. */
+    private void sendPMFromConsole(CommandSender console, Player to, String message) {
+        String consoleName = getConfig().getString("console_pm.head_name", "Console");
+        if (consoleName == null || consoleName.isEmpty()) consoleName = "Console";
+
+        // Message to player
+        String receiverFmt = t(to, "pm.format_from_console");
+        if (receiverFmt == null || receiverFmt.isEmpty() || receiverFmt.equals("pm.format_from_console")) {
+            receiverFmt = "%head_console%&e%console% &e→ &eYou&e: &e%message%";
+        }
+        receiverFmt = receiverFmt
+                .replace("%console%", consoleName)
+                .replace("%sender%", consoleName)
+                .replace("%message%", message);
+
+        net.kyori.adventure.text.TextComponent.Builder out = Component.text();
+        String rest = receiverFmt;
+        while (!rest.isEmpty()) {
+            int iCons = rest.indexOf("%head_console%");
+            int iHead = rest.indexOf("%head%");
+            int next = rest.length();
+            String tok = null;
+            if (iCons >= 0 && iCons < next) { next = iCons; tok = "%head_console%"; }
+            if (iHead >= 0 && iHead < next) { next = iHead; tok = "%head%"; }
+            if (tok == null) {
+                out.append(color(rest));
+                break;
+            }
+            if (next > 0) out.append(color(rest.substring(0, next)));
+            out.append(buildConsoleHeadComponent());
+            rest = rest.substring(next + tok.length());
+        }
+        if (!receiverFmt.contains("%head") && getConfig().getBoolean("chat.heads.enabled", true)
+                && getConfig().getBoolean("chat.heads.force_first", true)) {
+            to.sendMessage(Component.text().append(buildConsoleHeadComponent()).append(out.build()).build());
+        } else {
+            to.sendMessage(out.build());
+        }
+
+        // Confirmation in console
+        String conf = tAny(console, "pm.format_console_to_player");
+        if (conf == null || conf.isEmpty() || conf.equals("pm.format_console_to_player")) {
+            conf = "&eConsole &e→ &e%player%&e: &e%message%";
+        }
+        console.sendMessage(color(conf.replace("%player%", to.getName()).replace("%message%", message)));
+
+        // SocialSpy
+        if (tog("socialspy") && getConfig().getBoolean("socialspy.private_messages", true)) {
+            String spyFmt = getConfig().getString("pm.format_spy",
+                    "%head%&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%");
+            if (spyFmt == null) spyFmt = "&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%";
+            spyFmt = spyFmt.replace("%sender%", consoleName)
+                    .replace("%receiver%", to.getName())
+                    .replace("%message%", message)
+                    .replace("%player%", consoleName);
+            for (UUID uid : socialSpy) {
+                Player spy = Bukkit.getPlayer(uid);
+                if (spy == null || spy.equals(to)) continue;
+                spy.sendMessage(color(spyFmt));
+            }
+        }
+
+        if (chatLogger != null) {
+            try { chatLogger.log("[PM Console→] Console -> " + to.getName() + ": " + message); } catch (Throwable ignored) {}
+        }
+        logToConsole("[PM] Console → " + to.getName() + ": " + message);
+    }
+
 
     private boolean cmdReply(CommandSender sender, String[] args) {
         if (!(sender instanceof Player pSender)) return true;
@@ -1833,7 +1948,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
      * Голова игрока в чате (если клиент/Paper поддерживает object component).
      * Иначе — fallback-текст из конфига (можно оставить пустым).
      */
-    private Component buildHeadComponent(Player player) {
+    Component buildHeadComponent(Player player) {
         if (player == null) return Component.empty();
         if (!getConfig().getBoolean("chat.heads.enabled", true)) {
             return Component.empty();
@@ -1869,7 +1984,76 @@ private Component buildChatComponent(String format, Player sender, String rawMes
         return Component.text().append(head).append(LEGACY.deserialize(gap)).build();
     }
 
+
     /**
+     * Head for Console in /msg console (and similar).
+     * Set console_pm.head_texture to a base64 skin value (from mineskin / minecraft-heads).
+     */
+    Component buildConsoleHeadComponent() {
+        if (!getConfig().getBoolean("chat.heads.enabled", true)) return Component.empty();
+        if (!getConfig().getBoolean("console_pm.show_head", true)) return Component.empty();
+        try {
+            String name = getConfig().getString("console_pm.head_name", "Console");
+            if (name == null || name.isEmpty()) name = "Console";
+            UUID id;
+            try {
+                id = UUID.fromString(getConfig().getString("console_pm.head_uuid", "00000000-0000-0000-0000-0000000000c0"));
+            } catch (Exception e) {
+                id = UUID.fromString("00000000-0000-0000-0000-0000000000c0");
+            }
+            // Default texture: light gray face (public texture). Override in config.
+            String tex = getConfig().getString("console_pm.head_texture",
+                    "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGExNjAzOGJjOGU2NTE4YWZhOTE0OThkYWI3Njc1YzAxY2IzMWExMjVkMjFjNDliODYxMjk0ZDM5ZTFjNTYwYyJ9fX0=");
+            if (tex != null && tex.isEmpty()) tex = null;
+            String sig = getConfig().getString("console_pm.head_signature", "");
+            if (sig != null && sig.isEmpty()) sig = null;
+
+            Object contents = buildHeadContentsFromTexture(name, id, tex, sig);
+            if (contents == null) return Component.empty();
+            Component head = toObjectComponent(contents);
+            if (head == null) return Component.empty();
+            String gap = getConfig().getString("chat.heads.gap", " ");
+            if (gap == null || gap.isEmpty()) return head;
+            return Component.text().append(head).append(LEGACY.deserialize(gap)).build();
+        } catch (Throwable t) {
+            if (getConfig().getBoolean("chat.heads.debug", false)) {
+                getLogger().warning("[heads] console head failed: " + t.getMessage());
+            }
+            return Component.empty();
+        }
+    }
+
+    private Object buildHeadContentsFromTexture(String name, UUID id, String textureValue, String signature) throws Exception {
+        Object builder = null;
+        Class<?> builderType = null;
+        for (String ownerName : new String[]{
+                "net.kyori.adventure.text.object.PlayerHeadObjectContents",
+                "net.kyori.adventure.text.object.ObjectContents"
+        }) {
+            try {
+                Class<?> owner = Class.forName(ownerName);
+                java.lang.reflect.Method factory = owner.getMethod("playerHead");
+                builder = factory.invoke(null);
+                builderType = factory.getReturnType();
+                if (builder != null && builderType != null) break;
+            } catch (ReflectiveOperationException ignored) {}
+        }
+        if (builder == null || builderType == null) return null;
+        builder = fluent(builder, builderType, "name", new Class<?>[]{String.class}, name);
+        builder = fluent(builder, builderType, "id", new Class<?>[]{java.util.UUID.class}, id);
+        builder = fluent(builder, builderType, "hat", new Class<?>[]{boolean.class}, Boolean.TRUE);
+        if (textureValue != null && !textureValue.isEmpty()) {
+            applyTextureProperty(builder, builderType, textureValue, signature);
+        }
+        try {
+            return builderType.getMethod("build").invoke(builder);
+        } catch (NoSuchMethodException e) {
+            return builder;
+        }
+    }
+
+
+        /**
      * Player head contents with real skin textures (profile / SkinsRestorer).
      * name+id alone often resolves to default Steve/Alex on the client.
      */

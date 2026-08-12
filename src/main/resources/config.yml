@@ -452,14 +452,25 @@ console_pm:
   # [EN] Enable /msg console <text>
   # [RU] Включить /msg console <текст>
   enabled: true
+  # [EN] Show a head icon for Console next to the name
+  # [RU] Показывать голову консоли рядом с ником
+  show_head: true
+  # [EN] Display name for the console head profile
+  # [RU] Имя профиля головы консоли
+  head_name: "Console"
+  # [EN] UUID for console head (stable skin cache)
+  # [RU] UUID головы консоли
+  head_uuid: "00000000-0000-0000-0000-0000000000c0"
+  # [EN] Base64 textures value (from minecraft-heads.com / mineskin). Empty = default.
+  # [RU] Base64 текстуры (minecraft-heads / mineskin). Пусто = дефолт.
+  head_texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGExNjAzOGJjOGU2NTE4YWZhOTE0OThkYWI3Njc1YzAxY2IzMWExMjVkMjFjNDliODYxMjk0ZDM5ZTFjNTYwYyJ9fX0="
+  # [EN] Optional texture signature
+  # [RU] Опциональная подпись текстуры
+  head_signature: ""
   # [EN] Log format for the server console ( %player% %message% )
   # [RU] Формат строки в консоли
   console_format: "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%"
-  # [EN] Also write to ChatSync log file when logging.enabled
-  # [RU] Писать также в лог-файл плагина
   log_to_file: true
-  # [EN] Count toward /chatstats PM counter
-  # [RU] Учитывать в статистике ЛС
   count_stats: true
 
 # ── Vanish + /lastseen ─────────────────────────────────────────

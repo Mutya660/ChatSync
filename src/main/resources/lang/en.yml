@@ -59,7 +59,9 @@ messages:
 pm:
   format_sender:   "%head_self%&eYou &e→ %head_other%&e%receiver%&e: &e%message%"
   format_receiver: "%head_other%&e%sender% &e→ %head_self%&eYou&e: &e%message%"
-  format_console_sender: "&eYou &e→ &eConsole&e: &e%message%"
+  format_from_console: "%head_console%&e%console% &e→ &eYou&e: &e%message%"
+  format_console_to_player: "&eConsole &e→ &e%player%&e: &e%message%"
+  format_console_sender: "%head_self%&eYou &e→ %head_console%&eConsole&e: &e%message%"
   player_not_found: "&cPlayer &f%player% &cis not online."
   no_reply_target: "&cYou have nobody to reply to."
 

@@ -98,15 +98,29 @@ public class DeathMessageTranslator implements Listener {
             }
         }
 
-        // Без перевода — только кликабельные ники на ванильном Component
+        // Без перевода — кликабельные ники + головы
         if (clickable) {
             Map<String, Player> targets = collectClickableTargets(event);
             Component updated = makeNamesClickable(deathMessage, targets);
-            if (updated != null) {
-                event.deathMessage(updated);
-            }
+            if (updated == null) updated = deathMessage;
+            event.deathMessage(prependHeads(updated, targets));
         }
     }
+
+    private Component prependHeads(Component message, Map<String, Player> targets) {
+        if (!plugin.getConfig().getBoolean("chat.heads.enabled", true)) return message;
+        if (!plugin.getConfig().getBoolean("chat.heads.force_first", true)
+                && !plugin.getConfig().getBoolean("clickable_names.heads_in_commands", true)) {
+            return message;
+        }
+        if (targets == null || targets.isEmpty()) return message;
+        net.kyori.adventure.text.TextComponent.Builder b = Component.text();
+        for (Player p : targets.values()) {
+            if (p != null) b.append(plugin.buildHeadComponent(p));
+        }
+        return b.append(message).build();
+    }
+
 
     private Map<String, Player> collectClickableTargets(PlayerDeathEvent event) {
         Map<String, Player> map = new LinkedHashMap<>();
@@ -120,10 +134,20 @@ public class DeathMessageTranslator implements Listener {
     private Component buildClickableMessage(String text, Map<String, Player> clickable) {
         if (clickable.isEmpty()) return Component.text(text);
 
+        boolean heads = plugin.getConfig().getBoolean("chat.heads.enabled", true)
+                && plugin.getConfig().getBoolean("chat.heads.force_first", true);
+
         List<String> names = new ArrayList<>(clickable.keySet());
-        names.sort((a, b) -> b.length() - a.length());
+        names.sort((a, b) -> Integer.compare(b.length(), a.length()));
 
         net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
+        // Heads in order: victim first, then killer (LinkedHashMap insertion order)
+        if (heads) {
+            for (Player p : clickable.values()) {
+                if (p != null) builder.append(plugin.buildHeadComponent(p));
+            }
+        }
+
         StringBuilder plain = new StringBuilder();
         int i = 0;
         while (i < text.length()) {
@@ -140,16 +164,23 @@ public class DeathMessageTranslator implements Listener {
                     plain.setLength(0);
                 }
                 Player p = clickable.get(matched);
-                builder.append(plugin.clickableName(matched, p.getName(), p.getUniqueId(), p));
+                if (p != null) {
+                    builder.append(plugin.clickableName(matched, matched, p.getUniqueId(), p));
+                } else {
+                    builder.append(Component.text(matched));
+                }
                 i += matched.length();
             } else {
                 plain.append(text.charAt(i));
                 i++;
             }
         }
-        if (plain.length() > 0) builder.append(Component.text(plain.toString()));
+        if (plain.length() > 0) {
+            builder.append(Component.text(plain.toString()));
+        }
         return builder.build();
     }
+
 
     /** Делает ники кликабельными внутри ванильного (в т.ч. translatable) компонента. */
     private Component makeNamesClickable(Component component, Map<String, Player> targets) {

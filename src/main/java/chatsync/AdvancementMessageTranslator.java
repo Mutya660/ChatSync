@@ -38,9 +38,16 @@ public class AdvancementMessageTranslator implements Listener {
 
         Player player = event.getPlayer();
         Component updated = makeNameClickable(message, player);
-        if (updated != null) {
-            event.message(updated);
+        if (updated == null) updated = message;
+        if (plugin.getConfig().getBoolean("chat.heads.enabled", true)
+                && (plugin.getConfig().getBoolean("chat.heads.force_first", true)
+                    || plugin.getConfig().getBoolean("clickable_names.heads_in_commands", true))) {
+            updated = Component.text()
+                    .append(plugin.buildHeadComponent(player))
+                    .append(updated)
+                    .build();
         }
+        event.message(updated);
     }
 
     private Component makeNameClickable(Component component, Player player) {

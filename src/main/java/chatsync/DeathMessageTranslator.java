@@ -7,7 +7,6 @@ import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -24,20 +23,17 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Перевод сообщений о смерти по language из config.yml + кликабельные ники с hover.
  * Для language=ru загружаются death_messages_ru.json / entity_names_ru.json.
  * Для en (и прочих без пакета) оставляем ванильный текст, только кликабельность.
+ * Головы в death-сообщениях не используются (Discord + ванильный broadcast).
  */
 public class DeathMessageTranslator implements Listener {
 
     private final ChatSync plugin;
     private final Map<String, String> translations;
-    /** UUID жертвы → сообщение с головами (для рассылки на MONITOR после DiscordSRV). */
-    private final Map<UUID, Component> pendingDeathWithHeads = new ConcurrentHashMap<>();
 
     public DeathMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
@@ -83,13 +79,8 @@ public class DeathMessageTranslator implements Listener {
         }
     }
 
-    /**
-     * LOW: готовим сообщение (перевод + кликабельные ники), ставим в event
-     * версию БЕЗ голов — DiscordSRV (MONITOR) заберёт чистый текст.
-     * MONITOR: обнуляем deathMessage и шлём игрокам версию С головами.
-     */
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
-    public void onPlayerDeathEarly(PlayerDeathEvent event) {
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDeath(PlayerDeathEvent event) {
         Component deathMessage = event.deathMessage();
         if (deathMessage == null) return;
 
@@ -113,71 +104,11 @@ public class DeathMessageTranslator implements Listener {
             body = updated != null ? updated : deathMessage;
         }
 
-        if (body == null) body = deathMessage;
+        if (body == null) return;
 
-        // Для DiscordSRV и прочих — без ObjectComponent (голов)
-        event.deathMessage(stripObjectComponents(body));
-        // Версию с головами кладём в pending — отправим на MONITOR
-        Component withHeads = prependHeads(body, targets);
-        pendingDeathWithHeads.put(event.getEntity().getUniqueId(), withHeads);
+        // Без голов — один и тот же текст для Minecraft и DiscordSRV
+        event.deathMessage(body);
     }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onPlayerDeathLate(PlayerDeathEvent event) {
-        Component withHeads = pendingDeathWithHeads.remove(event.getEntity().getUniqueId());
-        if (withHeads == null) return;
-
-        // DiscordSRV уже прочитал чистый текст на своём MONITOR (раньше нашего).
-        // Отключаем ванильный broadcast и шлём игрокам сообщение с головами.
-        event.deathMessage(null);
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendMessage(withHeads);
-        }
-    }
-
-    /** Remove Adventure object components (player heads) so DiscordSRV plain text is clean. */
-    private Component stripObjectComponents(Component component) {
-        if (component == null) return Component.empty();
-        try {
-            String className = component.getClass().getName();
-            if (className.contains("ObjectComponent") || className.contains("object")) {
-                return Component.empty();
-            }
-        } catch (Throwable ignored) {}
-
-        java.util.List<Component> children = component.children();
-        if (children == null || children.isEmpty()) {
-            return component;
-        }
-        java.util.List<Component> cleaned = new java.util.ArrayList<>(children.size());
-        boolean changed = false;
-        for (Component child : children) {
-            Component c = stripObjectComponents(child);
-            if (c != child) changed = true;
-            // skip pure empty object placeholders
-            if (c.equals(Component.empty()) && child != c) {
-                changed = true;
-                continue;
-            }
-            cleaned.add(c);
-        }
-        return changed ? component.children(cleaned) : component;
-    }
-
-    private Component prependHeads(Component message, Map<String, Player> targets) {
-        if (!plugin.getConfig().getBoolean("chat.heads.enabled", true)) return message;
-        if (!plugin.getConfig().getBoolean("chat.heads.force_first", true)
-                && !plugin.getConfig().getBoolean("clickable_names.heads_in_commands", true)) {
-            return message;
-        }
-        if (targets == null || targets.isEmpty()) return message;
-        net.kyori.adventure.text.TextComponent.Builder b = Component.text();
-        for (Player p : targets.values()) {
-            if (p != null) b.append(plugin.buildHeadComponent(p));
-        }
-        return b.append(message).build();
-    }
-
 
     private Map<String, Player> collectClickableTargets(PlayerDeathEvent event) {
         Map<String, Player> map = new LinkedHashMap<>();
@@ -195,7 +126,6 @@ public class DeathMessageTranslator implements Listener {
         names.sort((a, b) -> Integer.compare(b.length(), a.length()));
 
         net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
-        // Heads добавляются отдельно через prependHeads (чтобы не дублировать)
 
         StringBuilder plain = new StringBuilder();
         int i = 0;

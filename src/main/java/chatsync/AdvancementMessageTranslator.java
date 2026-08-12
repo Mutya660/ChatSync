@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.TranslationArgument;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,91 +12,38 @@ import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Делает ник игрока кликабельным в анонсе достижения.
  * Текст достижения (название) локализуется клиентом / датапаком сервера —
  * ChatSync его не подменяет. Hover — единый (с playtime, если включено).
+ * Головы в анонсах достижений не используются.
  */
 public class AdvancementMessageTranslator implements Listener {
 
     private final ChatSync plugin;
-    /** UUID игрока → анонс с головой (рассылка на MONITOR после DiscordSRV). */
-    private final Map<UUID, Component> pendingAdvancementWithHead = new ConcurrentHashMap<>();
 
     public AdvancementMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
     }
 
-    /**
-     * LOW: кликабельный ник + ставим в event версию БЕЗ головы (для DiscordSRV).
-     * MONITOR: шлём игрокам версию С головой, обнуляем event.message().
-     */
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
-    public void onAdvancementEarly(PlayerAdvancementDoneEvent event) {
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAdvancement(PlayerAdvancementDoneEvent event) {
         if (!plugin.getConfig().getBoolean("toggles.clickable_advancement_name", true)) return;
+
+        // Скрытые достижения (рецепты и т.п.) без display — без анонса
         if (event.getAdvancement().getDisplay() == null) return;
 
         Component message = event.message();
         if (message == null) return;
 
         Player player = event.getPlayer();
-        Component body = makeNameClickable(message, player);
-        if (body == null) body = message;
+        Component updated = makeNameClickable(message, player);
+        if (updated == null) return;
 
-        // DiscordSRV / ванильный путь — без ObjectComponent
-        event.message(stripObjectComponents(body));
-
-        Component withHead = body;
-        if (plugin.getConfig().getBoolean("chat.heads.enabled", true)
-                && (plugin.getConfig().getBoolean("chat.heads.force_first", true)
-                    || plugin.getConfig().getBoolean("clickable_names.heads_in_commands", true))) {
-            withHead = Component.text()
-                    .append(plugin.buildHeadComponent(player))
-                    .append(body)
-                    .build();
-        }
-        pendingAdvancementWithHead.put(player.getUniqueId(), withHead);
+        // Без голов — один текст для Minecraft и DiscordSRV
+        event.message(updated);
     }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onAdvancementLate(PlayerAdvancementDoneEvent event) {
-        Component withHead = pendingAdvancementWithHead.remove(event.getPlayer().getUniqueId());
-        if (withHead == null) return;
-
-        event.message(null);
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendMessage(withHead);
-        }
-    }
-
-    private Component stripObjectComponents(Component component) {
-        if (component == null) return Component.empty();
-        try {
-            String className = component.getClass().getName();
-            if (className.contains("ObjectComponent") || className.contains("object")) {
-                return Component.empty();
-            }
-        } catch (Throwable ignored) {}
-        java.util.List<Component> children = component.children();
-        if (children == null || children.isEmpty()) return component;
-        java.util.List<Component> cleaned = new java.util.ArrayList<>(children.size());
-        boolean changed = false;
-        for (Component child : children) {
-            Component c = stripObjectComponents(child);
-            if (c != child) changed = true;
-            if (c.equals(Component.empty()) && child != c) {
-                changed = true;
-                continue;
-            }
-            cleaned.add(c);
-        }
-        return changed ? component.children(cleaned) : component;
-    }
-
 
     private Component makeNameClickable(Component component, Player player) {
         if (component instanceof TranslatableComponent translatable) {

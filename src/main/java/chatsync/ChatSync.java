@@ -509,7 +509,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                         .replace("%version%", ver)
                         .replace("%chatsync_version%", ver)
                         .replace("%author%", "Mutya660")
-                        .replace("%developer%", "Mutya660"));
+                        .replace("%developer%", "Mutya660")));
             }
             return;
         }
@@ -552,7 +552,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             String cfmt = getConfig().getString("console_pm.console_format",
                     "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%");
             if (cfmt == null) cfmt = "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%";
-            getLogger().info("[ChatSync PM → Console] " + pSender.getName() + ": " + message.replace('§', '&'));
+            getLogger().info("[ChatSync PM → Console] " + pSender.getName() + ": " + message.replace("\u00A7", "&"));
             Bukkit.getConsoleSender().sendMessage(color(
                     cfmt.replace("%player%", pSender.getName()).replace("%message%", message)));
 
@@ -642,12 +642,14 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 int idx = added.indexOf("%player%");
                 String before = added.substring(0, idx);
                 String after = added.substring(idx + "%player%".length());
+                String hoverText = t(pSender, "commands.ignorelist.click_unignore");
+                if (hoverText == null || hoverText.equals("commands.ignorelist.click_unignore")) {
+                    hoverText = "&cClick to unignore &f%player%";
+                }
+                hoverText = hoverText.replace("%player%", target.getName());
                 Component nameComp = color(extractTrailingColor(before) + target.getName())
                         .clickEvent(ClickEvent.runCommand("/ignore " + target.getName()))
-                        .hoverEvent(HoverEvent.showText(color(
-                                t(pSender, "commands.ignorelist.click_unignore").replace("%player%", target.getName())
-                                        .replace("commands.ignorelist.click_unignore",
-                                                "&cClick to unignore &f" + target.getName()))));
+                        .hoverEvent(HoverEvent.showText(color(hoverText)));
                 addedMsg = Component.text().append(color(before)).append(nameComp).append(color(after)).build();
             } else {
                 addedMsg = buildClickableNameLine(added, target.getName(), pSender);
@@ -2397,7 +2399,7 @@ private String resolvePlaceholders(String text, Player player) {
     /** Last legacy color/format code in text (&x or §x), skipping trailing spaces. */
     private String extractTrailingColor(String text) {
         if (text == null || text.isEmpty()) return "";
-        String s = text.replace('§', '&');
+        String s = text.replace("\u00A7", "&");
         int i = s.length();
         while (i > 0 && s.charAt(i - 1) == ' ') i--;
         StringBuilder found = new StringBuilder();
@@ -2438,7 +2440,7 @@ private String resolvePlaceholders(String text, Player player) {
         if (text == null || text.isEmpty()) return "";
         // Remove only trailing color codes (&x / &#RRGGBB), keep spaces
         // so " > &#D01C1C" stays " > " before %message%.
-        String s = text.replace('§', '&');
+        String s = text.replace("\u00A7", "&");
         while (true) {
             String t = extractTrailingColor(s);
             if (t.isEmpty()) break;
@@ -2495,7 +2497,7 @@ private String resolvePlaceholders(String text, Player player) {
     private String stripColorCodes(String text) {
         if (text == null) return "";
         // legacy &x and hex &#RRGGBB / &#RGB (also §)
-        String s = text.replace('§', '&');
+        String s = text.replace("\u00A7", "&");
         s = s.replaceAll("(?i)&#[0-9a-f]{6}", "");
         s = s.replaceAll("(?i)&#[0-9a-f]{3}", "");
         s = s.replaceAll("(?i)&x(&[0-9a-f]){6}", "");

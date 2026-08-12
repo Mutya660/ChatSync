@@ -2507,6 +2507,43 @@ private String resolvePlaceholders(String text, Player player) {
 
 
     /** Online and visible to viewer (hides SuperVanish / PremiumVanish / Essentials vanish). */
+
+    private void loadSocialSpy() {
+        socialSpy.clear();
+        File f = new File(getDataFolder(), "spy.yml");
+        if (!f.exists()) return;
+        try {
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(f);
+            List<String> list = yaml.getStringList("enabled");
+            if (list == null) return;
+            for (String s : list) {
+                try {
+                    socialSpy.add(UUID.fromString(s));
+                } catch (IllegalArgumentException ignored) {}
+            }
+            if (!socialSpy.isEmpty()) {
+                getLogger().info("Restored SocialSpy for " + socialSpy.size() + " player(s).");
+            }
+        } catch (Throwable t) {
+            getLogger().warning("Could not load spy.yml: " + t.getMessage());
+        }
+    }
+
+    private void saveSocialSpy() {
+        try {
+            File f = new File(getDataFolder(), "spy.yml");
+            YamlConfiguration yaml = new YamlConfiguration();
+            List<String> list = new ArrayList<>();
+            for (UUID id : socialSpy) {
+                list.add(id.toString());
+            }
+            yaml.set("enabled", list);
+            yaml.save(f);
+        } catch (Throwable t) {
+            getLogger().warning("Could not save spy.yml: " + t.getMessage());
+        }
+    }
+
     private boolean isOnlineVisible(CommandSender viewer, Player target) {
         if (target == null || !target.isOnline()) return false;
         if (!getConfig().getBoolean("vanish.hide_lastseen_online", true)) {

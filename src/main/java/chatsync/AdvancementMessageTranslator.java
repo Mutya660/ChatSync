@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.TranslationArgument;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -12,6 +13,9 @@ import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Делает ник игрока кликабельным в анонсе достижения.
@@ -21,35 +25,53 @@ import java.util.List;
 public class AdvancementMessageTranslator implements Listener {
 
     private final ChatSync plugin;
+    /** UUID игрока → анонс с головой (рассылка на MONITOR после DiscordSRV). */
+    private final Map<UUID, Component> pendingAdvancementWithHead = new ConcurrentHashMap<>();
 
     public AdvancementMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onAdvancement(PlayerAdvancementDoneEvent event) {
+    /**
+     * LOW: кликабельный ник + ставим в event версию БЕЗ головы (для DiscordSRV).
+     * MONITOR: шлём игрокам версию С головой, обнуляем event.message().
+     */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onAdvancementEarly(PlayerAdvancementDoneEvent event) {
         if (!plugin.getConfig().getBoolean("toggles.clickable_advancement_name", true)) return;
-
-        // Скрытые достижения (рецепты и т.п.) без display — без анонса
         if (event.getAdvancement().getDisplay() == null) return;
 
         Component message = event.message();
         if (message == null) return;
 
         Player player = event.getPlayer();
-        Component updated = makeNameClickable(message, player);
-        if (updated == null) updated = message;
+        Component body = makeNameClickable(message, player);
+        if (body == null) body = message;
+
+        // DiscordSRV / ванильный путь — без ObjectComponent
+        event.message(stripObjectComponents(body));
+
+        Component withHead = body;
         if (plugin.getConfig().getBoolean("chat.heads.enabled", true)
                 && (plugin.getConfig().getBoolean("chat.heads.force_first", true)
                     || plugin.getConfig().getBoolean("clickable_names.heads_in_commands", true))) {
-            updated = Component.text()
+            withHead = Component.text()
                     .append(plugin.buildHeadComponent(player))
-                    .append(updated)
+                    .append(body)
                     .build();
         }
-        // DiscordSRV reads event.message() — must stay non-null.
-        // Strip object heads to avoid "[name head]" in Discord.
-        event.message(stripObjectComponents(updated));
+        pendingAdvancementWithHead.put(player.getUniqueId(), withHead);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAdvancementLate(PlayerAdvancementDoneEvent event) {
+        Component withHead = pendingAdvancementWithHead.remove(event.getPlayer().getUniqueId());
+        if (withHead == null) return;
+
+        event.message(null);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(withHead);
+        }
     }
 
     private Component stripObjectComponents(Component component) {

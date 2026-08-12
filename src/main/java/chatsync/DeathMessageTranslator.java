@@ -86,25 +86,64 @@ public class DeathMessageTranslator implements Listener {
         boolean clickable = plugin.getConfig().getBoolean("toggles.clickable_death_name", true);
         boolean translate = plugin.getConfig().getBoolean("death_messages.translate", true);
 
+        Component forPlayers = null;
+
         // Перевод, если есть пакет для текущего language
         if (translate && !translations.isEmpty() && deathMessage instanceof TranslatableComponent translatable) {
             String translatedText = translateTranslatable(translatable);
             if (translatedText != null) {
-                Component finalMessage = clickable
+                forPlayers = clickable
                         ? buildClickableMessage(translatedText, collectClickableTargets(event))
                         : Component.text(translatedText);
-                event.deathMessage(finalMessage);
-                return;
             }
         }
 
         // Без перевода — кликабельные ники + головы
-        if (clickable) {
+        if (forPlayers == null && clickable) {
             Map<String, Player> targets = collectClickableTargets(event);
             Component updated = makeNamesClickable(deathMessage, targets);
             if (updated == null) updated = deathMessage;
-            event.deathMessage(prependHeads(updated, targets));
+            forPlayers = prependHeads(updated, targets);
         }
+
+        if (forPlayers == null) return;
+
+        // DiscordSRV serializes object-components as "[name head]" — keep heads in-game only
+        Component forDiscord = stripObjectComponents(forPlayers);
+        event.deathMessage(null);
+        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            p.sendMessage(forPlayers);
+        }
+        plugin.relayGameMessageToDiscord(forDiscord);
+    }
+
+    /** Remove Adventure object components (player heads) so DiscordSRV plain text is clean. */
+    private Component stripObjectComponents(Component component) {
+        if (component == null) return Component.empty();
+        try {
+            String className = component.getClass().getName();
+            if (className.contains("ObjectComponent") || className.contains("object")) {
+                return Component.empty();
+            }
+        } catch (Throwable ignored) {}
+
+        java.util.List<Component> children = component.children();
+        if (children == null || children.isEmpty()) {
+            return component;
+        }
+        java.util.List<Component> cleaned = new java.util.ArrayList<>(children.size());
+        boolean changed = false;
+        for (Component child : children) {
+            Component c = stripObjectComponents(child);
+            if (c != child) changed = true;
+            // skip pure empty object placeholders
+            if (c.equals(Component.empty()) && child != c) {
+                changed = true;
+                continue;
+            }
+            cleaned.add(c);
+        }
+        return changed ? component.children(cleaned) : component;
     }
 
     private Component prependHeads(Component message, Map<String, Player> targets) {

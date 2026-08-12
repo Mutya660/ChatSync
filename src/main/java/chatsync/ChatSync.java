@@ -2445,6 +2445,53 @@ private Component buildChatComponent(String format, Player sender, String rawMes
     //  Discord
     // ──────────────────────────────────────────────────────────────
 
+
+    /**
+     * Send a plain system line to DiscordSRV main chat (no "[name head]" artifacts).
+     */
+    void relayGameMessageToDiscord(Component message) {
+        if (message == null) return;
+        if (!getConfig().getBoolean("discord.enabled", true)) return;
+        if (!Bukkit.getPluginManager().isPluginEnabled("DiscordSRV")) return;
+        final String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(message)
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (plain.isEmpty()) return;
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                Class<?> dsrv = Class.forName("github.scarsz.discordsrv.DiscordSRV");
+                Object plugin = dsrv.getMethod("getPlugin").invoke(null);
+                // Prefer optional main text channel
+                try {
+                    Object opt = plugin.getClass().getMethod("getOptionalMainTextChannel").invoke(plugin);
+                    if (opt instanceof java.util.Optional<?> o && o.isPresent()) {
+                        Object channel = o.get();
+                        Class<?> discordUtil = Class.forName("github.scarsz.discordsrv.util.DiscordUtil");
+                        discordUtil.getMethod("sendMessage", Class.forName("net.dv8tion.jda.api.entities.TextChannel"), String.class)
+                                .invoke(null, channel, plain);
+                        return;
+                    }
+                } catch (Throwable ignored) {}
+                // Fallback: process as system-ish via first online player context skipped
+                try {
+                    Class<?> discordUtil = Class.forName("github.scarsz.discordsrv.util.DiscordUtil");
+                    Object channel = dsrv.getMethod("getPlugin").invoke(null);
+                    // getMainTextChannel() older API
+                    Object ch = plugin.getClass().getMethod("getMainTextChannel").invoke(plugin);
+                    if (ch != null) {
+                        discordUtil.getMethod("sendMessage", Class.forName("net.dv8tion.jda.api.entities.TextChannel"), String.class)
+                                .invoke(null, ch, plain);
+                    }
+                } catch (Throwable ignored) {}
+            } catch (Exception e) {
+                if (getConfig().getBoolean("advanced.debug", false)) {
+                    getLogger().warning("Discord relay failed: " + e.getMessage());
+                }
+            }
+        });
+    }
+
     private void sendToDiscord(Player sender, String message, String channel) {
         if (!getConfig().getBoolean("discord.enabled", true)) return;
         if (!Bukkit.getPluginManager().isPluginEnabled("DiscordSRV")) return;

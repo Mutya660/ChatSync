@@ -47,8 +47,39 @@ public class AdvancementMessageTranslator implements Listener {
                     .append(updated)
                     .build();
         }
-        event.message(updated);
+        // Heads in-game only — DiscordSRV would show "[name head]"
+        Component forDiscord = stripObjectComponents(updated);
+        event.message(null);
+        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            p.sendMessage(updated);
+        }
+        plugin.relayGameMessageToDiscord(forDiscord);
     }
+
+    private Component stripObjectComponents(Component component) {
+        if (component == null) return Component.empty();
+        try {
+            String className = component.getClass().getName();
+            if (className.contains("ObjectComponent") || className.contains("object")) {
+                return Component.empty();
+            }
+        } catch (Throwable ignored) {}
+        java.util.List<Component> children = component.children();
+        if (children == null || children.isEmpty()) return component;
+        java.util.List<Component> cleaned = new java.util.ArrayList<>(children.size());
+        boolean changed = false;
+        for (Component child : children) {
+            Component c = stripObjectComponents(child);
+            if (c != child) changed = true;
+            if (c.equals(Component.empty()) && child != c) {
+                changed = true;
+                continue;
+            }
+            cleaned.add(c);
+        }
+        return changed ? component.children(cleaned) : component;
+    }
+
 
     private Component makeNameClickable(Component component, Player player) {
         if (component instanceof TranslatableComponent translatable) {

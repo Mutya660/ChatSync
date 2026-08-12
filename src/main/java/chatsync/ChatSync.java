@@ -103,6 +103,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         this.liteBansHook    = new LiteBansHook(this);
         this.vanishHook      = new VanishHook(this);
         this.teamManager     = new TeamManager(this);
+        loadSocialSpy();
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new DeathMessageTranslator(this), this);
@@ -169,6 +170,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             playtimeManager.save();
         }
         if (chatLogger != null) chatLogger.flushNow();
+        saveSocialSpy();
     }
 
     private void registerCmd(String name, CommandExecutor exec) {
@@ -306,7 +308,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         if (teamManager != null) teamManager.onQuit(player.getUniqueId());
         lastMessaged.remove(player.getUniqueId());
-        socialSpy.remove(player.getUniqueId());
+        // socialSpy persists across rejoin (saved to spy.yml)
         globalCooldown.remove(player.getUniqueId());
         pendingClears.remove(player.getUniqueId());
         pendingStatsResets.remove(player.getUniqueId());
@@ -610,7 +612,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (target.equals(pSender)) { pSender.sendMessage(color(t(pSender, "commands.msg.self"))); return true; }
         if (isIgnoring(target, pSender)) {
             if (tog("ignore_notify_sender"))
-                pSender.sendMessage(color(t(pSender, "commands.ignore.ignores_you").replace("%player%", target.getName())));
+                pSender.sendMessage(buildClickableNameLine(t(pSender, "commands.ignore.ignores_you"), target.getName(), pSender));
             return true;
         }
         sendPM(pSender, target, joinArgs(args, 1));
@@ -736,7 +738,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private boolean cmdSocialSpy(CommandSender sender, String[] args) {
         if (!(sender instanceof Player pSender)) return true;
-        if (!pSender.hasPermission("chatsync.spy")) {
+        String spyPerm = getConfig().getString("socialspy.permission", "chatsync.spy");
+        if (!pSender.hasPermission(spyPerm != null ? spyPerm : "chatsync.spy")) {
             pSender.sendMessage(color(t(pSender, "commands.socialspy.no_permission")));
             return true;
         }
@@ -747,6 +750,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             socialSpy.add(uuid);
             pSender.sendMessage(color(t(pSender, "commands.socialspy.enabled")));
         }
+        saveSocialSpy();
         return true;
     }
 
@@ -786,6 +790,19 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 if (p.getLocation().distance(pSender.getLocation()) > radius) continue;
                 if (!p.equals(pSender) && isIgnoring(p, pSender)) continue;
                 p.sendMessage(buildChatComponent(format, pSender, rawMessage, p));
+            }
+        }
+
+        // SocialSpy for /me
+        if (tog("socialspy") && getConfig().getBoolean("socialspy.me", true)) {
+            String spyMeFmt = getConfig().getString("pm.format_spy_me",
+                    "%head%&8[SPY-ME] &7* %player% &7%message%");
+            if (spyMeFmt == null) spyMeFmt = "%head%&8[SPY-ME] &7* %player% &7%message%";
+            spyMeFmt = spyMeFmt.replace("%message%", rawMessage);
+            for (UUID uid : socialSpy) {
+                Player spy = Bukkit.getPlayer(uid);
+                if (spy == null || spy.equals(pSender)) continue;
+                spy.sendMessage(buildClickableNameLine(spyMeFmt, pSender.getName(), spy));
             }
         }
 
@@ -1270,27 +1287,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!line.contains("%player%")) {
             line = line + " &8(%player%)";
         }
-        // Prefer UUID-aware clickable name
-        Component msg = buildClickableNameLine(line, resolved.name(), sender);
-        // Rebuild with uuid for better hover/playtime
-        try {
-            int idx = line.indexOf("%player%");
-            if (idx >= 0) {
-                String before = line.substring(0, idx);
-                String after = line.substring(idx + "%player%".length());
-                Component nameComp = clickableName(
-                        extractTrailingColor(before) + resolved.name(),
-                        resolved.name(),
-                        resolved.uuid(),
-                        sender);
-                msg = Component.text()
-                        .append(color(before))
-                        .append(nameComp)
-                        .append(color(after))
-                        .build();
-            }
-        } catch (Throwable ignored) {}
-        sender.sendMessage(msg);
+        sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
         return true;
     }
 
@@ -1457,9 +1454,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (nameUuid == null && statsManager != null) {
             try { nameUuid = statsManager.findUuidByName(playerName); } catch (Throwable ignored) {}
         }
-        final boolean wantHead = template.contains("%head%")
-                || (getConfig().getBoolean("chat.heads.force_first", true)
-                    && getConfig().getBoolean("clickable_names.heads_in_commands", true));
+        final boolean wantHead = getConfig().getBoolean("chat.heads.enabled", true)
+                && (template.contains("%head%")
+                    || getConfig().getBoolean("chat.heads.force_first", true)
+                    || getConfig().getBoolean("clickable_names.heads_in_commands", true));
         template = stripHeadPlaceholder(template);
 
         final String PH = "%player%";
@@ -2617,6 +2615,20 @@ private String resolvePlaceholders(String text, Player player) {
             Component line = buildClickableNameLine(out, sender.getName(), p);
             p.sendMessage(line);
         }
+        // SocialSpy — team chat visible to spies who are not in the team
+        if (tog("socialspy") && getConfig().getBoolean("socialspy.team_chat", true)) {
+            String spyTeamFmt = getConfig().getString("pm.format_spy_team",
+                    "%head%&8[SPY-T] &7%player%&8: &7%message%");
+            if (spyTeamFmt == null) spyTeamFmt = "%head%&8[SPY-T] &7%player%&8: &7%message%";
+            spyTeamFmt = spyTeamFmt.replace("%message%", message)
+                    .replace("%team%", team.name != null ? team.name : "");
+            for (UUID uid : socialSpy) {
+                if (team.members.contains(uid)) continue;
+                Player spy = Bukkit.getPlayer(uid);
+                if (spy == null || spy.equals(sender)) continue;
+                spy.sendMessage(buildClickableNameLine(spyTeamFmt, sender.getName(), spy));
+            }
+        }
         if (chatLogger != null) {
             chatLogger.log("[TEAM:" + team.name + "] " + sender.getName() + ": " + message);
         }
@@ -2673,15 +2685,18 @@ private String resolvePlaceholders(String text, Player player) {
                 switch (r) {
                     case "ok" -> {
                         TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
-                        player.sendMessage(color(t(player, "team.invite_sent")
-                                .replace("%player%", target.getName())
-                                .replace("%team%", team != null ? team.name : "")));
+                        {
+                            String sent = t(player, "team.invite_sent")
+                                    .replace("%team%", team != null ? team.name : "");
+                            if (!sent.contains("%player%")) sent = sent + " &f%player%";
+                            player.sendMessage(buildClickableNameLine(sent, target.getName(), player));
+                        }
                         // Clickable accept / deny
-                        String invMsg = t(target, "team.invite_received")
-                                .replace("%player%", player.getName())
+                        String invTpl = t(target, "team.invite_received")
                                 .replace("%team%", team != null ? team.name : "");
-                        Component base = color(invMsg + " ");
-                        Component accept = color(t(target, "team.btn_accept"))
+                        if (!invTpl.contains("%player%")) invTpl = "&e%player% &7→ " + invTpl;
+                        Component base = buildClickableNameLine(invTpl, player.getName(), target);
+                        Component accept = color(" " + t(target, "team.btn_accept"))
                                 .clickEvent(ClickEvent.runCommand("/team accept"))
                                 .hoverEvent(HoverEvent.showText(color(t(target, "team.btn_accept_hover"))));
                         Component deny = color(" " + t(target, "team.btn_deny"))
@@ -2707,9 +2722,10 @@ private String resolvePlaceholders(String text, Player player) {
                             for (java.util.UUID id : team.members) {
                                 Player p = Bukkit.getPlayer(id);
                                 if (p != null && !p.equals(player))
-                                    p.sendMessage(color(t(p, "team.member_joined")
-                                            .replace("%player%", player.getName())
-                                            .replace("%team%", team.name)));
+                                    {
+                                        String mj = t(p, "team.member_joined").replace("%team%", team.name);
+                                        p.sendMessage(buildClickableNameLine(mj, player.getName(), p));
+                                    }
                             }
                         }
                     }
@@ -2733,7 +2749,7 @@ private String resolvePlaceholders(String text, Player player) {
                         for (java.util.UUID id : before.members) {
                             Player p = Bukkit.getPlayer(id);
                             if (p != null)
-                                p.sendMessage(color(t(p, "team.member_left").replace("%player%", player.getName())));
+                                p.sendMessage(buildClickableNameLine(t(p, "team.member_left"), player.getName(), p));
                         }
                     }
                 } else player.sendMessage(color(t(player, "team.no_team")));

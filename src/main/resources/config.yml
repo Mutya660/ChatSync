@@ -102,6 +102,12 @@ pm:
   # [EN] Format for local chat messages shown to admins with /socialspy (out-of-radius listeners)
   # [RU] Формат для сообщений локального чата, которые видят администраторы через /socialspy (вне радиуса)
   format_spy_local: "%head%&8[SPY-L] &7%player%&8: &7%message%"
+  # [EN] SocialSpy format for team chat
+  # [RU] Формат SocialSpy для командного чата
+  format_spy_team: "%head%&8[SPY-T] &7%player%&8: &7%message%"
+  # [EN] SocialSpy format for /me
+  # [RU] Формат SocialSpy для /me
+  format_spy_me: "%head%&8[SPY-ME] &7* %player% &7%message%"
   sound:
     # [EN] Whether to play a sound to the receiver of a private message
     # [RU] Проигрывать ли звук получателю личного сообщения
@@ -483,6 +489,12 @@ socialspy:
   # [EN] Spy on private messages
   # [RU] Подслушивать личные сообщения
   private_messages: true
+  # [EN] Spy on team chat (for non-members)
+  # [RU] Подслушивать командный чат (для не-участников)
+  team_chat: true
+  # [EN] Spy on /me messages
+  # [RU] Подслушивать /me
+  me: true
 
 # ── Sounds (extra) ─────────────────────────────────────────────
 sounds:

@@ -126,3 +126,10 @@ permissions:
   chatsync.team.admin:
     description: Team admin bypass
     default: op
+
+  chatsync.gui:
+    description: Open ChatSync GUI menu (/chatsync gui)
+    default: true
+  chatsync.gui.unmute:
+    description: Unignore players from ChatSync GUI
+    default: true

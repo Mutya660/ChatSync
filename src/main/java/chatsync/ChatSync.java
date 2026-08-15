@@ -33,7 +33,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     // ──────────────────────────────────────────────────────────────
 
     private final Map<UUID, UUID>      lastMessaged  = new HashMap<>();
-    private final Map<UUID, Set<UUID>> ignoreList    = new HashMap<>();
+    private final Map<UUID, Set<UUID>> ignoreList    = new java.util.concurrent.ConcurrentHashMap<>();
     private final Set<UUID>            socialSpy     = new HashSet<>();
     /** UUID → timestamp последнего глобального сообщения (для кулдауна) */
     private final Map<UUID, Long>      globalCooldown = new HashMap<>();
@@ -67,6 +67,19 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     public ChatStatsManager getStatsManager() { return statsManager; }
     public PlaytimeManager getPlaytimeManager() { return playtimeManager; }
+
+    public java.util.Set<UUID> getIgnoredUuids(UUID player) {
+        java.util.Set<UUID> set = ignoreList.get(player);
+        return set == null ? java.util.Set.of() : java.util.Set.copyOf(set);
+    }
+
+    public void unignorePlayer(Player viewer, UUID target) {
+        if (viewer == null || target == null) return;
+        java.util.Set<UUID> set = ignoreList.get(viewer.getUniqueId());
+        if (set != null) set.remove(target);
+    }
+
+    private ChatSyncGui gui;
 
     public TeamManager getTeamManager() { return teamManager; }
 
@@ -108,6 +121,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new DeathMessageTranslator(this), this);
         getServer().getPluginManager().registerEvents(new AdvancementMessageTranslator(this), this);
+        this.gui = new ChatSyncGui(this);
+        getServer().getPluginManager().registerEvents(gui, this);
+        getServer().getPluginManager().registerEvents(new SystemMessageListener(this), this);
 
         registerCmd("msg",         this);
         registerCmd("reply",       this);
@@ -132,8 +148,12 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (getConfig().getBoolean("playtime.enabled", true)) {
             long ptTicks = 20L * Math.max(30, getConfig().getInt("playtime.save_interval", 300));
+            // Main-thread: sync vanilla playtime into cache, then async save
+            Bukkit.getScheduler().runTaskTimer(this, () -> {
+                if (playtimeManager != null) playtimeManager.syncOnlinePlayers();
+            }, ptTicks, ptTicks);
             Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                    () -> playtimeManager.saveIfDirty(), ptTicks, ptTicks);
+                    () -> playtimeManager.saveIfDirty(), ptTicks + 20L, ptTicks);
             // Уже онлайн на момент включения плагина (reload / late enable)
             for (Player online : Bukkit.getOnlinePlayers()) {
                 playtimeManager.onJoin(online.getUniqueId(), online.getName());
@@ -290,8 +310,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             event.joinMessage(null);
             return;
         }
-        event.joinMessage(buildJoinQuitMessage(
-                getConfig().getString("messages.join", "&a+ &f%player%"), player));
+        // ObjectComponent в event.joinMessage → консоль пишет "[name head]".
+        // Обнуляем event, шлём игрокам с головой, в консоль — plain-текст.
+        Component withHead = buildJoinQuitMessage(
+                getConfig().getString("messages.join", "&a+ &f%player%"), player);
+        event.joinMessage(null);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(withHead);
+        }
+        logToConsole(plainComponent(withHead));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -303,8 +330,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!tog("quit_message") || (vanishHook != null && vanishHook.shouldHideJoinQuit(player))) {
             event.quitMessage(null);
         } else {
-            event.quitMessage(buildJoinQuitMessage(
-                    getConfig().getString("messages.quit", "&c- &f%player%"), player));
+            Component withHead = buildJoinQuitMessage(
+                    getConfig().getString("messages.quit", "&c- &f%player%"), player);
+            event.quitMessage(null);
+            final Component msg = withHead;
+            final UUID quitter = player.getUniqueId();
+            // На quit игрок ещё online — шлём сразу; консоль — plain
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getUniqueId().equals(quitter)) continue;
+                p.sendMessage(msg);
+            }
+            logToConsole(plainComponent(msg));
         }
         if (teamManager != null) teamManager.onQuit(player.getUniqueId());
         lastMessaged.remove(player.getUniqueId());
@@ -320,7 +356,44 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private Component buildJoinQuitMessage(String template, Player player) {
         // hover строится внутри buildNameComponent через clickableName
-        return buildNameComponent(template, player, null);
+        return buildNameComponentPublic(template, player);
+    }
+
+    /**
+     * Убирает Adventure ObjectComponent (player heads), чтобы консоль/Discord
+     * не печатали сырой "[name head]" / NBT.
+     */
+    Component stripObjectComponents(Component component) {
+        if (component == null) return Component.empty();
+        try {
+            String className = component.getClass().getName();
+            if (className.contains("ObjectComponent") || className.contains("object")) {
+                return Component.empty();
+            }
+        } catch (Throwable ignored) {}
+        java.util.List<Component> children = component.children();
+        if (children == null || children.isEmpty()) return component;
+        java.util.List<Component> cleaned = new java.util.ArrayList<>(children.size());
+        boolean changed = false;
+        for (Component child : children) {
+            Component c = stripObjectComponents(child);
+            if (c != child) changed = true;
+            if (c.equals(Component.empty()) && child != c) {
+                changed = true;
+                continue;
+            }
+            cleaned.add(c);
+        }
+        return changed ? component.children(cleaned) : component;
+    }
+
+    /** Plain text from Component without "[name head]" object noise. */
+    String plainComponent(Component component) {
+        if (component == null) return "";
+        return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(stripObjectComponents(component))
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -504,6 +577,19 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             reloadConfig();
             loadLangFiles();
             sender.sendMessage(color(tAny(sender, "commands.reload.success")));
+            return true;
+        }
+
+        if (sub.equals("gui") || sub.equals("menu")) {
+            if (!(sender instanceof Player p)) {
+                sender.sendMessage("Players only.");
+                return true;
+            }
+            if (gui == null) {
+                sender.sendMessage(color("&cGUI not initialized."));
+                return true;
+            }
+            gui.openMain(p);
             return true;
         }
 
@@ -767,7 +853,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return true;
         }
 
-        Set<UUID> ignored = ignoreList.computeIfAbsent(pSender.getUniqueId(), k -> new HashSet<>());
+        Set<UUID> ignored = ignoreList.computeIfAbsent(pSender.getUniqueId(), k -> java.util.concurrent.ConcurrentHashMap.newKeySet());
         if (ignored.contains(target.getUniqueId())) {
             ignored.remove(target.getUniqueId());
             pSender.sendMessage(buildClickableNameLine(t(pSender, "commands.ignore.removed"), target.getName(), pSender));
@@ -2346,7 +2432,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
         return null;
     }
 
-    private Component buildNameComponent(String template, Player player, String ignoredHover) {
+    Component buildNameComponentPublic(String template, Player player) {
         if (template == null) template = "";
         final boolean wantHead = template.contains("%head%")
                 || getConfig().getBoolean("chat.heads.force_first", true);

@@ -150,13 +150,19 @@ public class PlaytimeManager {
 
     public synchronized void saveIfDirty() {
         if (!dirty) return;
-        // перед сохранением подтянем онлайн-игроков
+        // Не трогаем Bukkit API с async-потока: только кэш.
+        // Онлайн-тики обновляются в onJoin/onQuit и периодически с main (если нужно).
+        save();
+        dirty = false;
+    }
+
+    /** Вызывать с main-thread, чтобы подтянуть PLAY_ONE_MINUTE в кэш. */
+    public void syncOnlinePlayers() {
         for (Player p : Bukkit.getOnlinePlayers()) {
             totalSeconds.put(p.getUniqueId(), vanillaSeconds(p));
             nameCache.put(p.getUniqueId(), p.getName());
         }
-        save();
-        dirty = false;
+        dirty = true;
     }
 
     public synchronized void save() {

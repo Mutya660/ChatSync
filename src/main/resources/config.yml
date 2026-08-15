@@ -127,15 +127,22 @@ discord:
 # ── Death messages ──────────────────────────────────────────────
 death_messages:
   # [EN] Translate death messages according to `language` above.
-  #      language: "en" → uses death_messages_ru.json + entity_names_ru.json
-  #      language: "en" (default) → vanilla Minecraft text (client-localized), clickable names only
+  #      language: "ru" → death_messages_ru.json + entity_names_ru.json
+  #      language: "en" (default) → vanilla text (client-localized), clickable names only
   # [RU] Переводить сообщения о смерти по `language` выше.
-  #      language: "ru" → пакет death_messages_ru.json + entity_names_ru.json
-  #      language: "en" (по умолчанию) → ванильный текст (локаль клиента), только кликабельные ники
   translate: true
   # [EN] Legacy: if true and `translate` key is absent, force Russian pack
   # [RU] Старый ключ: если true и нет `translate` — принудительно русский пакет
   translate_to_russian: false
+  # [EN] Show player head icons in death messages (in-game only; Discord/console stay clean)
+  # [RU] Головы в сообщениях о смерти (только в Minecraft; Discord/консоль без мусора)
+  show_heads: true
+
+# ── Advancement messages ──────────────────────────────────────
+advancement_messages:
+  # [EN] Show player head in advancement announcements (in-game only)
+  # [RU] Голова в анонсах достижений (только в игре)
+  show_heads: true
 
 # ── Join / Quit messages ──────────────────────────────────────
 messages:
@@ -538,3 +545,41 @@ advanced:
   # [EN] Save ignore lists across restarts (plugins/ChatSync/ignores.yml)
   # [RU] Сохранять игнор-листы между рестартами
   persist_ignores: true
+
+
+# ── System messages (gamemode / teleport) ─────────────────────
+# [EN] Custom messages for op-like events. Heads only in-game; console is plain text.
+# [RU] Кастомные сообщения (смена режима, ТП). Головы только в игре; консоль — plain.
+system_messages:
+  gamemode:
+    # [EN] Announce gamemode changes to everyone
+    # [RU] Объявлять смену режима всем
+    enabled: true
+    format: "%head%&7%player% &8→ &f%mode%"
+    format_creative: "%head%&7%player% &8→ &aCREATIVE"
+    format_survival: "%head%&7%player% &8→ &eSURVIVAL"
+    format_adventure: "%head%&7%player% &8→ &bADVENTURE"
+    format_spectator: "%head%&7%player% &8→ &8SPECTATOR"
+  teleport:
+    # [EN] Announce teleports (off by default — can be spammy)
+    # [RU] Объявлять телепорты (выкл. по умолчанию — спамно)
+    enabled: false
+    # [EN] Only cross-world teleports
+    # [RU] Только межмировые телепорты
+    cross_world_only: true
+    # [EN] Empty list = COMMAND, PLUGIN, END_PORTAL, NETHER_PORTAL, SPECTATE, ENDER_PEARL
+    # [RU] Пустой список = COMMAND, PLUGIN, END_PORTAL, NETHER_PORTAL, SPECTATE, ENDER_PEARL
+    causes: []
+    format: "%head%&7%player% &8tp &f%from% &8→ &f%to%"
+
+# ── GUI (/chatsync gui) ───────────────────────────────────────
+gui:
+  # [EN] Enable inventory menu
+  # [RU] Включить GUI-меню
+  enabled: true
+  # [EN] Permission to open the menu
+  # [RU] Право открыть меню
+  permission: "chatsync.gui"
+  # [EN] Permission to unignore players from the GUI
+  # [RU] Право снимать игнор из GUI
+  permission_unmute: "chatsync.gui.unmute"

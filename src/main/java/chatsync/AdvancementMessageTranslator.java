@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.TranslationArgument;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -12,37 +13,61 @@ import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Делает ник игрока кликабельным в анонсе достижения.
- * Текст достижения (название) локализуется клиентом / датапаком сервера —
- * ChatSync его не подменяет. Hover — единый (с playtime, если включено).
- * Головы в анонсах достижений не используются.
+ * Кликабельный ник в анонсе достижения.
+ * Головы — только игрокам; event.message без ObjectComponent для Discord/консоли.
  */
 public class AdvancementMessageTranslator implements Listener {
 
     private final ChatSync plugin;
+    private final Map<UUID, Component> pendingWithHead = new ConcurrentHashMap<>();
 
     public AdvancementMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onAdvancement(PlayerAdvancementDoneEvent event) {
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onAdvancementEarly(PlayerAdvancementDoneEvent event) {
         if (!plugin.getConfig().getBoolean("toggles.clickable_advancement_name", true)) return;
-
-        // Скрытые достижения (рецепты и т.п.) без display — без анонса
         if (event.getAdvancement().getDisplay() == null) return;
 
         Component message = event.message();
         if (message == null) return;
 
         Player player = event.getPlayer();
-        Component updated = makeNameClickable(message, player);
-        if (updated == null) return;
+        Component body = makeNameClickable(message, player);
+        if (body == null) body = message;
 
-        // Без голов — один текст для Minecraft и DiscordSRV
-        event.message(updated);
+        event.message(plugin.stripObjectComponents(body));
+
+        boolean heads = plugin.getConfig().getBoolean("chat.heads.enabled", true)
+                && plugin.getConfig().getBoolean("advancement_messages.show_heads", true);
+        Component withHead = body;
+        if (heads) {
+            withHead = Component.text()
+                    .append(plugin.buildHeadComponent(player))
+                    .append(body)
+                    .build();
+        }
+        pendingWithHead.put(player.getUniqueId(), withHead);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAdvancementLate(PlayerAdvancementDoneEvent event) {
+        Component withHead = pendingWithHead.remove(event.getPlayer().getUniqueId());
+        if (withHead == null) return;
+        if (!plugin.getConfig().getBoolean("advancement_messages.show_heads", true)
+                || !plugin.getConfig().getBoolean("chat.heads.enabled", true)) {
+            return;
+        }
+        event.message(null);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(withHead);
+        }
     }
 
     private Component makeNameClickable(Component component, Player player) {

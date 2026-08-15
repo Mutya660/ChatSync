@@ -4,9 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -23,17 +22,18 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Перевод сообщений о смерти по language из config.yml + кликабельные ники с hover.
- * Для language=ru загружаются death_messages_ru.json / entity_names_ru.json.
- * Для en (и прочих без пакета) оставляем ванильный текст, только кликабельность.
- * Головы в death-сообщениях не используются (Discord + ванильный broadcast).
+ * Перевод сообщений о смерти + кликабельные ники.
+ * Головы: только игрокам (MONITOR), в event — clean-версия для DiscordSRV/консоли.
  */
 public class DeathMessageTranslator implements Listener {
 
     private final ChatSync plugin;
     private final Map<String, String> translations;
+    private final Map<UUID, Component> pendingWithHeads = new ConcurrentHashMap<>();
 
     public DeathMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
@@ -42,7 +42,6 @@ public class DeathMessageTranslator implements Listener {
 
     private Map<String, String> loadTranslationsForLanguage(JavaPlugin plugin) {
         String lang = plugin.getConfig().getString("language", "en").toLowerCase();
-        // Обратная совместимость: translate_to_russian: true при language en → всё равно ru, если явно включено
         boolean forceRu = plugin.getConfig().getBoolean("death_messages.translate_to_russian", false)
                 && !plugin.getConfig().contains("death_messages.translate");
         boolean translate = plugin.getConfig().getBoolean("death_messages.translate", true);
@@ -57,8 +56,6 @@ public class DeathMessageTranslator implements Listener {
                 plugin.getLogger().info("Death messages: loaded Russian translation pack (" + combined.size() + " keys).");
             }
         } else {
-            // en / de / fr — ванильные сообщения Minecraft (клиент сам локализует translatable),
-            // плагин только делает ники кликабельными.
             plugin.getLogger().info("Death messages: language=" + lang + " — vanilla text, clickable names only.");
         }
         return combined;
@@ -79,13 +76,15 @@ public class DeathMessageTranslator implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onPlayerDeath(PlayerDeathEvent event) {
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onPlayerDeathEarly(PlayerDeathEvent event) {
         Component deathMessage = event.deathMessage();
         if (deathMessage == null) return;
 
         boolean clickable = plugin.getConfig().getBoolean("toggles.clickable_death_name", true);
         boolean translate = plugin.getConfig().getBoolean("death_messages.translate", true);
+        boolean heads = plugin.getConfig().getBoolean("chat.heads.enabled", true)
+                && plugin.getConfig().getBoolean("death_messages.show_heads", true);
         Map<String, Player> targets = collectClickableTargets(event);
 
         Component body = null;
@@ -104,10 +103,38 @@ public class DeathMessageTranslator implements Listener {
             body = updated != null ? updated : deathMessage;
         }
 
-        if (body == null) return;
+        if (body == null) body = deathMessage;
 
-        // Без голов — один и тот же текст для Minecraft и DiscordSRV
-        event.deathMessage(body);
+        event.deathMessage(plugin.stripObjectComponents(body));
+
+        Component withHeads = body;
+        if (heads) {
+            withHeads = prependHeads(body, targets);
+        }
+        pendingWithHeads.put(event.getEntity().getUniqueId(), withHeads);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDeathLate(PlayerDeathEvent event) {
+        Component withHeads = pendingWithHeads.remove(event.getEntity().getUniqueId());
+        if (withHeads == null) return;
+        if (!plugin.getConfig().getBoolean("death_messages.show_heads", true)
+                || !plugin.getConfig().getBoolean("chat.heads.enabled", true)) {
+            return;
+        }
+        event.deathMessage(null);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(withHeads);
+        }
+    }
+
+    private Component prependHeads(Component message, Map<String, Player> targets) {
+        if (targets == null || targets.isEmpty()) return message;
+        net.kyori.adventure.text.TextComponent.Builder b = Component.text();
+        for (Player p : targets.values()) {
+            if (p != null) b.append(plugin.buildHeadComponent(p));
+        }
+        return b.append(message).build();
     }
 
     private Map<String, Player> collectClickableTargets(PlayerDeathEvent event) {
@@ -126,7 +153,6 @@ public class DeathMessageTranslator implements Listener {
         names.sort((a, b) -> Integer.compare(b.length(), a.length()));
 
         net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
-
         StringBuilder plain = new StringBuilder();
         int i = 0;
         while (i < text.length()) {
@@ -160,8 +186,6 @@ public class DeathMessageTranslator implements Listener {
         return builder.build();
     }
 
-
-    /** Делает ники кликабельными внутри ванильного (в т.ч. translatable) компонента. */
     private Component makeNamesClickable(Component component, Map<String, Player> targets) {
         if (component instanceof TranslatableComponent translatable) {
             return makeTranslatableClickable(translatable, targets);

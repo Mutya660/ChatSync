@@ -133,3 +133,6 @@ permissions:
   chatsync.gui.unmute:
     description: Unignore players from ChatSync GUI
     default: true
+  chatsync.system.see:
+    description: See gamemode/teleport staff messages
+    default: op

@@ -274,8 +274,7 @@ public class ChatSyncGui implements Listener {
     private ItemStack skull(UUID uuid, String name, List<String> lore, String action, int page, String target) {
         ItemStack stack = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) stack.getItemMeta();
-        OfflinePlayer op = Bukkit.getOfflinePlayer(uuid);
-        try { meta.setOwningPlayer(op); } catch (Throwable ignored) {}
+        applySkullSkin(meta, uuid, name);
         meta.displayName(LEGACY.deserialize("&f" + (name != null ? name : shortId(uuid))));
         if (lore != null) {
             List<Component> lc = new ArrayList<>();
@@ -287,6 +286,44 @@ public class ChatSyncGui implements Listener {
         if (target != null) meta.getPersistentDataContainer().set(targetKey, PersistentDataType.STRING, target);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /** Скин оффлайн-игрока: online → Paper profile → OfflinePlayer. */
+    private void applySkullSkin(SkullMeta meta, UUID uuid, String name) {
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null) {
+            try {
+                meta.setOwningPlayer(online);
+                return;
+            } catch (Throwable ignored) {}
+        }
+        // Paper: Bukkit.createProfile + setPlayerProfile
+        try {
+            java.lang.reflect.Method create = Bukkit.class.getMethod("createProfile", UUID.class, String.class);
+            Object profile = create.invoke(null, uuid, name != null ? name : "Player");
+            try {
+                profile.getClass().getMethod("completeFromCache").invoke(profile);
+            } catch (NoSuchMethodException e) {
+                try {
+                    // blocking Mojang fetch — only if cache miss; keep short
+                    profile.getClass().getMethod("complete", boolean.class).invoke(profile, true);
+                } catch (Throwable ignored) {}
+            }
+            try {
+                meta.getClass().getMethod("setPlayerProfile", Class.forName("com.destroystokyo.paper.profile.PlayerProfile"))
+                        .invoke(meta, profile);
+                return;
+            } catch (Throwable ignored) {}
+            try {
+                if (profile instanceof org.bukkit.profile.PlayerProfile bp) {
+                    meta.setOwnerProfile(bp);
+                    return;
+                }
+            } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {}
+        try {
+            meta.setOwningPlayer(Bukkit.getOfflinePlayer(uuid));
+        } catch (Throwable ignored) {}
     }
 
     private String resolveName(UUID uuid) {

@@ -226,11 +226,38 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                         || probe.getString("pm.player_not_found") == null) {
                     getLogger().warning("Language file " + resource + " is outdated or broken — restoring from JAR.");
                     saveResource(resource, true);
+                } else {
+                    // Дописать новые ключи (gui и т.п.) без затирания кастомных переводов
+                    mergeLangFromJar(resource, file);
                 }
             }
             langConfigs.put(lang, YamlConfiguration.loadConfiguration(file));
         }
         getLogger().info("Loaded " + langConfigs.size() + " language(s): " + String.join(", ", langConfigs.keySet()));
+    }
+
+    /** Дописывает отсутствующие ключи из JAR в существующий lang-файл. */
+    private void mergeLangFromJar(String resource, File file) {
+        try {
+            java.io.InputStream in = getResource(resource);
+            if (in == null) return;
+            YamlConfiguration jar = YamlConfiguration.loadConfiguration(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
+            YamlConfiguration disk = YamlConfiguration.loadConfiguration(file);
+            boolean changed = false;
+            for (String key : jar.getKeys(true)) {
+                if (jar.isConfigurationSection(key)) continue;
+                if (!disk.contains(key)) {
+                    disk.set(key, jar.get(key));
+                    changed = true;
+                }
+            }
+            if (changed) {
+                disk.save(file);
+                getLogger().info("Merged new lang keys into " + resource);
+            }
+        } catch (Throwable t) {
+            getLogger().warning("Could not merge lang " + resource + ": " + t.getMessage());
+        }
     }
 
     private String getLang(Player player) {
@@ -1788,7 +1815,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (name.equals("chatsync") || name.equals("csync")) {
             if (args.length == 1) {
                 List<String> subs = new ArrayList<>();
-                for (String s : List.of("info", "reload", "version", "about")) {
+                for (String s : List.of("info", "reload", "gui", "menu", "version", "about")) {
                     if (s.startsWith(args[0].toLowerCase())) subs.add(s);
                 }
                 return subs;

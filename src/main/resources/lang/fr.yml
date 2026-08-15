@@ -7,7 +7,7 @@ commands:
     no_permission: "&c[!] Vous n'avez pas la permission d'exécuter cette commande."
     usage: "&7Usage : &f/chatsync reload"
   chatsync:
-    usage: "&7Usage : &f/chatsync info|reload"
+    usage: "&7Utilisation: &f/chatsync info|reload|gui"
     info_lines:
       - ""
       - "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

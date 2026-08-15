@@ -551,6 +551,10 @@ advanced:
 # [EN] Custom messages for op-like events. Heads only in-game; console is plain text.
 # [RU] Кастомные сообщения (смена режима, ТП). Головы только в игре; консоль — plain.
 system_messages:
+  # [EN] Only staff see GM/TP (see_permission). Console always logs.
+  # [RU] GM/TP только стаффу. Консоль всегда логирует.
+  staff_only: true
+  see_permission: "chatsync.system.see"
   gamemode:
     # [EN] Announce gamemode changes to everyone
     # [RU] Объявлять смену режима всем
@@ -560,6 +564,7 @@ system_messages:
     format_survival: "%head%&7%player% &8→ &eSURVIVAL"
     format_adventure: "%head%&7%player% &8→ &bADVENTURE"
     format_spectator: "%head%&7%player% &8→ &8SPECTATOR"
+    announce_non_command: false
   teleport:
     # [EN] Announce teleports (COMMAND/PLUGIN by default)
     # [RU] Объявлять телепорты (по умолчанию COMMAND/PLUGIN)
@@ -568,10 +573,11 @@ system_messages:
     # [RU] Только межмировые телепорты
     cross_world_only: false
     include_portals: false
+    announce_non_command: false
     # [EN] Empty list = COMMAND, PLUGIN, END_PORTAL, NETHER_PORTAL, SPECTATE, ENDER_PEARL
     # [RU] Пустой список = COMMAND, PLUGIN, END_PORTAL, NETHER_PORTAL, SPECTATE, ENDER_PEARL
     causes: []
-    format: "%head%&7%player% &8tp &f%from% &8→ &f%to%"
+    format: "%head%&7%player% &8→ &f%world% &7%x%&8, &7%y%&8, &7%z%"
 
 # ── GUI (/chatsync gui) ───────────────────────────────────────
 gui:

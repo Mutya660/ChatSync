@@ -334,9 +334,19 @@ public class TeamManager {
         invites.remove(uuid);
     }
 
+    public void reload() {
+        teams.clear();
+        playerTeam.clear();
+        invites.clear();
+        if (plugin.getConfig().getBoolean("teams.persist", true)) load();
+    }
+
     private void load() {
         File f = new File(plugin.getDataFolder(), "teams.yml");
-        if (!f.exists()) return;
+        if (!f.exists()) {
+            plugin.getLogger().info("Teams: no teams.yml yet.");
+            return;
+        }
         YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
         ConfigurationSection sec = y.getConfigurationSection("teams");
         if (sec == null) return;
@@ -370,6 +380,7 @@ public class TeamManager {
                 teams.put(id, team);
             } catch (Exception ignored) {}
         }
+        plugin.getLogger().info("Teams: loaded " + teams.size() + " team(s) from teams.yml");
     }
 
     public void save() {

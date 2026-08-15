@@ -25,7 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Inventory GUI: main menu, chat top, playtime top, ignore list, commands list.
+ * Минималистичное GUI. Язык = локаль игрока (en/ru/de/fr).
  */
 public class ChatSyncGui implements Listener {
 
@@ -33,8 +33,9 @@ public class ChatSyncGui implements Listener {
     private final NamespacedKey actionKey;
     private final NamespacedKey pageKey;
     private final NamespacedKey targetKey;
-    /** Pending unignore confirm: viewer UUID → target UUID */
     private final Map<UUID, UUID> pendingUnignore = new ConcurrentHashMap<>();
+
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
 
     public ChatSyncGui(ChatSync plugin) {
         this.plugin = plugin;
@@ -43,99 +44,137 @@ public class ChatSyncGui implements Listener {
         this.targetKey = new NamespacedKey(plugin, "gui_target");
     }
 
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
+    private String tr(Player p, String key, String fallback) {
+        String s = plugin.t(p, key);
+        if (s == null || s.isEmpty() || s.equals(key)) return fallback;
+        return s;
+    }
 
     public void openMain(Player player) {
         if (!plugin.getConfig().getBoolean("gui.enabled", true)) {
-            player.sendMessage(LEGACY.deserialize("&cGUI disabled."));
+            player.sendMessage(LEGACY.deserialize(tr(player, "gui.disabled", "&cGUI disabled.")));
             return;
         }
         if (!player.hasPermission(plugin.getConfig().getString("gui.permission", "chatsync.gui"))) {
-            player.sendMessage(LEGACY.deserialize("&cNo permission."));
+            player.sendMessage(LEGACY.deserialize(tr(player, "gui.no_permission", "&cNo permission.")));
             return;
         }
-        Inventory inv = Bukkit.createInventory(new GuiHolder(GuiType.MAIN, 0), 27, LEGACY.deserialize("&8ChatSync Menu"));
-        inv.setItem(10, item(Material.WRITABLE_BOOK, "&aChat Top", List.of("&7Top by messages", "&eClick to open"), "open_chat_top", 0, null));
-        inv.setItem(12, item(Material.CLOCK, "&bPlaytime Top", List.of("&7Top by hours played", "&eClick to open"), "open_playtime_top", 0, null));
-        inv.setItem(14, item(Material.BARRIER, "&cIgnore List", List.of("&7Players you ignore", "&eClick to manage"), "open_ignore", 0, null));
-        inv.setItem(16, item(Material.COMMAND_BLOCK, "&eCommands", List.of("&7Plugin commands list", "&eClick to open"), "open_commands", 0, null));
-        inv.setItem(22, item(Material.ARROW, "&7Close", List.of(), "close", 0, null));
+        String title = tr(player, "gui.main_title", "&8ChatSync");
+        Inventory inv = Bukkit.createInventory(new GuiHolder(GuiType.MAIN, 0), 27, LEGACY.deserialize(title));
+
+        inv.setItem(11, item(Material.PAPER,
+                tr(player, "gui.btn_chat_top", "&fChat top"),
+                List.of(tr(player, "gui.btn_chat_top_lore", "&7Messages ranking")),
+                "open_chat_top", 0, null));
+        inv.setItem(13, item(Material.CLOCK,
+                tr(player, "gui.btn_playtime_top", "&fPlaytime top"),
+                List.of(tr(player, "gui.btn_playtime_top_lore", "&7Hours ranking")),
+                "open_playtime_top", 0, null));
+        inv.setItem(15, item(Material.NAME_TAG,
+                tr(player, "gui.btn_ignore", "&fIgnore list"),
+                List.of(tr(player, "gui.btn_ignore_lore", "&7Manage ignored")),
+                "open_ignore", 0, null));
+        inv.setItem(22, item(Material.BOOK,
+                tr(player, "gui.btn_commands", "&fCommands"),
+                List.of(tr(player, "gui.btn_commands_lore", "&7Plugin commands")),
+                "open_commands", 0, null));
+
         player.openInventory(inv);
     }
 
     public void openChatTop(Player player, int page) {
         List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top =
-                plugin.getStatsManager() != null ? plugin.getStatsManager().top(100) : List.of();
-        openPagedHeads(player, GuiType.CHAT_TOP, page, top.size(), (slot, index) -> {
+                plugin.getStatsManager() != null ? plugin.getStatsManager().top(200) : List.of();
+        String title = tr(player, "gui.chat_top_title", "&8Chat top");
+        openPagedHeads(player, GuiType.CHAT_TOP, page, top.size(), title, (slot, index) -> {
             if (index >= top.size()) return null;
             Map.Entry<UUID, ChatStatsManager.PlayerStats> e = top.get(index);
-            String name = plugin.getStatsManager().nameOf(e.getKey());
+            String name = resolveName(e.getKey());
             ChatStatsManager.PlayerStats s = e.getValue();
-            return skull(e.getKey(), name,
-                    List.of("&7Total: &f" + s.total(),
-                            "&8G:&f" + s.global + " &8L:&f" + s.local + " &8PM:&f" + s.pm,
-                            "&e#" + (index + 1)),
-                    "noop", page, e.getKey().toString());
-        }, "Chat Top");
+            // Same format as /chatstats player_line
+            String line = tr(player, "chatstats.player_line",
+                    "&7Global: &f%global%  &7Local: &f%local%  &7PMs: &f%pm%  &7/me: &f%me%  &7BC: &f%broadcast%  &7Total: &e%total%")
+                    .replace("%global%", String.valueOf(s.global))
+                    .replace("%local%", String.valueOf(s.local))
+                    .replace("%pm%", String.valueOf(s.pm))
+                    .replace("%me%", String.valueOf(s.me))
+                    .replace("%broadcast%", String.valueOf(s.broadcast))
+                    .replace("%total%", String.valueOf(s.total()));
+            List<String> lore = new ArrayList<>();
+            lore.add("&8#" + (index + 1));
+            // split long line into short lore lines for readability
+            for (String part : line.split(" {2,}")) {
+                if (!part.isBlank()) lore.add(part.trim());
+            }
+            return skull(e.getKey(), name, lore, "noop", page, e.getKey().toString());
+        });
     }
 
     public void openPlaytimeTop(Player player, int page) {
         List<Map.Entry<UUID, Long>> top =
-                plugin.getPlaytimeManager() != null ? plugin.getPlaytimeManager().top(100) : List.of();
-        openPagedHeads(player, GuiType.PLAYTIME_TOP, page, top.size(), (slot, index) -> {
+                plugin.getPlaytimeManager() != null ? plugin.getPlaytimeManager().top(200) : List.of();
+        String title = tr(player, "gui.playtime_top_title", "&8Playtime top");
+        openPagedHeads(player, GuiType.PLAYTIME_TOP, page, top.size(), title, (slot, index) -> {
             if (index >= top.size()) return null;
             Map.Entry<UUID, Long> e = top.get(index);
-            String name = plugin.getPlaytimeManager().nameOf(e.getKey());
-            long sec = e.getValue();
-            String time = formatTime(sec);
+            String name = resolveName(e.getKey());
+            String time = formatTime(e.getValue());
             return skull(e.getKey(), name,
-                    List.of("&7Playtime: &f" + time, "&e#" + (index + 1)),
+                    List.of("&8#" + (index + 1),
+                            tr(player, "gui.playtime_line", "&7Playtime: &f%time%").replace("%time%", time)),
                     "noop", page, e.getKey().toString());
-        }, "Playtime Top");
+        });
     }
 
     public void openIgnore(Player player, int page) {
         List<UUID> ignored = new ArrayList<>(plugin.getIgnoredUuids(player.getUniqueId()));
-        openPagedHeads(player, GuiType.IGNORE, page, ignored.size(), (slot, index) -> {
+        String title = tr(player, "gui.ignore_title", "&8Ignore list");
+        openPagedHeads(player, GuiType.IGNORE, page, ignored.size(), title, (slot, index) -> {
             if (index >= ignored.size()) return null;
             UUID uid = ignored.get(index);
             String name = resolveName(uid);
             return skull(uid, name,
-                    List.of("&cIgnored", "&eClick twice to unignore"),
+                    List.of(tr(player, "gui.ignore_lore", "&7Click twice to unignore")),
                     "unignore", page, uid.toString());
-        }, "Ignore List");
+        });
     }
 
     public void openCommands(Player player, int page) {
-        List<String[]> cmds = List.of(
-                new String[]{"/msg", "Private message", "chatsync.msg.console (console)"},
-                new String[]{"/reply", "Reply to last PM", "-"},
-                new String[]{"/ignore", "Ignore a player", "-"},
-                new String[]{"/ignorelist", "List ignored", "-"},
-                new String[]{"/socialspy", "Spy on PMs", "chatsync.spy"},
-                new String[]{"/me", "Roleplay action", "chatsync.me"},
-                new String[]{"/clear", "Clear chat", "chatsync.clear"},
-                new String[]{"/chatstats", "Chat statistics", "chatsync.chatstats"},
-                new String[]{"/broadcast", "Server announcement", "chatsync.broadcast"},
-                new String[]{"/playtime", "Playtime", "chatsync.playtime"},
-                new String[]{"/playtimetop", "Playtime leaderboard", "chatsync.playtimetop"},
-                new String[]{"/lastseen", "Last seen", "chatsync.lastseen"},
-                new String[]{"/team", "Team / party", "chatsync.team"},
-                new String[]{"/chatsync gui", "This menu", "chatsync.gui"},
-                new String[]{"/chatsync reload", "Reload config", "chatsync.admin"}
-        );
-        int size = 54;
-        Inventory inv = Bukkit.createInventory(new GuiHolder(GuiType.COMMANDS, page), size, LEGACY.deserialize("&8Commands"));
+        // name, desc key, permission
+        String[][] cmds = {
+                {"/msg <player>", "gui.cmd.msg", "-"},
+                {"/reply <msg>", "gui.cmd.reply", "-"},
+                {"/ignore <player>", "gui.cmd.ignore", "-"},
+                {"/ignorelist", "gui.cmd.ignorelist", "-"},
+                {"/socialspy", "gui.cmd.socialspy", "chatsync.spy"},
+                {"/me <action>", "gui.cmd.me", "chatsync.me"},
+                {"/clear", "gui.cmd.clear", "chatsync.clear"},
+                {"/chatstats", "gui.cmd.chatstats", "chatsync.chatstats"},
+                {"/broadcast", "gui.cmd.broadcast", "chatsync.broadcast"},
+                {"/playtime", "gui.cmd.playtime", "chatsync.playtime"},
+                {"/playtimetop", "gui.cmd.playtimetop", "chatsync.playtimetop"},
+                {"/lastseen", "gui.cmd.lastseen", "chatsync.lastseen"},
+                {"/team", "gui.cmd.team", "chatsync.team"},
+                {"/chatsync gui", "gui.cmd.gui", "chatsync.gui"},
+                {"/chatsync reload", "gui.cmd.reload", "chatsync.admin"}
+        };
+        String title = tr(player, "gui.commands_title", "&8Commands");
+        Inventory inv = Bukkit.createInventory(new GuiHolder(GuiType.COMMANDS, page), 54, LEGACY.deserialize(title));
         int perPage = 45;
         int start = page * perPage;
-        for (int i = 0; i < perPage && start + i < cmds.size(); i++) {
-            String[] c = cmds.get(start + i);
-            inv.setItem(i, item(Material.PAPER, "&e" + c[0], List.of("&7" + c[1], "&8Perm: &f" + c[2]), "noop", page, null));
+        for (int i = 0; i < perPage && start + i < cmds.length; i++) {
+            String[] c = cmds[start + i];
+            String desc = tr(player, c[1], c[1]);
+            List<String> lore = new ArrayList<>();
+            lore.add("&7" + desc);
+            if (c[2] != null && !c[2].equals("-")) {
+                lore.add(tr(player, "gui.cmd_perm", "&8perm: &f%perm%").replace("%perm%", c[2]));
+            }
+            inv.setItem(i, item(Material.MAP, "&f" + c[0], lore, "noop", page, null));
         }
-        inv.setItem(45, item(Material.ARROW, "&7Back", List.of(), "open_main", 0, null));
-        if (page > 0) inv.setItem(48, item(Material.ARROW, "&7Prev", List.of(), "open_commands", page - 1, null));
-        if (start + perPage < cmds.size()) inv.setItem(50, item(Material.ARROW, "&7Next", List.of(), "open_commands", page + 1, null));
-        inv.setItem(53, item(Material.BARRIER, "&cClose", List.of(), "close", 0, null));
+        inv.setItem(45, item(Material.ARROW, tr(player, "gui.back", "&7Back"), List.of(), "open_main", 0, null));
+        if (page > 0) inv.setItem(48, item(Material.ARROW, tr(player, "gui.prev", "&7Prev"), List.of(), "open_commands", page - 1, null));
+        if (start + perPage < cmds.length) inv.setItem(50, item(Material.ARROW, tr(player, "gui.next", "&7Next"), List.of(), "open_commands", page + 1, null));
         player.openInventory(inv);
     }
 
@@ -143,9 +182,8 @@ public class ChatSyncGui implements Listener {
         ItemStack get(int slot, int index);
     }
 
-    private void openPagedHeads(Player player, GuiType type, int page, int total, SlotFiller filler, String title) {
-        int size = 54;
-        Inventory inv = Bukkit.createInventory(new GuiHolder(type, page), size, LEGACY.deserialize("&8" + title));
+    private void openPagedHeads(Player player, GuiType type, int page, int total, String title, SlotFiller filler) {
+        Inventory inv = Bukkit.createInventory(new GuiHolder(type, page), 54, LEGACY.deserialize(title));
         int perPage = 45;
         int start = page * perPage;
         for (int i = 0; i < perPage; i++) {
@@ -154,10 +192,13 @@ public class ChatSyncGui implements Listener {
             ItemStack it = filler.get(i, index);
             if (it != null) inv.setItem(i, it);
         }
-        inv.setItem(45, item(Material.ARROW, "&7Back", List.of(), "open_main", 0, null));
-        if (page > 0) inv.setItem(48, item(Material.ARROW, "&7Prev", List.of(), "page_prev", page - 1, null));
-        if (start + perPage < total) inv.setItem(50, item(Material.ARROW, "&7Next", List.of(), "page_next", page + 1, null));
-        inv.setItem(53, item(Material.BARRIER, "&cClose", List.of(), "close", 0, null));
+        inv.setItem(45, item(Material.ARROW, tr(player, "gui.back", "&7Back"), List.of(), "open_main", 0, null));
+        if (page > 0) inv.setItem(48, item(Material.ARROW, tr(player, "gui.prev", "&7Prev"), List.of(), "page_prev", page - 1, null));
+        if (start + perPage < total) inv.setItem(50, item(Material.ARROW, tr(player, "gui.next", "&7Next"), List.of(), "page_next", page + 1, null));
+        if (total == 0) {
+            inv.setItem(22, item(Material.GRAY_STAINED_GLASS_PANE,
+                    tr(player, "gui.empty", "&8Empty"), List.of(), "noop", 0, null));
+        }
         player.openInventory(inv);
     }
 
@@ -193,22 +234,17 @@ public class ChatSyncGui implements Listener {
             }
             case "unignore" -> {
                 if (!player.hasPermission(plugin.getConfig().getString("gui.permission_unmute", "chatsync.gui.unmute"))) {
-                    player.sendMessage(LEGACY.deserialize("&cNo permission to unignore here."));
+                    player.sendMessage(LEGACY.deserialize(tr(player, "gui.no_permission", "&cNo permission.")));
                     return;
                 }
                 if (target == null) return;
                 UUID tid;
                 try { tid = UUID.fromString(target); } catch (Exception e) { return; }
-                UUID pending = pendingUnignore.get(player.getUniqueId());
-                if (pending != null && pending.equals(tid)) {
-                    pendingUnignore.remove(player.getUniqueId());
-                    plugin.unignorePlayer(player, tid);
-                    player.sendMessage(LEGACY.deserialize("&aUnignored &f" + resolveName(tid)));
-                    openIgnore(player, page);
-                } else {
-                    pendingUnignore.put(player.getUniqueId(), tid);
-                    player.sendMessage(LEGACY.deserialize("&eClick again to confirm unignore of &f" + resolveName(tid)));
-                }
+                plugin.unignorePlayer(player, tid);
+                player.sendMessage(LEGACY.deserialize(
+                        tr(player, "gui.unignored", "&aUnignored &f%player%")
+                                .replace("%player%", resolveName(tid))));
+                openIgnore(player, page);
             }
             default -> {}
         }
@@ -216,9 +252,7 @@ public class ChatSyncGui implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (event.getInventory().getHolder() instanceof GuiHolder) {
-            event.setCancelled(true);
-        }
+        if (event.getInventory().getHolder() instanceof GuiHolder) event.setCancelled(true);
     }
 
     private ItemStack item(Material mat, String name, List<String> lore, String action, int page, String target) {
@@ -241,10 +275,8 @@ public class ChatSyncGui implements Listener {
         ItemStack stack = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) stack.getItemMeta();
         OfflinePlayer op = Bukkit.getOfflinePlayer(uuid);
-        try {
-            meta.setOwningPlayer(op);
-        } catch (Throwable ignored) {}
-        meta.displayName(LEGACY.deserialize("&f" + (name != null ? name : uuid.toString().substring(0, 8))));
+        try { meta.setOwningPlayer(op); } catch (Throwable ignored) {}
+        meta.displayName(LEGACY.deserialize("&f" + (name != null ? name : shortId(uuid))));
         if (lore != null) {
             List<Component> lc = new ArrayList<>();
             for (String l : lore) lc.add(LEGACY.deserialize(l));
@@ -262,19 +294,26 @@ public class ChatSyncGui implements Listener {
         if (online != null) return online.getName();
         if (plugin.getPlaytimeManager() != null) {
             String n = plugin.getPlaytimeManager().nameOf(uuid);
-            if (n != null && !n.equals(uuid.toString())) return n;
+            if (n != null && !n.equals(uuid.toString()) && !n.equals(shortId(uuid))) return n;
         }
         if (plugin.getStatsManager() != null) {
             String n = plugin.getStatsManager().nameOf(uuid);
-            if (n != null && !n.equals(uuid.toString())) return n;
+            if (n != null && !n.equals(uuid.toString()) && !n.equals(shortId(uuid))) return n;
         }
         OfflinePlayer op = Bukkit.getOfflinePlayer(uuid);
-        return op.getName() != null ? op.getName() : uuid.toString().substring(0, 8);
+        if (op.getName() != null) return op.getName();
+        return shortId(uuid);
+    }
+
+    private static String shortId(UUID uuid) {
+        return uuid.toString().substring(0, 8);
     }
 
     private String formatTime(long seconds) {
-        long h = seconds / 3600;
+        long d = seconds / 86400;
+        long h = (seconds % 86400) / 3600;
         long m = (seconds % 3600) / 60;
+        if (d > 0) return d + "d " + h + "h";
         if (h > 0) return h + "h " + m + "m";
         return m + "m";
     }

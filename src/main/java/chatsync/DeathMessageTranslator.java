@@ -26,14 +26,15 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Перевод сообщений о смерти + кликабельные ники.
- * Головы: только игрокам (MONITOR), в event — clean-версия для DiscordSRV/консоли.
+ * Перевод + кликабельные ники. Головы только игрокам.
+ * Discord/консоль всегда получают clean-текст (даже если event обнулён).
  */
 public class DeathMessageTranslator implements Listener {
 
     private final ChatSync plugin;
     private final Map<String, String> translations;
     private final Map<UUID, Component> pendingWithHeads = new ConcurrentHashMap<>();
+    private final Map<UUID, Component> pendingClean = new ConcurrentHashMap<>();
 
     public DeathMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
@@ -105,7 +106,9 @@ public class DeathMessageTranslator implements Listener {
 
         if (body == null) body = deathMessage;
 
-        event.deathMessage(plugin.stripObjectComponents(body));
+        Component clean = plugin.stripObjectComponents(body);
+        event.deathMessage(clean);
+        pendingClean.put(event.getEntity().getUniqueId(), clean);
 
         Component withHeads = body;
         if (heads) {
@@ -116,15 +119,35 @@ public class DeathMessageTranslator implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerDeathLate(PlayerDeathEvent event) {
-        Component withHeads = pendingWithHeads.remove(event.getEntity().getUniqueId());
-        if (withHeads == null) return;
-        if (!plugin.getConfig().getBoolean("death_messages.show_heads", true)
-                || !plugin.getConfig().getBoolean("chat.heads.enabled", true)) {
-            return;
-        }
-        event.deathMessage(null);
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendMessage(withHeads);
+        UUID id = event.getEntity().getUniqueId();
+        Component withHeads = pendingWithHeads.remove(id);
+        Component clean = pendingClean.remove(id);
+        if (withHeads == null && clean == null) return;
+
+        boolean heads = plugin.getConfig().getBoolean("death_messages.show_heads", true)
+                && plugin.getConfig().getBoolean("chat.heads.enabled", true);
+
+        if (heads && withHeads != null) {
+            // DiscordSRV мог уже прочитать clean на своём MONITOR; если нет — шлём сами.
+            // Обнуляем, чтобы не было двойного сообщения игрокам без голов.
+            event.deathMessage(null);
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.sendMessage(withHeads);
+            }
+            // Консоль + Discord всегда
+            Component forLog = clean != null ? clean : plugin.stripObjectComponents(withHeads);
+            String plain = plugin.plainComponent(forLog);
+            if (!plain.isEmpty()) {
+                plugin.logToConsolePublic("[Death] " + plain);
+                plugin.relayGameMessageToDiscord(forLog);
+            }
+        } else if (clean != null) {
+            // Без голов — оставляем clean в event (DiscordSRV + ванильный broadcast + консоль)
+            event.deathMessage(clean);
+            String plain = plugin.plainComponent(clean);
+            if (!plain.isEmpty()) {
+                plugin.logToConsolePublic("[Death] " + plain);
+            }
         }
     }
 

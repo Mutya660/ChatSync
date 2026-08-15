@@ -76,7 +76,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     public void unignorePlayer(Player viewer, UUID target) {
         if (viewer == null || target == null) return;
         java.util.Set<UUID> set = ignoreList.get(viewer.getUniqueId());
-        if (set != null) set.remove(target);
+        if (set != null) {
+            set.remove(target);
+            if (set.isEmpty()) ignoreList.remove(viewer.getUniqueId());
+        }
+        saveIgnoreList();
     }
 
     private ChatSyncGui gui;
@@ -117,6 +121,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         this.vanishHook      = new VanishHook(this);
         this.teamManager     = new TeamManager(this);
         loadSocialSpy();
+        loadIgnoreList();
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new DeathMessageTranslator(this), this);
@@ -189,8 +194,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
             playtimeManager.save();
         }
+        if (teamManager != null) teamManager.save();
         if (chatLogger != null) chatLogger.flushNow();
         saveSocialSpy();
+        saveIgnoreList();
     }
 
     private void registerCmd(String name, CommandExecutor exec) {
@@ -576,6 +583,12 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
             reloadConfig();
             loadLangFiles();
+            // Перечитываем данные с диска (перенос stats/playtime/spy/teams/ignore)
+            loadSocialSpy();
+            loadIgnoreList();
+            if (statsManager != null) statsManager.reload();
+            if (playtimeManager != null) playtimeManager.reload();
+            if (teamManager != null) teamManager.reload();
             sender.sendMessage(color(tAny(sender, "commands.reload.success")));
             return true;
         }
@@ -856,11 +869,13 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         Set<UUID> ignored = ignoreList.computeIfAbsent(pSender.getUniqueId(), k -> java.util.concurrent.ConcurrentHashMap.newKeySet());
         if (ignored.contains(target.getUniqueId())) {
             ignored.remove(target.getUniqueId());
+            saveIgnoreList();
             pSender.sendMessage(buildClickableNameLine(t(pSender, "commands.ignore.removed"), target.getName(), pSender));
             if (tog("ignore_notify_target"))
                 target.sendMessage(buildClickableNameLine(t(target, "commands.ignore.target_removed"), pSender.getName(), target));
         } else {
             ignored.add(target.getUniqueId());
+            saveIgnoreList();
             // Click name to unignore again
             String added = t(pSender, "commands.ignore.added");
             Component addedMsg;
@@ -2751,6 +2766,10 @@ private String resolvePlaceholders(String text, Player player) {
         logToConsole("[SPAM] " + player.getName() + " (" + reason + "/" + channel + "): " + plain);
     }
 
+    void logToConsolePublic(String message) {
+        logToConsole(message);
+    }
+
     private void logToConsole(String message) {
         Bukkit.getConsoleSender().sendMessage(
                 LEGACY.deserialize(message));
@@ -2824,6 +2843,61 @@ private String resolvePlaceholders(String text, Player player) {
 
 
     /** Online and visible to viewer (hides SuperVanish / PremiumVanish / Essentials vanish). */
+
+    private void loadIgnoreList() {
+        ignoreList.clear();
+        File f = new File(getDataFolder(), "ignore.yml");
+        if (!f.exists()) return;
+        try {
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(f);
+            org.bukkit.configuration.ConfigurationSection sec = yaml.getConfigurationSection("ignores");
+            if (sec == null) {
+                // flat format: player-uuid: [list]
+                for (String key : yaml.getKeys(false)) {
+                    try {
+                        UUID who = UUID.fromString(key);
+                        java.util.Set<UUID> set = java.util.concurrent.ConcurrentHashMap.newKeySet();
+                        for (String s : yaml.getStringList(key)) {
+                            try { set.add(UUID.fromString(s)); } catch (Exception ignored) {}
+                        }
+                        if (!set.isEmpty()) ignoreList.put(who, set);
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } else {
+                for (String key : sec.getKeys(false)) {
+                    try {
+                        UUID who = UUID.fromString(key);
+                        java.util.Set<UUID> set = java.util.concurrent.ConcurrentHashMap.newKeySet();
+                        for (String s : sec.getStringList(key)) {
+                            try { set.add(UUID.fromString(s)); } catch (Exception ignored) {}
+                        }
+                        if (!set.isEmpty()) ignoreList.put(who, set);
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            }
+            if (!ignoreList.isEmpty()) {
+                getLogger().info("Ignore list: loaded " + ignoreList.size() + " player(s).");
+            }
+        } catch (Throwable t) {
+            getLogger().warning("Could not load ignore.yml: " + t.getMessage());
+        }
+    }
+
+    private void saveIgnoreList() {
+        try {
+            File f = new File(getDataFolder(), "ignore.yml");
+            YamlConfiguration yaml = new YamlConfiguration();
+            for (Map.Entry<UUID, Set<UUID>> e : ignoreList.entrySet()) {
+                if (e.getValue() == null || e.getValue().isEmpty()) continue;
+                List<String> list = new ArrayList<>();
+                for (UUID id : e.getValue()) list.add(id.toString());
+                yaml.set("ignores." + e.getKey().toString(), list);
+            }
+            yaml.save(f);
+        } catch (Throwable t) {
+            getLogger().warning("Could not save ignore.yml: " + t.getMessage());
+        }
+    }
 
     private void loadSocialSpy() {
         socialSpy.clear();

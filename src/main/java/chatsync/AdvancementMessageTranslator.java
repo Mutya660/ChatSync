@@ -60,13 +60,18 @@ public class AdvancementMessageTranslator implements Listener {
     public void onAdvancementLate(PlayerAdvancementDoneEvent event) {
         Component withHead = pendingWithHead.remove(event.getPlayer().getUniqueId());
         if (withHead == null) return;
-        if (!plugin.getConfig().getBoolean("advancement_messages.show_heads", true)
-                || !plugin.getConfig().getBoolean("chat.heads.enabled", true)) {
-            return;
-        }
+        boolean heads = plugin.getConfig().getBoolean("advancement_messages.show_heads", true)
+                && plugin.getConfig().getBoolean("chat.heads.enabled", true);
+        if (!heads) return;
+        Component clean = plugin.stripObjectComponents(withHead);
         event.message(null);
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage(withHead);
+        }
+        String plain = plugin.plainComponent(clean);
+        if (!plain.isEmpty()) {
+            plugin.logToConsolePublic("[Advancement] " + plain);
+            plugin.relayGameMessageToDiscord(clean);
         }
     }
 

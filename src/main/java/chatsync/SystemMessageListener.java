@@ -7,12 +7,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
 /**
- * Кастомные сообщения о смене режима и телепортации с головами игроков.
- * В консоль — только plain (без ObjectComponent).
+ * Кастомные сообщения GM / TP с головами; консоль — plain с префиксом.
  */
 public class SystemMessageListener implements Listener {
 
@@ -38,13 +38,12 @@ public class SystemMessageListener implements Listener {
         if (tpl == null || tpl.isEmpty()) return;
         String modeName = mode.name().toLowerCase();
         String filled = tpl.replace("%mode%", modeName).replace("%gamemode%", modeName);
-        broadcastSystem(filled, player);
+        broadcastSystem("[GM] ", filled, player);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
-        if (!plugin.getConfig().getBoolean("system_messages.teleport.enabled", false)) return;
-        // Не спамим каждый мелкий tp — только cross-world или если cause в whitelist
+        if (!plugin.getConfig().getBoolean("system_messages.teleport.enabled", true)) return;
         PlayerTeleportEvent.TeleportCause cause = event.getCause();
         java.util.List<String> causes = plugin.getConfig().getStringList("system_messages.teleport.causes");
         if (causes != null && !causes.isEmpty()) {
@@ -54,22 +53,45 @@ public class SystemMessageListener implements Listener {
             }
             if (!ok) return;
         } else {
-            // default: only COMMAND / PLUGIN / END_PORTAL / NETHER_PORTAL / SPECTATE
             switch (cause) {
-                case COMMAND, PLUGIN, END_PORTAL, NETHER_PORTAL, SPECTATE, ENDER_PEARL -> {}
-                default -> { return; }
+                case COMMAND:
+                case PLUGIN:
+                case SPECTATE:
+                case UNKNOWN:
+                    break;
+                default:
+                    // portals / pearls — optional via config; default skip noisy ones
+                    if (!plugin.getConfig().getBoolean("system_messages.teleport.include_portals", false)) {
+                        return;
+                    }
+                    switch (cause) {
+                        case END_PORTAL:
+                        case NETHER_PORTAL:
+                        case ENDER_PEARL:
+                        case CHORUS_FRUIT:
+                            break;
+                        default:
+                            return;
+                    }
             }
         }
         if (event.getTo() == null || event.getFrom() == null) return;
         boolean crossWorld = event.getFrom().getWorld() != null
                 && event.getTo().getWorld() != null
                 && !event.getFrom().getWorld().equals(event.getTo().getWorld());
-        if (!crossWorld && plugin.getConfig().getBoolean("system_messages.teleport.cross_world_only", true)) {
+        if (!crossWorld && plugin.getConfig().getBoolean("system_messages.teleport.cross_world_only", false)) {
+            return;
+        }
+        // skip tiny same-chunk teleports (same block)
+        if (!crossWorld
+                && event.getFrom().getBlockX() == event.getTo().getBlockX()
+                && event.getFrom().getBlockY() == event.getTo().getBlockY()
+                && event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
             return;
         }
         Player player = event.getPlayer();
         String tpl = plugin.getConfig().getString("system_messages.teleport.format",
-                "%head%&7%player% &8телепортировался");
+                "%head%&7%player% &8→ &f%to%");
         if (tpl == null || tpl.isEmpty()) return;
         String fromW = event.getFrom().getWorld() != null ? event.getFrom().getWorld().getName() : "?";
         String toW = event.getTo().getWorld() != null ? event.getTo().getWorld().getName() : "?";
@@ -77,21 +99,17 @@ public class SystemMessageListener implements Listener {
                 .replace("%from%", fromW)
                 .replace("%to%", toW)
                 .replace("%cause%", cause.name().toLowerCase());
-        broadcastSystem(filled, player);
+        broadcastSystem("[TP] ", filled, player);
     }
 
-    private void broadcastSystem(String template, Player player) {
-        // buildNameComponent already adds head when force_first / %head%
+    private void broadcastSystem(String consolePrefix, String template, Player player) {
         Component withHead = plugin.buildNameComponentPublic(template, player);
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage(withHead);
         }
-        // консоль без ObjectComponent
         String plain = plugin.plainComponent(withHead);
         if (!plain.isEmpty()) {
-            Bukkit.getConsoleSender().sendMessage(
-                    net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
-                            .deserialize(plain));
+            plugin.logToConsolePublic(consolePrefix + plain);
         }
     }
 }

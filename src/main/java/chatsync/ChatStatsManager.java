@@ -110,8 +110,18 @@ public class ChatStatsManager {
         return list.subList(0, n);
     }
 
+    public synchronized void reload() {
+        stats.clear();
+        nameCache.clear();
+        dirty = false;
+        load();
+    }
+
     public void load() {
-        if (!statsFile.exists()) return;
+        if (!statsFile.exists()) {
+            plugin.getLogger().info("ChatStats: no stats.yml yet.");
+            return;
+        }
         YamlConfiguration cfg = YamlConfiguration.loadConfiguration(statsFile);
         for (String key : cfg.getKeys(false)) {
             try {

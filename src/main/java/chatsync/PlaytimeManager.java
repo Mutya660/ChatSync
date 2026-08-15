@@ -131,8 +131,25 @@ public class PlaytimeManager {
         return list.subList(0, Math.min(Math.max(limit, 0), list.size()));
     }
 
+    public synchronized void reload() {
+        totalSeconds.clear();
+        lastLogin.clear();
+        lastLogout.clear();
+        nameCache.clear();
+        dirty = false;
+        load();
+        // re-sync online after reload
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            totalSeconds.put(p.getUniqueId(), vanillaSeconds(p));
+            nameCache.put(p.getUniqueId(), p.getName());
+        }
+    }
+
     public void load() {
-        if (!dataFile.exists()) return;
+        if (!dataFile.exists()) {
+            plugin.getLogger().info("Playtime: no playtime.yml yet.");
+            return;
+        }
         YamlConfiguration cfg = YamlConfiguration.loadConfiguration(dataFile);
         for (String key : cfg.getKeys(false)) {
             try {
@@ -146,6 +163,7 @@ public class PlaytimeManager {
                 // не UUID — пропускаем
             }
         }
+        plugin.getLogger().info("Playtime: loaded " + totalSeconds.size() + " player(s) from playtime.yml");
     }
 
     public synchronized void saveIfDirty() {

@@ -561,12 +561,13 @@ system_messages:
     format_adventure: "%head%&7%player% &8→ &bADVENTURE"
     format_spectator: "%head%&7%player% &8→ &8SPECTATOR"
   teleport:
-    # [EN] Announce teleports (off by default — can be spammy)
-    # [RU] Объявлять телепорты (выкл. по умолчанию — спамно)
-    enabled: false
+    # [EN] Announce teleports (COMMAND/PLUGIN by default)
+    # [RU] Объявлять телепорты (по умолчанию COMMAND/PLUGIN)
+    enabled: true
     # [EN] Only cross-world teleports
     # [RU] Только межмировые телепорты
-    cross_world_only: true
+    cross_world_only: false
+    include_portals: false
     # [EN] Empty list = COMMAND, PLUGIN, END_PORTAL, NETHER_PORTAL, SPECTATE, ENDER_PEARL
     # [RU] Пустой список = COMMAND, PLUGIN, END_PORTAL, NETHER_PORTAL, SPECTATE, ENDER_PEARL
     causes: []

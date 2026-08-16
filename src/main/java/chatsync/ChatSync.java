@@ -1193,28 +1193,40 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             sender.sendMessage(color(tAny(sender, "chatstats.empty")));
             return true;
         }
-        int topSize = getConfig().getInt("stats.top_size", 10);
-        List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top = statsManager.top(topSize);
-        if (top.isEmpty()) {
+        int pageSize = Math.max(1, getConfig().getInt("stats.top_size", 10));
+        int page = 1;
+        if (args.length >= 1) {
+            try { page = Math.max(1, Integer.parseInt(args[0])); } catch (NumberFormatException ignored) {}
+        }
+        List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> all =
+                statsManager.top(getConfig().getInt("gui.top_limit", 200));
+        if (all.isEmpty()) {
             sender.sendMessage(color(tAny(sender, "chatstats.empty")));
             return true;
         }
+        int pages = Math.max(1, (all.size() + pageSize - 1) / pageSize);
+        if (page > pages) page = pages;
+        int from = (page - 1) * pageSize;
+        int to = Math.min(all.size(), from + pageSize);
+
         sender.sendMessage(color(tAny(sender, "chatstats.top_header")
-                .replace("%count%", String.valueOf(top.size()))));
-        int rank = 1;
-        for (Map.Entry<UUID, ChatStatsManager.PlayerStats> entry : top) {
-            String name = statsManager.nameOf(entry.getKey());
-            Player online = Bukkit.getPlayer(entry.getKey());
-            if (online != null) name = online.getName();
+                .replace("%count%", String.valueOf(all.size()))
+                .replace("%page%", String.valueOf(page))
+                .replace("%pages%", String.valueOf(pages))));
+        for (int i = from; i < to; i++) {
+            Map.Entry<UUID, ChatStatsManager.PlayerStats> e = all.get(i);
+            String name = statsManager.nameOf(e.getKey());
+            if (name == null || name.isEmpty()) name = e.getKey().toString().substring(0, 8);
             String line = tAny(sender, "chatstats.top_entry")
-                    .replace("%rank%", String.valueOf(rank++))
-                    .replace("%total%", String.valueOf(entry.getValue().total()));
-            sender.sendMessage(buildClickableNameLine(line, name, sender));
+                    .replace("%rank%", String.valueOf(i + 1))
+                    .replace("%player%", name)
+                    .replace("%total%", String.valueOf(e.getValue().total()));
+            sender.sendMessage(color(line));
         }
+        sendTopPager(sender, "chatstatstop", page, pages);
         return true;
     }
 
-    // ── /chatstats ───────────────────────────────────────────────
 
     private boolean cmdChatStats(CommandSender sender, String[] args) {
         String permission = getConfig().getString("commands.chatstats.permission", "chatsync.chatstats");
@@ -1600,28 +1612,48 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     private boolean cmdPlaytimeTop(CommandSender sender, String[] args) {
-        if (!getConfig().getBoolean("playtime.enabled", true)) {
-            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
-            return true;
-        }
-        String permission = getConfig().getString("commands.playtime.playtimetop.permission", "chatsync.playtimetop");
-        if (!sender.hasPermission(permission)) {
+        String permission = getConfig().getString("commands.playtimetop.permission", "chatsync.playtimetop");
+        if (!sender.hasPermission(permission) && !sender.hasPermission("chatsync.playtimetop")) {
             sender.sendMessage(color(tAny(sender, "playtime.top_no_permission")));
             return true;
         }
-        int topSize = getConfig().getInt("playtime.top_size", 10);
-        List<Map.Entry<UUID, Long>> top = playtimeManager.top(topSize);
-        sender.sendMessage(color(tAny(sender, "playtime.top_header").replace("%count%", String.valueOf(top.size()))));
-        int rank = 1;
-        for (Map.Entry<UUID, Long> entry : top) {
-            String name = playtimeManager.nameOf(entry.getKey());
-            String line = tAny(sender, "playtime.top_entry")
-                    .replace("%rank%", String.valueOf(rank++))
-                    .replace("%time%", formatDuration(entry.getValue(), sender));
-            sender.sendMessage(buildClickableNameLine(line, name, sender));
+        if (playtimeManager == null || !getConfig().getBoolean("playtime.enabled", true)) {
+            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
+            return true;
         }
+        int pageSize = Math.max(1, getConfig().getInt("playtime.top_size", 10));
+        int page = 1;
+        if (args.length >= 1) {
+            try { page = Math.max(1, Integer.parseInt(args[0])); } catch (NumberFormatException ignored) {}
+        }
+        List<Map.Entry<UUID, Long>> all = playtimeManager.top(getConfig().getInt("gui.top_limit", 200));
+        if (all.isEmpty()) {
+            sender.sendMessage(color(tAny(sender, "playtime.no_data").replace("%player%", "—")));
+            return true;
+        }
+        int pages = Math.max(1, (all.size() + pageSize - 1) / pageSize);
+        if (page > pages) page = pages;
+        int from = (page - 1) * pageSize;
+        int to = Math.min(all.size(), from + pageSize);
+
+        sender.sendMessage(color(tAny(sender, "playtime.top_header")
+                .replace("%count%", String.valueOf(all.size()))
+                .replace("%page%", String.valueOf(page))
+                .replace("%pages%", String.valueOf(pages))));
+        for (int i = from; i < to; i++) {
+            Map.Entry<UUID, Long> e = all.get(i);
+            String name = playtimeManager.nameOf(e.getKey());
+            if (name == null || name.isEmpty()) name = e.getKey().toString().substring(0, 8);
+            String line = tAny(sender, "playtime.top_entry")
+                    .replace("%rank%", String.valueOf(i + 1))
+                    .replace("%player%", name)
+                    .replace("%time%", formatDuration(e.getValue(), sender));
+            sender.sendMessage(color(line));
+        }
+        sendTopPager(sender, "playtimetop", page, pages);
         return true;
     }
+
 
     private boolean cmdLastSeen(CommandSender sender, String[] args) {
         if (!getConfig().getBoolean("playtime.enabled", true)) {
@@ -1715,6 +1747,31 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
      * 12ч 34м  ·  при &lt; 1ч — 45м  ·  при днях — 2д 5ч 12м
      * (секунды только если меньше минуты)
      */
+
+    /** Clickable [prev] page/pages [next] for /chatstatstop and /playtimetop. */
+    private void sendTopPager(CommandSender sender, String command, int page, int pages) {
+        if (pages <= 1) return;
+        net.kyori.adventure.text.TextComponent.Builder b = Component.text();
+        if (page > 1) {
+            b.append(LEGACY.deserialize("&7[&e←&7] ")
+                    .clickEvent(ClickEvent.runCommand("/" + command + " " + (page - 1)))
+                    .hoverEvent(HoverEvent.showText(
+                            LEGACY.deserialize("&7/" + command + " " + (page - 1)))));
+        } else {
+            b.append(LEGACY.deserialize("&8[←] "));
+        }
+        b.append(LEGACY.deserialize("&f" + page + "&8/&f" + pages + " "));
+        if (page < pages) {
+            b.append(LEGACY.deserialize("&7[&e→&7]")
+                    .clickEvent(ClickEvent.runCommand("/" + command + " " + (page + 1)))
+                    .hoverEvent(HoverEvent.showText(
+                            LEGACY.deserialize("&7/" + command + " " + (page + 1)))));
+        } else {
+            b.append(LEGACY.deserialize("&8[→]"));
+        }
+        sender.sendMessage(b.build());
+    }
+
     private String formatDuration(long totalSeconds, CommandSender sender) {
         if (totalSeconds < 0) totalSeconds = 0;
         long days = totalSeconds / 86400;
@@ -2340,9 +2397,14 @@ private Component buildChatComponent(String format, Player sender, String rawMes
      * Texture for offline/transferred players: SkinsRestorer → Paper profile cache.
      * Used by GUI skulls so old stats still show real skins.
      */
+    /**
+     * Offline textures for GUI skulls. NEVER blocks on Mojang/HTTP — main-thread safe.
+     * Order: online player → local Paper profile cache only → local SkinsRestorer player storage.
+     * Does not call findSkinData/Mojang API (those freeze the server).
+     */
     public String[] resolveSkinTexturesOffline(UUID uuid, String name) {
         if (uuid == null && (name == null || name.isEmpty())) return null;
-        // Online first
+        // Online first (already in memory)
         if (uuid != null) {
             Player online = Bukkit.getPlayer(uuid);
             if (online != null) {
@@ -2357,18 +2419,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                 if (tex != null) return tex;
             }
         }
-        // SkinsRestorer by UUID / name
-        if (Bukkit.getPluginManager().isPluginEnabled("SkinsRestorer")) {
-            try {
-                String[] fromSr = texturesFromSkinsRestorerOffline(uuid, name);
-                if (fromSr != null) return fromSr;
-            } catch (Throwable t) {
-                if (getConfig().getBoolean("chat.heads.debug", false)) {
-                    getLogger().warning("[heads] SR offline: " + t.getMessage());
-                }
-            }
-        }
-        // Paper createProfile + completeFromCache
+        // Paper local profile cache only — no network
         try {
             Object profile = null;
             if (uuid != null && name != null) {
@@ -2387,79 +2438,73 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                 if (fromProfile != null) return fromProfile;
             }
         } catch (Throwable ignored) {}
+        // SkinsRestorer: local player-skin storage only (no Mojang lookup)
+        if (Bukkit.getPluginManager().isPluginEnabled("SkinsRestorer") && uuid != null) {
+            try {
+                String[] fromSr = texturesFromSkinsRestorerLocalOnly(uuid);
+                if (fromSr != null) return fromSr;
+            } catch (Throwable t) {
+                if (getConfig().getBoolean("chat.heads.debug", false)) {
+                    getLogger().warning("[heads] SR local: " + t.getMessage());
+                }
+            }
+        }
         return null;
     }
 
-    private String[] texturesFromSkinsRestorerOffline(UUID uuid, String name) throws Exception {
+    /**
+     * SkinsRestorer local player storage only — never calls Mojang/findSkinData.
+     */
+    private String[] texturesFromSkinsRestorerLocalOnly(UUID uuid) throws Exception {
+        if (uuid == null) return null;
         Class<?> provider = Class.forName("net.skinsrestorer.api.SkinsRestorerProvider");
         Object api = provider.getMethod("get").invoke(null);
         if (api == null) return null;
         Object skinData = null;
-        // Player storage by UUID
-        if (uuid != null) {
-            try {
-                Object playerStorage = api.getClass().getMethod("getPlayerStorage").invoke(api);
-                Object opt = playerStorage.getClass()
-                        .getMethod("getSkinOfPlayer", UUID.class)
-                        .invoke(playerStorage, uuid);
-                if (opt instanceof java.util.Optional && ((java.util.Optional<?>) opt).isPresent()) {
-                    skinData = ((java.util.Optional<?>) opt).get();
-                }
-            } catch (ReflectiveOperationException ignored) {}
-        }
-        // Skin storage by name
-        if (skinData == null && name != null && !name.isEmpty()) {
-            try {
-                Object skinStorage = api.getClass().getMethod("getSkinStorage").invoke(api);
-                for (String mName : new String[]{"getSkinData", "findSkinData", "getSkinDataByName"}) {
-                    try {
-                        Object r = skinStorage.getClass().getMethod(mName, String.class).invoke(skinStorage, name);
-                        if (r instanceof java.util.Optional) {
-                            java.util.Optional<?> opt = (java.util.Optional<?>) r;
-                            skinData = opt.isPresent() ? opt.get() : null;
-                        } else {
-                            skinData = r;
-                        }
-                        if (skinData != null) break;
-                    } catch (NoSuchMethodException ignored) {}
-                }
-            } catch (ReflectiveOperationException ignored) {}
-        }
-        // getSkinForPlayer / getSkinOfPlayer variants on API itself
-        if (skinData == null && uuid != null) {
-            for (String mName : new String[]{"getSkinData", "getSkinOfPlayer"}) {
+        try {
+            Object playerStorage = api.getClass().getMethod("getPlayerStorage").invoke(api);
+            Object opt = playerStorage.getClass()
+                    .getMethod("getSkinOfPlayer", UUID.class)
+                    .invoke(playerStorage, uuid);
+            if (opt instanceof java.util.Optional && ((java.util.Optional<?>) opt).isPresent()) {
+                skinData = ((java.util.Optional<?>) opt).get();
+            }
+        } catch (ReflectiveOperationException ignored) {}
+        if (skinData == null) return null;
+        return texturesFromSkinDataObject(skinData);
+    }
+
+    private String[] texturesFromSkinDataObject(Object skinData) {
+        if (skinData == null) return null;
+        try {
+            // Property / SkinProperty style
+            for (String gm : new String[]{"getValue", "getTextureValue", "value", "getPropertyValue"}) {
                 try {
-                    Object r = api.getClass().getMethod(mName, UUID.class).invoke(api, uuid);
-                    if (r instanceof java.util.Optional) {
-                        java.util.Optional<?> opt = (java.util.Optional<?>) r;
-                        skinData = opt.isPresent() ? opt.get() : null;
-                    } else skinData = r;
-                    if (skinData != null) break;
+                    Object v = skinData.getClass().getMethod(gm).invoke(skinData);
+                    if (v instanceof String s && !s.isEmpty()) {
+                        String sig = null;
+                        for (String sm : new String[]{"getSignature", "signature"}) {
+                            try {
+                                Object sg = skinData.getClass().getMethod(sm).invoke(skinData);
+                                if (sg instanceof String ss) sig = ss;
+                            } catch (Throwable ignored) {}
+                        }
+                        return new String[]{s, sig};
+                    }
                 } catch (NoSuchMethodException ignored) {}
             }
-        }
-        if (skinData == null) return null;
-        Object prop = skinData;
-        for (String mName : new String[]{"getProperty", "getTexture", "getSkinProperty"}) {
-            try {
-                Object p = skinData.getClass().getMethod(mName).invoke(skinData);
-                if (p != null) { prop = p; break; }
-            } catch (NoSuchMethodException ignored) {}
-        }
-        String value = null;
-        String sig = null;
-        try {
-            value = String.valueOf(prop.getClass().getMethod("getValue").invoke(prop));
-        } catch (NoSuchMethodException e) {
-            try { value = String.valueOf(prop.getClass().getMethod("value").invoke(prop)); }
-            catch (NoSuchMethodException e2) { return null; }
-        }
-        try {
-            Object s = prop.getClass().getMethod("getSignature").invoke(prop);
-            if (s != null) sig = String.valueOf(s);
+            // Nested property
+            for (String pm : new String[]{"getProperty", "getTexture", "getSkinProperty"}) {
+                try {
+                    Object prop = skinData.getClass().getMethod(pm).invoke(skinData);
+                    if (prop != null) {
+                        String[] nested = texturesFromSkinDataObject(prop);
+                        if (nested != null) return nested;
+                    }
+                } catch (NoSuchMethodException ignored) {}
+            }
         } catch (Throwable ignored) {}
-        if (value == null || value.isEmpty() || "null".equals(value)) return null;
-        return new String[]{value, sig};
+        return null;
     }
 
     private String[] resolveSkinTextures(Player player) {

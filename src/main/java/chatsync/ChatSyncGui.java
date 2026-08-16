@@ -149,7 +149,7 @@ public class ChatSyncGui implements Listener {
             if (index >= top.size()) return null;
             Map.Entry<UUID, Long> e = top.get(index);
             String name = resolveName(e.getKey());
-            String time = formatTime(e.getValue());
+            String time = formatTime(player, e.getValue());
             return skull(e.getKey(), name,
                     List.of("&8#" + (index + 1),
                             tr(player, "gui.playtime_line", "&7Время: &f%time%").replace("%time%", time)),
@@ -344,12 +344,9 @@ public class ChatSyncGui implements Listener {
             Object profile = create.invoke(null, uuid != null ? uuid : UUID.randomUUID(),
                     name != null ? name : "Player");
             try {
+                // Cache only — never complete(true): that hits Mojang and freezes the server thread
                 profile.getClass().getMethod("completeFromCache").invoke(profile);
-            } catch (NoSuchMethodException e) {
-                try {
-                    profile.getClass().getMethod("complete", boolean.class).invoke(profile, true);
-                } catch (Throwable ignored) {}
-            }
+            } catch (NoSuchMethodException ignored) {}
             try {
                 meta.getClass().getMethod("setPlayerProfile", Class.forName("com.destroystokyo.paper.profile.PlayerProfile"))
                         .invoke(meta, profile);
@@ -453,13 +450,17 @@ public class ChatSyncGui implements Listener {
         return uuid.toString().substring(0, 8);
     }
 
-    private String formatTime(long seconds) {
+    private String formatTime(Player viewer, long seconds) {
+        // Localized units from lang duration.*
+        String dUnit = tr(viewer, "duration.days", "d");
+        String hUnit = tr(viewer, "duration.hours", "h");
+        String mUnit = tr(viewer, "duration.minutes", "m");
         long d = seconds / 86400;
         long h = (seconds % 86400) / 3600;
         long m = (seconds % 3600) / 60;
-        if (d > 0) return d + "d " + h + "h";
-        if (h > 0) return h + "h " + m + "m";
-        return m + "m";
+        if (d > 0) return d + dUnit + " " + h + hUnit;
+        if (h > 0) return h + hUnit + " " + m + mUnit;
+        return m + mUnit;
     }
 
     enum GuiType { MAIN, CHAT_TOP, PLAYTIME_TOP, IGNORE }

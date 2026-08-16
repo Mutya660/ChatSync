@@ -100,9 +100,9 @@ system_messages:
   intercept_commands: true
   gamemode:
     enabled: true
-    # [EN] Announce GM changes not done via command (plugins)
-    # [RU] Анонсировать смену режима не через команду
-    announce_non_command: false
+    # [EN] Announce GM changes not done via command (plugins) — also helps if intercept missed
+    # [RU] Анонс смены режима не через команду + если перехват не сработал
+    announce_non_command: true
     format: "%head%&7%player% &8→ &f%mode%"
     format_creative: "%head%&7%player% &8→ &aCREATIVE"
     format_survival: "%head%&7%player% &8→ &eSURVIVAL"
@@ -112,9 +112,13 @@ system_messages:
     enabled: true
     cross_world_only: false
     include_portals: false
-    announce_non_command: false
-    # Placeholders: %player% %world% %from% %to% %x% %y% %z% %cause%
+    announce_non_command: true
+    # Placeholders: %head% %player% %world% %x% %y% %z% %from% %to%
     format: "%head%&7%player% &8→ &f%world% &7%x%&8, &7%y%&8, &7%z%"
+    # [EN] When teleporting to a player — %target% is clickable (runs /tp <name>)
+    # [RU] Теп к игроку — %target% кликабельный (/tp <ник>)
+    format_to_player: "%head%&7%player% &8→ &f%target% &8(&7%world% %x%&8, &7%y%&8, &7%z%&8)"
+    click_hover: "&7Клик: телепорт к &f%player%"
 
 # ── GUI (/chatsync gui) ───────────────────────────────────────
 gui:

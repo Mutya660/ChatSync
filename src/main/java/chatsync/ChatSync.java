@@ -87,7 +87,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     public TeamManager getTeamManager() { return teamManager; }
 
-    private static final List<String> SUPPORTED_LANGS = List.of("en", "ru", "de", "fr");
+    private static final List<String> SUPPORTED_LANGS = List.of(
+            "en", "ru", "de", "fr", "es", "pt", "pl", "it", "uk", "zh", "ja", "tr", "nl", "cs"
+    );
 
     private static final Map<String, String> LOCALE_MAP = Map.ofEntries(
         Map.entry("en_us", "en"), Map.entry("en_gb", "en"),
@@ -128,7 +130,6 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         getServer().getPluginManager().registerEvents(new AdvancementMessageTranslator(this), this);
         this.gui = new ChatSyncGui(this);
         getServer().getPluginManager().registerEvents(gui, this);
-        getServer().getPluginManager().registerEvents(new SystemMessageListener(this), this);
 
         registerCmd("msg",         this);
         registerCmd("reply",       this);
@@ -262,7 +263,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     private String getLang(Player player) {
-        // Язык только из config.yml → language (en/ru/de/fr)
+        // Language from config.yml only (see SUPPORTED_LANGS)
         String lang = getConfig().getString("language", "en");
         if (lang == null || lang.isEmpty()) lang = "en";
         lang = lang.toLowerCase(java.util.Locale.ROOT).trim();
@@ -2986,22 +2987,21 @@ private String resolvePlaceholders(String text, Player player) {
         if (reason == null) return;
 
         String channelLabel = switch (channel) {
-            case "global" -> "глобальный чат";
-            case "local"  -> "локальный чат";
+            case "global" -> "global";
+            case "local"  -> "local";
             case "me"     -> "/me";
-            case "pm"     -> "ЛС";
-            case "broadcast" -> "объявление";
+            case "pm"     -> "PM";
+            case "broadcast" -> "broadcast";
             default -> channel;
         };
 
         String reasonLabel = switch (reason) {
-            case "same"  -> "повторяет одно сообщение";
-            case "caps"  -> "пишет КАПСОМ";
-            case "flood" -> "флудит";
-            default -> "спамит";
+            case "same"  -> "repeat";
+            case "caps"  -> "CAPS";
+            case "flood" -> "flood";
+            default -> "spam";
         };
 
-        // Используем только разрешённые цвета: &a &c &7 &8 &f &e и &l
         String alert = "&8[&c&lSPAM&8] &e" + player.getName()
                 + " &7" + reasonLabel
                 + " &8(&f" + channelLabel + "&8)&7: &f"

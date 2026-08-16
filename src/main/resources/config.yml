@@ -1,49 +1,44 @@
 # ═══════════════════════════════════════════════════════════════
-#  ChatSync 1.7.2 — config by mutya660
+#  ChatSync 1.7.2 — Configuration
 #  Modrinth: https://modrinth.com/plugin/chatsync
 #  Github:   https://github.com/Mutya660/ChatSync
 #
-#  [EN] Language texts (errors, usage, GUI) → lang/<code>.yml
-#  [RU] Тексты (ошибки, подсказки, GUI) → lang/<code>.yml
+#  Localized player-facing text lives in lang/<code>.yml
+#  This file controls formats, permissions, toggles and behaviour.
 # ═══════════════════════════════════════════════════════════════
 
-# ── Language / Язык ───────────────────────────────────────────
-# [EN] Server language for ALL players and console. No auto-detect.
-#      Supported: en, ru, de, fr
-# [RU] Язык сервера для ВСЕХ игроков и консоли. Без автоопределения.
-#      Поддерживается: en, ru, de, fr
-language: "ru"
+# Server language for all players and console.
+# Supported: en, ru, de, fr, es, pt, pl, it, uk, zh, ja, tr, nl, cs
+language: "en"
 
 # ── Chat ──────────────────────────────────────────────────────
 chat:
   heads:
-    # [EN] Player head icons in chat (Paper + client 1.21.9+)
-    # [RU] Иконки голов в чате
+    # Player head icons in chat (Paper + client 1.21.9+)
     enabled: true
+    # Always put head first even without %head% in format
     force_first: true
     gap: " "
     debug: false
+    # Fallback if head cannot render ("" = nothing)
     fallback: ""
 
-  # [EN] Channel without prefix when require_symbol=true: local | global
-  # [RU] Канал без префикса при require_symbol=true: local | global
+  # Channel used when the message has no global prefix: local | global
   default_channel: "local"
 
   global:
-    # [EN] false = global chat off (only local + team)
-    # [RU] false = глобал выключен (только локал + team)
+    # false = global chat disabled (local + team only)
     enabled: true
-    # [EN] true = need symbol (e.g. !) for global; false = use default_channel for all
-    # [RU] true = нужен символ (!); false = всё идёт в default_channel
+    # true = require symbol (e.g. !) for global; false = use default_channel for everything
     require_symbol: true
     symbol: "!"
     # Placeholders: %head% %player% %message% %luckperms_prefix% %luckperms_suffix% {username-color}
     format: "%head%&8[&aG&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 » &f%message%"
+    # Seconds between global messages. 0 = off. Bypass: chatsync.bypass_cooldown
     cooldown: 3
 
   local:
-    # [EN] false = local off (everything goes global if global.enabled)
-    # [RU] false = локал выкл (всё в глобал, если global.enabled)
+    # false = local disabled (everything goes global if global.enabled)
     enabled: true
     radius: 100.0
     cooldown: 2
@@ -73,12 +68,10 @@ discord:
 
 # ── Death / Advancement ───────────────────────────────────────
 death_messages:
-  # [EN] Translate deaths when language=ru (JSON packs in JAR)
-  # [RU] Перевод смертей при language=ru
+  # Translate death messages when language supports a JSON pack (e.g. ru)
   translate: true
   translate_to_russian: false
-  # [EN] Heads in death messages (in-game only; Discord/console clean)
-  # [RU] Головы в смертях (только в игре)
+  # Heads in death messages (in-game only; Discord/console stay clean)
   show_heads: true
 
 advancement_messages:
@@ -89,50 +82,15 @@ messages:
   join: "%head%&a→ &f%player%"
   quit: "%head%&c← &f%player%"
 
-# ── System messages (GM / TP) ─────────────────────────────────
-system_messages:
-  # [EN] Only staff with see_permission see these in chat. Console always logs.
-  # [RU] В чате видит только стафф с правом. Консоль всегда пишет лог.
-  staff_only: true
-  see_permission: "chatsync.system.see"
-  # [EN] Intercept /gamemode /gm /tp and suppress vanilla feedback
-  # [RU] Перехват /gamemode /gm /tp — без ванильных сообщений
-  intercept_commands: true
-  gamemode:
-    enabled: true
-    # [EN] Announce GM changes not done via command (plugins) — also helps if intercept missed
-    # [RU] Анонс смены режима не через команду + если перехват не сработал
-    announce_non_command: true
-    format: "%head%&7%player% &8→ &f%mode%"
-    format_creative: "%head%&7%player% &8→ &aCREATIVE"
-    format_survival: "%head%&7%player% &8→ &eSURVIVAL"
-    format_adventure: "%head%&7%player% &8→ &bADVENTURE"
-    format_spectator: "%head%&7%player% &8→ &8SPECTATOR"
-  teleport:
-    enabled: true
-    cross_world_only: false
-    include_portals: false
-    announce_non_command: true
-    # Placeholders: %head% %player% %world% %x% %y% %z% %from% %to%
-    format: "%head%&7%player% &8→ &f%world% &7%x%&8, &7%y%&8, &7%z%"
-    # [EN] When teleporting to a player — %target% is clickable (runs /tp <name>)
-    # [RU] Теп к игроку — %target% кликабельный (/tp <ник>)
-    format_to_player: "%head%&7%player% &8→ &f%target% &8(&7%world% %x%&8, &7%y%&8, &7%z%&8)"
-    click_hover: "&7Клик: телепорт к &f%player%"
-
 # ── GUI (/chatsync gui) ───────────────────────────────────────
 gui:
   enabled: true
   permission: "chatsync.gui"
   permission_unmute: "chatsync.gui.unmute"
-  # [EN] Max entries loaded into top pages
-  # [RU] Макс. записей в топах
   top_limit: 200
-  # [EN] Items per page
-  # [RU] Предметов на странице
   page_size: 45
 
-# ── Commands permissions ──────────────────────────────────────
+# ── Command permissions ───────────────────────────────────────
 commands:
   reload:
     permission: "chatsync.admin"
@@ -161,8 +119,6 @@ commands:
 # ── Spam protection ───────────────────────────────────────────
 spam:
   enabled: true
-  # [EN] Identical message repeat window (seconds)
-  # [RU] Окно повтора одинаковых сообщений (сек)
   repeat_seconds: 3
   max_repeats: 2
   notify:
@@ -174,13 +130,15 @@ stats:
   enabled: true
   save_interval: 300
   top_size: 10
+  reset_confirm_timeout: 15
 
 # ── Playtime ──────────────────────────────────────────────────
 playtime:
   enabled: true
   save_interval: 300
+  top_size: 10
 
-# ── Logging (file) ────────────────────────────────────────────
+# ── File logging ──────────────────────────────────────────────
 logging:
   enabled: true
   folder: "logs"
@@ -205,22 +163,17 @@ broadcast:
     maintenance: "&e&lServer is under maintenance."
 
 # ── Hover on clickable names (TAB-style) ──────────────────────
-# [EN] Tooltip when hovering a clickable name in chat / commands.
-# [RU] Подсказка при наведении на кликабельный ник.
 hover:
   enabled: true
   show_playtime: true
-  # [EN] Multi-line like TAB. Placeholders: %player% %playtime% %playtime_seconds% %uuid%
-  #      Empty list → use hover.format, then lang messages.join_hover*
-  # [RU] Многострочный hover как в TAB. Пустой список → format → lang
+  # Multi-line hover. Placeholders: %player% %playtime% %playtime_seconds% %uuid%
+  # Empty list → hover.format → lang messages.join_hover*
   lines:
     - "&f%player%"
     - "&8%playtime%"
-  # [EN] Single string alternative (use \n for new lines). Used if lines is empty.
-  # [RU] Одна строка с \n, если lines пустой
   format: ""
 
-# ── Toggles ───────────────────────────────────────────────────
+# ── Feature toggles ───────────────────────────────────────────
 toggles:
   local_noone: true
   join_message: true
@@ -266,7 +219,7 @@ ignore:
   allow_offline: true
   max_ignored: 0
 
-# ── Console PM ────────────────────────────────────────────────
+# ── Console private messages ──────────────────────────────────
 console_pm:
   enabled: true
   show_head: true

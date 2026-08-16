@@ -1,6 +1,5 @@
-# ChatSync — Chinese (中文)
-# Locales: zh_cn, zh_tw
-# Currently English base; contribute translations on GitHub.
+# ChatSync — Chinese Simplified (简体中文)
+# Full translation in progress — missing strings fall back to English.
 
 commands:
   reload:

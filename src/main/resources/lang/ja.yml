@@ -1,6 +1,5 @@
 # ChatSync — Japanese (日本語)
-# Locale: ja_jp
-# Currently English base; contribute translations on GitHub.
+# Full translation in progress — missing strings fall back to English.
 
 commands:
   reload:

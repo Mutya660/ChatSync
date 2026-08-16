@@ -121,7 +121,7 @@ playtime:
   other: "&aВремя игры &f%player%&a: &f%time%"
   no_data: "&cНет данных о playtime для &f%player%&c."
   top_header: "&e&lТоп по времени игры &8(&fтоп %count%&8)&e:"
-  top_entry: "&7#%rank% &f%player% &8— &e%time%"
+  top_entry: "&8#%rank% &f%player% &8— &e%time%"
   lastseen: "&7%player% &7был(а) онлайн: &f%when%"
   lastseen_online: "&a%player% &aсейчас онлайн."
   unknown_time: "&7неизвестно"

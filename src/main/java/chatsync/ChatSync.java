@@ -139,6 +139,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         registerCmd("me",          this);
         registerCmd("clear",       this);
         registerCmd("chatstats",   this);
+        registerCmd("chatstatstop", this);
         registerCmd("broadcast",   this);
         registerCmd("playtime",    this);
         registerCmd("playtimetop", this);
@@ -619,6 +620,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             case "me"          -> { return cmdMe(sender, args); }
             case "clear"       -> { return cmdClear(sender, args); }
             case "chatstats"   -> { return cmdChatStats(sender, args); }
+            case "chatstatstop" -> { return cmdChatStatsTop(sender, args); }
             case "broadcast"   -> { return cmdBroadcast(sender, args); }
             case "playtime"    -> { return cmdPlaytime(sender, args); }
             case "playtimetop" -> { return cmdPlaytimeTop(sender, args); }
@@ -1175,6 +1177,40 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private UUID senderKey(CommandSender sender) {
         return sender instanceof Player p ? p.getUniqueId() : CONSOLE_UUID;
+    }
+
+    // ── /chatstatstop ────────────────────────────────────────────
+
+    private boolean cmdChatStatsTop(CommandSender sender, String[] args) {
+        String permission = getConfig().getString("commands.chatstatstop.permission",
+                getConfig().getString("commands.chatstats.permission", "chatsync.chatstats"));
+        if (!sender.hasPermission(permission) && !sender.hasPermission("chatsync.chatstatstop")) {
+            sender.sendMessage(color(tAny(sender, "chatstats.no_permission")));
+            return true;
+        }
+        if (statsManager == null) {
+            sender.sendMessage(color(tAny(sender, "chatstats.empty")));
+            return true;
+        }
+        int topSize = getConfig().getInt("stats.top_size", 10);
+        List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top = statsManager.top(topSize);
+        if (top.isEmpty()) {
+            sender.sendMessage(color(tAny(sender, "chatstats.empty")));
+            return true;
+        }
+        sender.sendMessage(color(tAny(sender, "chatstats.top_header")
+                .replace("%count%", String.valueOf(top.size()))));
+        int rank = 1;
+        for (Map.Entry<UUID, ChatStatsManager.PlayerStats> entry : top) {
+            String name = statsManager.nameOf(entry.getKey());
+            Player online = Bukkit.getPlayer(entry.getKey());
+            if (online != null) name = online.getName();
+            String line = tAny(sender, "chatstats.top_entry")
+                    .replace("%rank%", String.valueOf(rank++))
+                    .replace("%total%", String.valueOf(entry.getValue().total()));
+            sender.sendMessage(buildClickableNameLine(line, name, sender));
+        }
+        return true;
     }
 
     // ── /chatstats ───────────────────────────────────────────────
@@ -2299,6 +2335,132 @@ private Component buildChatComponent(String format, Player sender, String rawMes
     /**
      * @return String[]{textureValue, signature} or null
      */
+    /**
+     * Texture for offline/transferred players: SkinsRestorer → Paper profile cache.
+     * Used by GUI skulls so old stats still show real skins.
+     */
+    public String[] resolveSkinTexturesOffline(UUID uuid, String name) {
+        if (uuid == null && (name == null || name.isEmpty())) return null;
+        // Online first
+        if (uuid != null) {
+            Player online = Bukkit.getPlayer(uuid);
+            if (online != null) {
+                String[] tex = resolveSkinTextures(online);
+                if (tex != null) return tex;
+            }
+        }
+        if (name != null) {
+            Player online = Bukkit.getPlayerExact(name);
+            if (online != null) {
+                String[] tex = resolveSkinTextures(online);
+                if (tex != null) return tex;
+            }
+        }
+        // SkinsRestorer by UUID / name
+        if (Bukkit.getPluginManager().isPluginEnabled("SkinsRestorer")) {
+            try {
+                String[] fromSr = texturesFromSkinsRestorerOffline(uuid, name);
+                if (fromSr != null) return fromSr;
+            } catch (Throwable t) {
+                if (getConfig().getBoolean("chat.heads.debug", false)) {
+                    getLogger().warning("[heads] SR offline: " + t.getMessage());
+                }
+            }
+        }
+        // Paper createProfile + completeFromCache
+        try {
+            Object profile = null;
+            if (uuid != null && name != null) {
+                profile = Bukkit.class.getMethod("createProfile", UUID.class, String.class)
+                        .invoke(null, uuid, name);
+            } else if (uuid != null) {
+                profile = Bukkit.class.getMethod("createProfile", UUID.class).invoke(null, uuid);
+            } else {
+                profile = Bukkit.class.getMethod("createProfile", String.class).invoke(null, name);
+            }
+            if (profile != null) {
+                try {
+                    profile.getClass().getMethod("completeFromCache").invoke(profile);
+                } catch (NoSuchMethodException ignored) {}
+                String[] fromProfile = texturesFromProfile(profile);
+                if (fromProfile != null) return fromProfile;
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private String[] texturesFromSkinsRestorerOffline(UUID uuid, String name) throws Exception {
+        Class<?> provider = Class.forName("net.skinsrestorer.api.SkinsRestorerProvider");
+        Object api = provider.getMethod("get").invoke(null);
+        if (api == null) return null;
+        Object skinData = null;
+        // Player storage by UUID
+        if (uuid != null) {
+            try {
+                Object playerStorage = api.getClass().getMethod("getPlayerStorage").invoke(api);
+                Object opt = playerStorage.getClass()
+                        .getMethod("getSkinOfPlayer", UUID.class)
+                        .invoke(playerStorage, uuid);
+                if (opt instanceof java.util.Optional && ((java.util.Optional<?>) opt).isPresent()) {
+                    skinData = ((java.util.Optional<?>) opt).get();
+                }
+            } catch (ReflectiveOperationException ignored) {}
+        }
+        // Skin storage by name
+        if (skinData == null && name != null && !name.isEmpty()) {
+            try {
+                Object skinStorage = api.getClass().getMethod("getSkinStorage").invoke(api);
+                for (String mName : new String[]{"getSkinData", "findSkinData", "getSkinDataByName"}) {
+                    try {
+                        Object r = skinStorage.getClass().getMethod(mName, String.class).invoke(skinStorage, name);
+                        if (r instanceof java.util.Optional) {
+                            java.util.Optional<?> opt = (java.util.Optional<?>) r;
+                            skinData = opt.isPresent() ? opt.get() : null;
+                        } else {
+                            skinData = r;
+                        }
+                        if (skinData != null) break;
+                    } catch (NoSuchMethodException ignored) {}
+                }
+            } catch (ReflectiveOperationException ignored) {}
+        }
+        // getSkinForPlayer / getSkinOfPlayer variants on API itself
+        if (skinData == null && uuid != null) {
+            for (String mName : new String[]{"getSkinData", "getSkinOfPlayer"}) {
+                try {
+                    Object r = api.getClass().getMethod(mName, UUID.class).invoke(api, uuid);
+                    if (r instanceof java.util.Optional) {
+                        java.util.Optional<?> opt = (java.util.Optional<?>) r;
+                        skinData = opt.isPresent() ? opt.get() : null;
+                    } else skinData = r;
+                    if (skinData != null) break;
+                } catch (NoSuchMethodException ignored) {}
+            }
+        }
+        if (skinData == null) return null;
+        Object prop = skinData;
+        for (String mName : new String[]{"getProperty", "getTexture", "getSkinProperty"}) {
+            try {
+                Object p = skinData.getClass().getMethod(mName).invoke(skinData);
+                if (p != null) { prop = p; break; }
+            } catch (NoSuchMethodException ignored) {}
+        }
+        String value = null;
+        String sig = null;
+        try {
+            value = String.valueOf(prop.getClass().getMethod("getValue").invoke(prop));
+        } catch (NoSuchMethodException e) {
+            try { value = String.valueOf(prop.getClass().getMethod("value").invoke(prop)); }
+            catch (NoSuchMethodException e2) { return null; }
+        }
+        try {
+            Object s = prop.getClass().getMethod("getSignature").invoke(prop);
+            if (s != null) sig = String.valueOf(s);
+        } catch (Throwable ignored) {}
+        if (value == null || value.isEmpty() || "null".equals(value)) return null;
+        return new String[]{value, sig};
+    }
+
     private String[] resolveSkinTextures(Player player) {
         // 1) Paper PlayerProfile properties
         try {

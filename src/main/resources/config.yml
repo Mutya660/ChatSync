@@ -142,6 +142,8 @@ commands:
     permission: "chatsync.chatstats"
     permission_others: "chatsync.chatstats.others"
     permission_reset: "chatsync.chatstats.reset"
+  chatstatstop:
+    permission: "chatsync.chatstatstop"
   broadcast:
     permission: "chatsync.broadcast"
     permission_preset: "chatsync.broadcast.preset"

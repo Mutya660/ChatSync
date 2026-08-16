@@ -17,15 +17,22 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.profile.PlayerProfile;
+import org.bukkit.profile.PlayerTextures;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Минималистичное GUI. Язык = локаль игрока (en/ru/de/fr).
+ * Минималистичное GUI: топ чата, топ времени, игнор.
+ * Головы: online → SkinsRestorer → Paper profile cache.
  */
 public class ChatSyncGui implements Listener {
 
@@ -33,7 +40,6 @@ public class ChatSyncGui implements Listener {
     private final NamespacedKey actionKey;
     private final NamespacedKey pageKey;
     private final NamespacedKey targetKey;
-    private final Map<UUID, UUID> pendingUnignore = new ConcurrentHashMap<>();
 
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
 
@@ -50,6 +56,8 @@ public class ChatSyncGui implements Listener {
         return s;
     }
 
+    // ── Main ─────────────────────────────────────────────────────
+
     public void openMain(Player player) {
         if (!plugin.getConfig().getBoolean("gui.enabled", true)) {
             player.sendMessage(LEGACY.deserialize(tr(player, "gui.disabled", "&cGUI disabled.")));
@@ -62,38 +70,58 @@ public class ChatSyncGui implements Listener {
         String title = tr(player, "gui.main_title", "&8ChatSync");
         Inventory inv = Bukkit.createInventory(new GuiHolder(GuiType.MAIN, 0), 27, LEGACY.deserialize(title));
 
-        inv.setItem(11, item(Material.PAPER,
-                tr(player, "gui.btn_chat_top", "&fChat top"),
-                List.of(tr(player, "gui.btn_chat_top_lore", "&7Messages ranking")),
+        fillBorder(inv, Material.GRAY_STAINED_GLASS_PANE);
+
+        inv.setItem(11, item(Material.WRITABLE_BOOK,
+                tr(player, "gui.btn_chat_top", "&e&lТоп чата"),
+                List.of(
+                        tr(player, "gui.btn_chat_top_lore", "&7Рейтинг по сообщениям"),
+                        "&8",
+                        tr(player, "gui.click_open", "&8› &7Открыть")
+                ),
                 "open_chat_top", 0, null));
+
         inv.setItem(13, item(Material.CLOCK,
-                tr(player, "gui.btn_playtime_top", "&fPlaytime top"),
-                List.of(tr(player, "gui.btn_playtime_top_lore", "&7Hours ranking")),
+                tr(player, "gui.btn_playtime_top", "&b&lТоп онлайна"),
+                List.of(
+                        tr(player, "gui.btn_playtime_top_lore", "&7Рейтинг по времени игры"),
+                        "&8",
+                        tr(player, "gui.click_open", "&8› &7Открыть")
+                ),
                 "open_playtime_top", 0, null));
-        inv.setItem(15, item(Material.NAME_TAG,
-                tr(player, "gui.btn_ignore", "&fIgnore list"),
-                List.of(tr(player, "gui.btn_ignore_lore", "&7Manage ignored")),
+
+        inv.setItem(15, item(Material.BARRIER,
+                tr(player, "gui.btn_ignore", "&c&lИгнор"),
+                List.of(
+                        tr(player, "gui.btn_ignore_lore", "&7Список игнорируемых"),
+                        "&8",
+                        tr(player, "gui.click_open", "&8› &7Открыть")
+                ),
                 "open_ignore", 0, null));
-        inv.setItem(22, item(Material.BOOK,
-                tr(player, "gui.btn_commands", "&fCommands"),
-                List.of(tr(player, "gui.btn_commands_lore", "&7Plugin commands")),
-                "open_commands", 0, null));
+
+        inv.setItem(22, item(Material.RED_STAINED_GLASS_PANE,
+                tr(player, "gui.close", "&cЗакрыть"),
+                List.of(),
+                "close", 0, null));
 
         player.openInventory(inv);
     }
 
+    // ── Chat top ─────────────────────────────────────────────────
+
     public void openChatTop(Player player, int page) {
         List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top =
-                plugin.getStatsManager() != null ? plugin.getStatsManager().top(plugin.getConfig().getInt("gui.top_limit", 200)) : List.of();
-        String title = tr(player, "gui.chat_top_title", "&8Chat top");
+                plugin.getStatsManager() != null
+                        ? plugin.getStatsManager().top(plugin.getConfig().getInt("gui.top_limit", 200))
+                        : List.of();
+        String title = tr(player, "gui.chat_top_title", "&8Топ чата");
         openPagedHeads(player, GuiType.CHAT_TOP, page, top.size(), title, (slot, index) -> {
             if (index >= top.size()) return null;
             Map.Entry<UUID, ChatStatsManager.PlayerStats> e = top.get(index);
             String name = resolveName(e.getKey());
             ChatStatsManager.PlayerStats s = e.getValue();
-            // Same format as /chatstats player_line
             String line = tr(player, "chatstats.player_line",
-                    "&7Global: &f%global%  &7Local: &f%local%  &7PMs: &f%pm%  &7/me: &f%me%  &7BC: &f%broadcast%  &7Total: &e%total%")
+                    "&7G: &f%global%  &7L: &f%local%  &7PM: &f%pm%  &7/me: &f%me%  &7BC: &f%broadcast%  &7Σ: &e%total%")
                     .replace("%global%", String.valueOf(s.global))
                     .replace("%local%", String.valueOf(s.local))
                     .replace("%pm%", String.valueOf(s.pm))
@@ -102,7 +130,6 @@ public class ChatSyncGui implements Listener {
                     .replace("%total%", String.valueOf(s.total()));
             List<String> lore = new ArrayList<>();
             lore.add("&8#" + (index + 1));
-            // split long line into short lore lines for readability
             for (String part : line.split(" {2,}")) {
                 if (!part.isBlank()) lore.add(part.trim());
             }
@@ -110,10 +137,14 @@ public class ChatSyncGui implements Listener {
         });
     }
 
+    // ── Playtime top ─────────────────────────────────────────────
+
     public void openPlaytimeTop(Player player, int page) {
         List<Map.Entry<UUID, Long>> top =
-                plugin.getPlaytimeManager() != null ? plugin.getPlaytimeManager().top(plugin.getConfig().getInt("gui.top_limit", 200)) : List.of();
-        String title = tr(player, "gui.playtime_top_title", "&8Playtime top");
+                plugin.getPlaytimeManager() != null
+                        ? plugin.getPlaytimeManager().top(plugin.getConfig().getInt("gui.top_limit", 200))
+                        : List.of();
+        String title = tr(player, "gui.playtime_top_title", "&8Топ онлайна");
         openPagedHeads(player, GuiType.PLAYTIME_TOP, page, top.size(), title, (slot, index) -> {
             if (index >= top.size()) return null;
             Map.Entry<UUID, Long> e = top.get(index);
@@ -121,62 +152,27 @@ public class ChatSyncGui implements Listener {
             String time = formatTime(e.getValue());
             return skull(e.getKey(), name,
                     List.of("&8#" + (index + 1),
-                            tr(player, "gui.playtime_line", "&7Playtime: &f%time%").replace("%time%", time)),
+                            tr(player, "gui.playtime_line", "&7Время: &f%time%").replace("%time%", time)),
                     "noop", page, e.getKey().toString());
         });
     }
 
+    // ── Ignore ───────────────────────────────────────────────────
+
     public void openIgnore(Player player, int page) {
         List<UUID> ignored = new ArrayList<>(plugin.getIgnoredUuids(player.getUniqueId()));
-        String title = tr(player, "gui.ignore_title", "&8Ignore list");
+        String title = tr(player, "gui.ignore_title", "&8Игнор");
         openPagedHeads(player, GuiType.IGNORE, page, ignored.size(), title, (slot, index) -> {
             if (index >= ignored.size()) return null;
             UUID uid = ignored.get(index);
             String name = resolveName(uid);
             return skull(uid, name,
-                    List.of(tr(player, "gui.ignore_lore", "&7Click twice to unignore")),
+                    List.of(tr(player, "gui.ignore_lore", "&7Клик — снять игнор")),
                     "unignore", page, uid.toString());
         });
     }
 
-    public void openCommands(Player player, int page) {
-        // name, desc key, permission
-        String[][] cmds = {
-                {"/msg <player>", "gui.cmd.msg", "-"},
-                {"/reply <msg>", "gui.cmd.reply", "-"},
-                {"/ignore <player>", "gui.cmd.ignore", "-"},
-                {"/ignorelist", "gui.cmd.ignorelist", "-"},
-                {"/socialspy", "gui.cmd.socialspy", "chatsync.spy"},
-                {"/me <action>", "gui.cmd.me", "chatsync.me"},
-                {"/clear", "gui.cmd.clear", "chatsync.clear"},
-                {"/chatstats", "gui.cmd.chatstats", "chatsync.chatstats"},
-                {"/broadcast", "gui.cmd.broadcast", "chatsync.broadcast"},
-                {"/playtime", "gui.cmd.playtime", "chatsync.playtime"},
-                {"/playtimetop", "gui.cmd.playtimetop", "chatsync.playtimetop"},
-                {"/lastseen", "gui.cmd.lastseen", "chatsync.lastseen"},
-                {"/team", "gui.cmd.team", "chatsync.team"},
-                {"/chatsync gui", "gui.cmd.gui", "chatsync.gui"},
-                {"/chatsync reload", "gui.cmd.reload", "chatsync.admin"}
-        };
-        String title = tr(player, "gui.commands_title", "&8Commands");
-        Inventory inv = Bukkit.createInventory(new GuiHolder(GuiType.COMMANDS, page), 54, LEGACY.deserialize(title));
-        int perPage = Math.max(1, Math.min(45, plugin.getConfig().getInt("gui.page_size", 45)));
-        int start = page * perPage;
-        for (int i = 0; i < perPage && start + i < cmds.length; i++) {
-            String[] c = cmds[start + i];
-            String desc = tr(player, c[1], c[1]);
-            List<String> lore = new ArrayList<>();
-            lore.add("&7" + desc);
-            if (c[2] != null && !c[2].equals("-")) {
-                lore.add(tr(player, "gui.cmd_perm", "&8perm: &f%perm%").replace("%perm%", c[2]));
-            }
-            inv.setItem(i, item(Material.MAP, "&f" + c[0], lore, "noop", page, null));
-        }
-        inv.setItem(45, item(Material.ARROW, tr(player, "gui.back", "&7Back"), List.of(), "open_main", 0, null));
-        if (page > 0) inv.setItem(48, item(Material.ARROW, tr(player, "gui.prev", "&7Prev"), List.of(), "open_commands", page - 1, null));
-        if (start + perPage < cmds.length) inv.setItem(50, item(Material.ARROW, tr(player, "gui.next", "&7Next"), List.of(), "open_commands", page + 1, null));
-        player.openInventory(inv);
-    }
+    // ── Paged layout ─────────────────────────────────────────────
 
     private interface SlotFiller {
         ItemStack get(int slot, int index);
@@ -192,15 +188,46 @@ public class ChatSyncGui implements Listener {
             ItemStack it = filler.get(i, index);
             if (it != null) inv.setItem(i, it);
         }
-        inv.setItem(45, item(Material.ARROW, tr(player, "gui.back", "&7Back"), List.of(), "open_main", 0, null));
-        if (page > 0) inv.setItem(48, item(Material.ARROW, tr(player, "gui.prev", "&7Prev"), List.of(), "page_prev", page - 1, null));
-        if (start + perPage < total) inv.setItem(50, item(Material.ARROW, tr(player, "gui.next", "&7Next"), List.of(), "page_next", page + 1, null));
+        // bottom bar
+        for (int i = 45; i < 54; i++) {
+            inv.setItem(i, pane(Material.GRAY_STAINED_GLASS_PANE));
+        }
+        inv.setItem(45, item(Material.ARROW, tr(player, "gui.back", "&7← Назад"), List.of(), "open_main", 0, null));
+        if (page > 0) {
+            inv.setItem(48, item(Material.SPECTRAL_ARROW, tr(player, "gui.prev", "&7← Пред."), List.of(), "page_prev", page - 1, null));
+        }
+        inv.setItem(49, item(Material.PAPER,
+                tr(player, "gui.page", "&f%page%").replace("%page%", String.valueOf(page + 1)),
+                List.of(), "noop", page, null));
+        if (start + perPage < total) {
+            inv.setItem(50, item(Material.SPECTRAL_ARROW, tr(player, "gui.next", "&7След. →"), List.of(), "page_next", page + 1, null));
+        }
         if (total == 0) {
-            inv.setItem(22, item(Material.GRAY_STAINED_GLASS_PANE,
-                    tr(player, "gui.empty", "&8Empty"), List.of(), "noop", 0, null));
+            inv.setItem(22, item(Material.STRUCTURE_VOID,
+                    tr(player, "gui.empty", "&8Пусто"), List.of(), "noop", 0, null));
         }
         player.openInventory(inv);
     }
+
+    private void fillBorder(Inventory inv, Material mat) {
+        int size = inv.getSize();
+        for (int i = 0; i < size; i++) {
+            int row = i / 9;
+            int col = i % 9;
+            boolean edge = row == 0 || row == (size / 9 - 1) || col == 0 || col == 8;
+            if (edge) inv.setItem(i, pane(mat));
+        }
+    }
+
+    private ItemStack pane(Material mat) {
+        ItemStack stack = new ItemStack(mat);
+        ItemMeta meta = stack.getItemMeta();
+        meta.displayName(Component.text(" "));
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    // ── Clicks ───────────────────────────────────────────────────
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
@@ -222,13 +249,11 @@ public class ChatSyncGui implements Listener {
             case "open_chat_top" -> openChatTop(player, 0);
             case "open_playtime_top" -> openPlaytimeTop(player, 0);
             case "open_ignore" -> openIgnore(player, 0);
-            case "open_commands" -> openCommands(player, page);
             case "page_prev", "page_next" -> {
                 switch (holder.type) {
                     case CHAT_TOP -> openChatTop(player, page);
                     case PLAYTIME_TOP -> openPlaytimeTop(player, page);
                     case IGNORE -> openIgnore(player, page);
-                    case COMMANDS -> openCommands(player, page);
                     default -> {}
                 }
             }
@@ -242,7 +267,7 @@ public class ChatSyncGui implements Listener {
                 try { tid = UUID.fromString(target); } catch (Exception e) { return; }
                 plugin.unignorePlayer(player, tid);
                 player.sendMessage(LEGACY.deserialize(
-                        tr(player, "gui.unignored", "&aUnignored &f%player%")
+                        tr(player, "gui.unignored", "&aСнят игнор: &f%player%")
                                 .replace("%player%", resolveName(tid))));
                 openIgnore(player, page);
             }
@@ -254,6 +279,8 @@ public class ChatSyncGui implements Listener {
     public void onDrag(InventoryDragEvent event) {
         if (event.getInventory().getHolder() instanceof GuiHolder) event.setCancelled(true);
     }
+
+    // ── Items ────────────────────────────────────────────────────
 
     private ItemStack item(Material mat, String name, List<String> lore, String action, int page, String target) {
         ItemStack stack = new ItemStack(mat);
@@ -288,24 +315,38 @@ public class ChatSyncGui implements Listener {
         return stack;
     }
 
-    /** Скин оффлайн-игрока: online → Paper profile → OfflinePlayer. */
+    /**
+     * Скин: online → SkinsRestorer (UUID/name) → Paper profile → OfflinePlayer.
+     * Нужно для игроков из старых stats/playtime до обновления плагина.
+     */
     private void applySkullSkin(SkullMeta meta, UUID uuid, String name) {
-        Player online = Bukkit.getPlayer(uuid);
+        Player online = uuid != null ? Bukkit.getPlayer(uuid) : null;
         if (online != null) {
             try {
                 meta.setOwningPlayer(online);
                 return;
             } catch (Throwable ignored) {}
         }
-        // Paper: Bukkit.createProfile + setPlayerProfile
+
+        // SkinsRestorer / offline textures → base64 → PlayerProfile textures
         try {
-            java.lang.reflect.Method create = Bukkit.class.getMethod("createProfile", UUID.class, String.class);
-            Object profile = create.invoke(null, uuid, name != null ? name : "Player");
+            String[] tex = plugin.resolveSkinTexturesOffline(uuid, name);
+            if (tex != null && tex[0] != null && !tex[0].isEmpty()) {
+                if (applyTextureToSkull(meta, uuid, name, tex[0])) {
+                    return;
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // Paper createProfile + cache
+        try {
+            Method create = Bukkit.class.getMethod("createProfile", UUID.class, String.class);
+            Object profile = create.invoke(null, uuid != null ? uuid : UUID.randomUUID(),
+                    name != null ? name : "Player");
             try {
                 profile.getClass().getMethod("completeFromCache").invoke(profile);
             } catch (NoSuchMethodException e) {
                 try {
-                    // blocking Mojang fetch — only if cache miss; keep short
                     profile.getClass().getMethod("complete", boolean.class).invoke(profile, true);
                 } catch (Throwable ignored) {}
             }
@@ -314,16 +355,82 @@ public class ChatSyncGui implements Listener {
                         .invoke(meta, profile);
                 return;
             } catch (Throwable ignored) {}
-            try {
-                if (profile instanceof org.bukkit.profile.PlayerProfile bp) {
-                    meta.setOwnerProfile(bp);
-                    return;
-                }
-            } catch (Throwable ignored) {}
+            if (profile instanceof PlayerProfile bp) {
+                meta.setOwnerProfile(bp);
+                return;
+            }
         } catch (Throwable ignored) {}
+
         try {
-            meta.setOwningPlayer(Bukkit.getOfflinePlayer(uuid));
+            if (uuid != null) meta.setOwningPlayer(Bukkit.getOfflinePlayer(uuid));
+            else if (name != null) meta.setOwningPlayer(Bukkit.getOfflinePlayer(name));
         } catch (Throwable ignored) {}
+    }
+
+    /** Apply base64 textures property to SkullMeta via PlayerProfile / reflection. */
+    private boolean applyTextureToSkull(SkullMeta meta, UUID uuid, String name, String textureValue) {
+        UUID id = uuid != null ? uuid : UUID.nameUUIDFromBytes(("OfflinePlayer:" + (name != null ? name : "x")).getBytes(StandardCharsets.UTF_8));
+        String display = name != null ? name : "Player";
+
+        // 1) Bukkit PlayerProfile + set textures URL from base64 JSON
+        try {
+            PlayerProfile profile = Bukkit.createPlayerProfile(id, display);
+            String url = extractSkinUrl(textureValue);
+            if (url != null) {
+                PlayerTextures textures = profile.getTextures();
+                textures.setSkin(new URL(url));
+                profile.setTextures(textures);
+                meta.setOwnerProfile(profile);
+                return true;
+            }
+        } catch (Throwable ignored) {}
+
+        // 2) Paper profile setProperty textures
+        try {
+            Method create = Bukkit.class.getMethod("createProfile", UUID.class, String.class);
+            Object profile = create.invoke(null, id, display);
+            // setProperty("textures", value, signature)
+            try {
+                Method setProp = profile.getClass().getMethod("setProperty", String.class, String.class);
+                setProp.invoke(profile, "textures", textureValue);
+            } catch (NoSuchMethodException e) {
+                try {
+                    Class<?> propClass = Class.forName("com.destroystokyo.paper.profile.ProfileProperty");
+                    Constructor<?> ctor;
+                    Object prop;
+                    try {
+                        ctor = propClass.getConstructor(String.class, String.class, String.class);
+                        prop = ctor.newInstance("textures", textureValue, null);
+                    } catch (NoSuchMethodException e2) {
+                        ctor = propClass.getConstructor(String.class, String.class);
+                        prop = ctor.newInstance("textures", textureValue);
+                    }
+                    Method setProperty = profile.getClass().getMethod("setProperty", propClass);
+                    setProperty.invoke(profile, prop);
+                } catch (Throwable ignored) {}
+            }
+            meta.getClass().getMethod("setPlayerProfile", Class.forName("com.destroystokyo.paper.profile.PlayerProfile"))
+                    .invoke(meta, profile);
+            return true;
+        } catch (Throwable ignored) {}
+
+        return false;
+    }
+
+    private String extractSkinUrl(String base64Value) {
+        try {
+            String json = new String(Base64.getDecoder().decode(base64Value), StandardCharsets.UTF_8);
+            // {"textures":{"SKIN":{"url":"http://textures.minecraft.net/texture/..."}}}
+            int i = json.indexOf("\"url\"");
+            if (i < 0) return null;
+            int colon = json.indexOf(':', i);
+            int q1 = json.indexOf('"', colon + 1);
+            int q2 = json.indexOf('"', q1 + 1);
+            if (q1 < 0 || q2 < 0) return null;
+            return json.substring(q1 + 1, q2);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     private String resolveName(UUID uuid) {
@@ -355,7 +462,7 @@ public class ChatSyncGui implements Listener {
         return m + "m";
     }
 
-    enum GuiType { MAIN, CHAT_TOP, PLAYTIME_TOP, IGNORE, COMMANDS }
+    enum GuiType { MAIN, CHAT_TOP, PLAYTIME_TOP, IGNORE }
 
     static class GuiHolder implements InventoryHolder {
         final GuiType type;

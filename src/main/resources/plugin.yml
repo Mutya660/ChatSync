@@ -43,6 +43,10 @@ commands:
     description: Chat plugin for Paper 26.2 —  View chat message statistics (top players or a specific player)
     usage: /chatstats [player]
     aliases: [cstats]
+  chatstatstop:
+    description: Chat message statistics leaderboard
+    usage: /chatstatstop
+    aliases: [cstop, chatlb, msgtop]
   broadcast:
     description: Chat plugin for Paper 26.2 —  Send a server-wide announcement
     usage: /broadcast <message>
@@ -87,6 +91,9 @@ permissions:
   chatsync.clear:
     description: Chat plugin for Paper 26.2 —  Access to /clear
     default: op
+  chatsync.chatstatstop:
+    description: Access to /chatstatstop
+    default: true
   chatsync.chatstats:
     description: Chat plugin for Paper 26.2 —  View the chat statistics leaderboard and your own stats
     default: true

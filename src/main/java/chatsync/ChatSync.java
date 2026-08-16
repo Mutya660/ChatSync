@@ -261,18 +261,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     private String getLang(Player player) {
-        // auto_language (default true): follow client locale; else force config language
-        if (!getConfig().getBoolean("auto_language", true)) {
-            return getConfig().getString("language", "en");
-        }
-        String locale = player.locale().toString().toLowerCase().replace("-", "_");
-        String mapped = LOCALE_MAP.get(locale);
-        if (mapped != null) return mapped;
-        if (locale.length() >= 2) {
-            String prefix = locale.substring(0, 2);
+        // Язык только из config.yml → language (en/ru/de/fr)
+        String lang = getConfig().getString("language", "en");
+        if (lang == null || lang.isEmpty()) lang = "en";
+        lang = lang.toLowerCase(java.util.Locale.ROOT).trim();
+        if (langConfigs.containsKey(lang)) return lang;
+        if (lang.length() >= 2) {
+            String prefix = lang.substring(0, 2);
             if (langConfigs.containsKey(prefix)) return prefix;
         }
-        return getConfig().getString("language", "en");
+        return langConfigs.containsKey("en") ? "en" : lang;
     }
 
     String t(Player player, String key) { return t(getLang(player), key); }
@@ -443,20 +441,50 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (!sender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) rawMessage = stripColorCodes(rawMessage);
 
+        boolean globalEnabled = getConfig().getBoolean("chat.global.enabled", true);
+        boolean localEnabled  = getConfig().getBoolean("chat.local.enabled", true);
         boolean requireSymbol = getConfig().getBoolean("chat.global.require_symbol", true);
         String  globalSymbol  = getConfig().getString("chat.global.symbol", "!");
+        if (globalSymbol == null || globalSymbol.isEmpty()) globalSymbol = "!";
+        String defaultCh = getConfig().getString("chat.default_channel", "local");
+        if (defaultCh == null) defaultCh = "local";
+        defaultCh = defaultCh.toLowerCase(java.util.Locale.ROOT).trim();
+        boolean defaultGlobal = defaultCh.equals("global") || defaultCh.equals("g");
+
         boolean isGlobal;
         String  formatStr;
 
-        if (requireSymbol) {
-            isGlobal = rawMessage.startsWith(globalSymbol);
+        if (!globalEnabled && !localEnabled) {
+            isGlobal = false;
+            formatStr = getConfig().getString("chat.local.format");
+        } else if (!globalEnabled) {
+            isGlobal = false;
+            if (requireSymbol && rawMessage.startsWith(globalSymbol)) {
+                rawMessage = rawMessage.substring(globalSymbol.length()).trim();
+            }
+            formatStr = getConfig().getString("chat.local.format");
+        } else if (!localEnabled) {
+            isGlobal = true;
+            if (requireSymbol && rawMessage.startsWith(globalSymbol)) {
+                rawMessage = rawMessage.substring(globalSymbol.length()).trim();
+            }
+            formatStr = getConfig().getString("chat.global.format");
+        } else if (requireSymbol) {
+            boolean hasSym = rawMessage.startsWith(globalSymbol);
+            if (hasSym) {
+                isGlobal = true;
+                rawMessage = rawMessage.substring(globalSymbol.length()).trim();
+            } else {
+                isGlobal = defaultGlobal;
+            }
             formatStr = isGlobal
                     ? getConfig().getString("chat.global.format")
                     : getConfig().getString("chat.local.format");
-            if (isGlobal) rawMessage = rawMessage.substring(globalSymbol.length()).trim();
         } else {
-            isGlobal  = true;
-            formatStr = getConfig().getString("chat.global.format");
+            isGlobal = defaultGlobal;
+            formatStr = isGlobal
+                    ? getConfig().getString("chat.global.format")
+                    : getConfig().getString("chat.local.format");
         }
 
         if (rawMessage.isEmpty()) return;
@@ -1765,37 +1793,61 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     /**
-     * Текст hover при наведении на ник.
-     * Плейсхолдеры: %player%, %playtime%, %playtime_seconds%
-     * Многострочность: \\n в lang-строке.
+     * Hover при наведении на ник (как в TAB).
+     * Приоритет: hover.lines → hover.format → lang messages.join_hover*
+     * Плейсхолдеры: %player% %playtime% %playtime_seconds% %uuid%
      */
     Component buildHoverComponent(CommandSender viewer, String playerName, UUID uuid) {
+        if (!getConfig().getBoolean("hover.enabled", true)) {
+            return Component.empty();
+        }
+
         boolean showPt = getConfig().getBoolean("hover.show_playtime", true)
                 && getConfig().getBoolean("playtime.enabled", true)
                 && playtimeManager != null;
 
-        String key = showPt ? "messages.join_hover_playtime" : "messages.join_hover";
-        String raw = tAny(viewer, key).replace("%player%", playerName);
+        if (uuid == null) {
+            Player online = Bukkit.getPlayerExact(playerName);
+            if (online != null) uuid = online.getUniqueId();
+            else if (playtimeManager != null) uuid = playtimeManager.findUuidByName(playerName);
+        }
+        long sec = 0L;
+        if (showPt && playtimeManager != null && uuid != null) {
+            sec = playtimeManager.getPlaytimeSeconds(uuid);
+        }
+        String ptStr = showPt ? formatDuration(sec, viewer) : "—";
+        String uuidStr = uuid != null ? uuid.toString() : "—";
 
-        if (showPt) {
-            if (uuid == null) {
-                Player online = Bukkit.getPlayerExact(playerName);
-                if (online != null) {
-                    uuid = online.getUniqueId();
-                } else {
-                    uuid = playtimeManager.findUuidByName(playerName);
-                }
+        java.util.List<String> lines = getConfig().getStringList("hover.lines");
+        if (lines != null && !lines.isEmpty()) {
+            net.kyori.adventure.text.TextComponent.Builder b = Component.text();
+            boolean first = true;
+            for (String line : lines) {
+                if (line == null) continue;
+                String filled = applyHoverPlaceholders(line, playerName, ptStr, sec, uuidStr);
+                if (!first) b.append(Component.newline());
+                first = false;
+                b.append(color(filled));
             }
-            long sec = uuid != null ? playtimeManager.getPlaytimeSeconds(uuid) : 0L;
-            raw = raw
-                    .replace("%playtime%", formatDuration(sec, viewer))
-                    .replace("%playtime_seconds%", String.valueOf(sec));
-        } else {
-            raw = raw.replace("%playtime%", "—").replace("%playtime_seconds%", "0");
+            return b.build();
         }
 
-        // Многострочный hover: разбиваем по \n
-        String[] parts = raw.split("\\\\n|\\n");
+        String format = getConfig().getString("hover.format", "");
+        if (format != null && !format.isEmpty()) {
+            String raw = applyHoverPlaceholders(format, playerName, ptStr, sec, uuidStr);
+            String[] parts = raw.split("\\n|\n");
+            if (parts.length == 1) return color(parts[0]);
+            net.kyori.adventure.text.TextComponent.Builder b = Component.text();
+            for (int i = 0; i < parts.length; i++) {
+                if (i > 0) b.append(Component.newline());
+                b.append(color(parts[i]));
+            }
+            return b.build();
+        }
+
+        String key = showPt ? "messages.join_hover_playtime" : "messages.join_hover";
+        String raw = applyHoverPlaceholders(tAny(viewer, key), playerName, ptStr, sec, uuidStr);
+        String[] parts = raw.split("\\n|\n");
         if (parts.length == 1) return color(parts[0]);
         net.kyori.adventure.text.TextComponent.Builder b = Component.text();
         for (int i = 0; i < parts.length; i++) {
@@ -1803,6 +1855,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             b.append(color(parts[i]));
         }
         return b.build();
+    }
+
+    private String applyHoverPlaceholders(String raw, String playerName, String playtime, long sec, String uuid) {
+        if (raw == null) return "";
+        return raw
+                .replace("%player%", playerName != null ? playerName : "")
+                .replace("%playtime%", playtime != null ? playtime : "—")
+                .replace("%playtime_seconds%", String.valueOf(sec))
+                .replace("%uuid%", uuid != null ? uuid : "—");
     }
 
     // ──────────────────────────────────────────────────────────────

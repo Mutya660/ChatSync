@@ -84,7 +84,7 @@ public class ChatSyncGui implements Listener {
 
     public void openChatTop(Player player, int page) {
         List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top =
-                plugin.getStatsManager() != null ? plugin.getStatsManager().top(200) : List.of();
+                plugin.getStatsManager() != null ? plugin.getStatsManager().top(plugin.getConfig().getInt("gui.top_limit", 200)) : List.of();
         String title = tr(player, "gui.chat_top_title", "&8Chat top");
         openPagedHeads(player, GuiType.CHAT_TOP, page, top.size(), title, (slot, index) -> {
             if (index >= top.size()) return null;
@@ -112,7 +112,7 @@ public class ChatSyncGui implements Listener {
 
     public void openPlaytimeTop(Player player, int page) {
         List<Map.Entry<UUID, Long>> top =
-                plugin.getPlaytimeManager() != null ? plugin.getPlaytimeManager().top(200) : List.of();
+                plugin.getPlaytimeManager() != null ? plugin.getPlaytimeManager().top(plugin.getConfig().getInt("gui.top_limit", 200)) : List.of();
         String title = tr(player, "gui.playtime_top_title", "&8Playtime top");
         openPagedHeads(player, GuiType.PLAYTIME_TOP, page, top.size(), title, (slot, index) -> {
             if (index >= top.size()) return null;
@@ -160,7 +160,7 @@ public class ChatSyncGui implements Listener {
         };
         String title = tr(player, "gui.commands_title", "&8Commands");
         Inventory inv = Bukkit.createInventory(new GuiHolder(GuiType.COMMANDS, page), 54, LEGACY.deserialize(title));
-        int perPage = 45;
+        int perPage = Math.max(1, Math.min(45, plugin.getConfig().getInt("gui.page_size", 45)));
         int start = page * perPage;
         for (int i = 0; i < perPage && start + i < cmds.length; i++) {
             String[] c = cmds[start + i];
@@ -184,7 +184,7 @@ public class ChatSyncGui implements Listener {
 
     private void openPagedHeads(Player player, GuiType type, int page, int total, String title, SlotFiller filler) {
         Inventory inv = Bukkit.createInventory(new GuiHolder(type, page), 54, LEGACY.deserialize(title));
-        int perPage = 45;
+        int perPage = Math.max(1, Math.min(45, plugin.getConfig().getInt("gui.page_size", 45)));
         int start = page * perPage;
         for (int i = 0; i < perPage; i++) {
             int index = start + i;

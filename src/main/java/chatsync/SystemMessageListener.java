@@ -51,6 +51,7 @@ public class SystemMessageListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
+        if (!plugin.getConfig().getBoolean("system_messages.intercept_commands", true)) return;
         String raw = event.getMessage();
         if (raw == null || raw.length() < 2) return;
         String body = raw.substring(1).trim();
@@ -81,6 +82,7 @@ public class SystemMessageListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onServerCommand(ServerCommandEvent event) {
+        if (!plugin.getConfig().getBoolean("system_messages.intercept_commands", true)) return;
         String body = event.getCommand();
         if (body == null) return;
         body = body.trim();
@@ -133,9 +135,10 @@ public class SystemMessageListener implements Listener {
             }
         }
 
-        silenceVanilla.add(target.getUniqueId());
+        final UUID targetId = target.getUniqueId();
+        silenceVanilla.add(targetId);
         target.setGameMode(mode);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> silenceVanilla.remove(target.getUniqueId()), 5L);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> silenceVanilla.remove(targetId), 5L);
 
         announceGamemode(target, mode);
         // quiet confirm to executor if different
@@ -191,12 +194,14 @@ public class SystemMessageListener implements Listener {
         }
         if (who == null || dest == null) return false;
 
-        silenceVanilla.add(who.getUniqueId());
-        who.teleport(dest);
-        Location finalDest = dest;
-        Bukkit.getScheduler().runTaskLater(plugin, () -> silenceVanilla.remove(who.getUniqueId()), 5L);
+        final UUID whoId = who.getUniqueId();
+        final Player whoFinal = who;
+        final Location finalDest = dest;
+        silenceVanilla.add(whoId);
+        whoFinal.teleport(finalDest);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> silenceVanilla.remove(whoId), 5L);
 
-        announceTeleport(who, finalDest);
+        announceTeleport(whoFinal, finalDest);
         return true;
     }
 

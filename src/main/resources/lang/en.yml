@@ -45,30 +45,25 @@ commands:
     enabled: "&eSocialSpy &aenabled&e."
     disabled: "&eSocialSpy &cdisabled&e."
     no_permission: "&cYou don't have permission to use SocialSpy."
-
 chat:
   local_noone: "&7Nobody can hear you."
   cooldown: "&c[!] Wait &f%seconds%s &cbefore sending another global message."
   local_cooldown: "&c[!] Slowmode: wait &f%seconds%s &cbefore sending another message."
   muted: "&c[!] You are muted and cannot chat."
-
 messages:
   join_hover: "&7Click to message &f%player%"
   join_hover_playtime: "&7Click to message &f%player%\n&8Playtime: &e%playtime%"
-
 pm:
-  format_sender:   "%head_self%&eYou &e→ %head_other%&e%receiver%&e: &e%message%"
+  format_sender: "%head_self%&eYou &e→ %head_other%&e%receiver%&e: &e%message%"
   format_receiver: "%head_other%&e%sender% &e→ %head_self%&eYou&e: &e%message%"
   format_from_console: "%head_console%&e%console% &e→ &eYou&e: &e%message%"
   format_console_to_player: "&eConsole &e→ &e%player%&e: &e%message%"
   format_console_sender: "%head_self%&eYou &e→ %head_console%&eConsole&e: &e%message%"
   player_not_found: "&cPlayer &f%player% &cis not online."
   no_reply_target: "&cYou have nobody to reply to."
-
 me:
   usage: "&7Usage: &f/me <action>"
   no_permission: "&cYou don't have permission to use /me."
-
 clear:
   no_permission: "&cYou don't have permission to clear the chat."
   confirm_hint: "&eThis will clear the chat for &feveryone&e. Click here or type &f/clear confirm &eto proceed."
@@ -76,7 +71,6 @@ clear:
   expired: "&cNothing to confirm, or the confirmation expired. Run the command again."
   done_all: "&aChat cleared by &f%player%&a."
   done_player: "&aChat cleared for &f%target% &aby &f%player%&a."
-
 chatstats:
   empty: "&7No chat stats yet. Send a message in chat (&f!message&7 for global)."
   no_permission: "&cYou don't have permission to view chat statistics."
@@ -92,7 +86,6 @@ chatstats:
   reset_expired: "&cNothing to confirm, or the confirmation expired. Run the command again."
   reset_all_done: "&a&lAll chat statistics have been reset."
   reset_player_done: "&aChat statistics for &f%player% &ahave been reset."
-
 broadcast:
   lines:
     - " "
@@ -117,7 +110,6 @@ broadcast:
   preset_invalid_key: "&cInvalid key. Use letters, digits, _ and -."
   hide_on: "&eBroadcast author is now &chidden&e. Toggle: &f/broadcast hide"
   hide_off: "&eBroadcast author is now &avisible&e. Hide: &f/broadcast hide"
-
 playtime:
   disabled: "&cPlaytime tracking is disabled."
   no_permission: "&cYou don't have permission to view playtime."
@@ -133,13 +125,11 @@ playtime:
   lastseen: "&7%player% &7was last online: &f%when%"
   lastseen_online: "&a%player% &ais currently online."
   unknown_time: "&7unknown"
-
 duration:
   days: "d"
   hours: "h"
   minutes: "m"
   seconds: "s"
-
 team:
   disabled: "&cTeam system is disabled."
   players_only: "&cOnly players can use this command."
@@ -188,7 +178,6 @@ team:
   symbol_taken: "&cThat symbol is already used by another team."
   symbol_clash: "&cCannot use the global chat symbol."
   target_in_team: "&cThat player is already in a team."
-
   usage_transfer: "&7Usage: &f/team transfer <player>"
   usage_promote: "&7Usage: &f/team promote <player>"
   usage_demote: "&7Usage: &f/team demote <player>"
@@ -205,7 +194,6 @@ team:
   cannot_kick_owner: "&cYou cannot kick the primary owner."
   info_legend: "&8* owner  &7+ co-owner"
   bad_symbol: "&cInvalid symbol (1–3 chars, no spaces)."
-
 gui:
   page: "&fPage %page%"
   click_open: "&8› &7Open"

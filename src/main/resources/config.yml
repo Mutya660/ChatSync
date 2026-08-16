@@ -3,108 +3,168 @@
 #  Modrinth: https://modrinth.com/plugin/chatsync
 #  Github:   https://github.com/Mutya660/ChatSync
 #
-#  Localized player-facing text lives in lang/<code>.yml
-#  This file controls formats, permissions, toggles and behaviour.
+#  Player-facing text (errors, usage, GUI labels) is in:
+#    plugins/ChatSync/lang/<code>.yml
+#  This file only controls behaviour, formats and permissions.
+#
+#  After editing: /chatsync reload
 # ═══════════════════════════════════════════════════════════════
 
-# Server language for all players and console.
-# Supported: en, ru, de, fr, es, pt, pl, it, uk, zh, ja, tr, nl, cs
+# ── Language ──────────────────────────────────────────────────
+# Language used for ALL players and the console.
+# No per-client auto-detection — set it here only.
+#
+# Built-in codes:
+#   en (English, default), ru, de, fr, es, pt, pl, it,
+#   uk, zh, ja, tr, nl, cs
+#
+# If a key is missing in the chosen language file, English is used.
 language: "en"
 
 # ── Chat ──────────────────────────────────────────────────────
 chat:
   heads:
-    # Player head icons in chat (Paper + client 1.21.9+)
+    # Show player head icons next to names in chat (requires Paper +
+    # a client that supports text object heads, e.g. 1.21.9+).
     enabled: true
-    # Always put head first even without %head% in format
+    # If true, the head is always prepended even when the format
+    # string does not contain %head%.
     force_first: true
+    # Characters inserted between the head and the rest of the line.
     gap: " "
+    # Log head-building failures to the server console.
     debug: false
-    # Fallback if head cannot render ("" = nothing)
+    # Text used when a head cannot be rendered. Empty = show nothing
+    # (avoids a broken square glyph).
     fallback: ""
 
-  # Channel used when the message has no global prefix: local | global
+  # Which channel receives messages that have no global prefix symbol.
+  #   local  — radius-limited local chat
+  #   global — server-wide global chat
   default_channel: "local"
 
   global:
-    # false = global chat disabled (local + team only)
+    # Master switch for global chat. false = only local + team chat.
     enabled: true
-    # true = require symbol (e.g. !) for global; false = use default_channel for everything
+    # true  = player must start the message with `symbol` (e.g. !hello)
+    #         to send it globally; messages without the symbol use
+    #         default_channel above.
+    # false = every normal chat message goes to default_channel
+    #         (no prefix required).
     require_symbol: true
+    # Prefix character(s) for global chat when require_symbol is true.
     symbol: "!"
-    # Placeholders: %head% %player% %message% %luckperms_prefix% %luckperms_suffix% {username-color}
+    # Format of a global chat line.
+    # Placeholders:
+    #   %head%              player head icon
+    #   %player%            player name (clickable if enabled)
+    #   %message%           message body
+    #   %luckperms_prefix%  LuckPerms prefix (empty if LP absent)
+    #   %luckperms_suffix%  LuckPerms suffix
+    #   {username-color}    optional color token
     format: "%head%&8[&aG&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 » &f%message%"
-    # Seconds between global messages. 0 = off. Bypass: chatsync.bypass_cooldown
+    # Minimum seconds between two global messages from the same player.
+    # 0 = disabled. Bypass permission: chatsync.bypass_cooldown
     cooldown: 3
 
   local:
-    # false = local disabled (everything goes global if global.enabled)
+    # Master switch for local chat. false = everything goes global
+    # (if global.enabled is true).
     enabled: true
+    # Visibility radius in blocks for local messages.
     radius: 100.0
+    # Slowmode for local chat in seconds. 0 = off.
+    # Bypass: chatsync.bypass_cooldown
     cooldown: 2
+    # Format of a local chat line (same placeholders as global).
     format: "%head%&8[&fL&8] %luckperms_prefix% {username-color}%player% %luckperms_suffix%&7 » &f%message%"
+    # Also print local chat lines to the server console.
     log_to_console: true
+    # Console line format for local chat (plain / legacy colors).
     console_format: "[LocalChat] %player%: %message%"
 
   me:
+    # Format for /me action messages.
     format: "%head%&7* %player% %message%"
+    # Radius for /me. -1 = visible to the whole server (like global).
     radius: -1
 
 # ── Private messages ──────────────────────────────────────────
 pm:
+  # Formats shown to staff with SocialSpy enabled.
   format_spy: "%head%&8[SPY] &7%sender% &8→ &7%receiver%&8: &7%message%"
   format_spy_local: "%head%&8[SPY-L] &7%player%&8: &7%message%"
   format_spy_team: "%head%&8[SPY-T] &7%player%&8: &7%message%"
   format_spy_me: "%head%&8[SPY-ME] &7* %player% &7%message%"
   sound:
+    # Play a sound when a player receives a private message.
     enable: true
+    # Bukkit Sound enum name.
     name: "ENTITY_EXPERIENCE_ORB_PICKUP"
     volume: 1.0
     pitch: 1.2
 
-# ── Discord (DiscordSRV soft-depend) ──────────────────────────
+# ── Discord (requires DiscordSRV soft-depend) ─────────────────
 discord:
+  # Forward chat / deaths / etc. through DiscordSRV when it is installed.
   enabled: true
 
-# ── Death / Advancement ───────────────────────────────────────
+# ── Death & advancement messages ──────────────────────────────
 death_messages:
-  # Translate death messages when language supports a JSON pack (e.g. ru)
+  # Try to translate vanilla death messages using language packs
+  # shipped in the plugin JAR (useful when language=ru).
   translate: true
+  # Legacy flag kept for compatibility; prefer `translate` + language.
   translate_to_russian: false
-  # Heads in death messages (in-game only; Discord/console stay clean)
+  # Show player heads in death messages in-game.
+  # Discord / console always receive plain text without head objects.
   show_heads: true
 
 advancement_messages:
+  # Show player heads in advancement announcements in-game.
   show_heads: true
 
-# ── Join / Quit ───────────────────────────────────────────────
+# ── Join / quit ───────────────────────────────────────────────
 messages:
+  # Broadcast when a player joins. Placeholders: %head% %player%
   join: "%head%&a→ &f%player%"
+  # Broadcast when a player quits.
   quit: "%head%&c← &f%player%"
 
 # ── GUI (/chatsync gui) ───────────────────────────────────────
 gui:
+  # Enable the inventory GUI.
   enabled: true
+  # Permission required to open the main menu.
   permission: "chatsync.gui"
+  # Permission required to unignore a player from the GUI.
   permission_unmute: "chatsync.gui.unmute"
+  # Max entries loaded into chat-top / playtime-top lists.
   top_limit: 200
+  # How many player heads to show per GUI page (max 45).
   page_size: 45
 
 # ── Command permissions ───────────────────────────────────────
+# These mirror plugin.yml defaults and can override them at runtime
+# for checks done inside ChatSync code.
 commands:
   reload:
+    # /chatsync reload
     permission: "chatsync.admin"
   msg:
+    # /msg console ...
     console_permission: "chatsync.msg.console"
   me:
     permission: "chatsync.me"
   clear:
     permission: "chatsync.clear"
   chatstats:
+    # /chatstats  and  /chatstats <player>
     permission: "chatsync.chatstats"
     permission_others: "chatsync.chatstats.others"
     permission_reset: "chatsync.chatstats.reset"
   chatstatstop:
+    # /chatstatstop leaderboard
     permission: "chatsync.chatstatstop"
   broadcast:
     permission: "chatsync.broadcast"
@@ -118,123 +178,190 @@ commands:
 
 # ── Spam protection ───────────────────────────────────────────
 spam:
+  # Detect repeated / caps / flood messages and alert staff.
   enabled: true
+  # Window in seconds for “same message repeated” detection.
   repeat_seconds: 3
+  # How many identical messages inside the window trigger an alert.
   max_repeats: 2
   notify:
+    # Send alerts to online staff.
     enabled: true
+    # Permission required to receive spam alerts.
     permission: "chatsync.spam.notify"
 
-# ── Stats ─────────────────────────────────────────────────────
+# ── Chat statistics ───────────────────────────────────────────
 stats:
+  # Track global / local / PM / me / broadcast message counts.
   enabled: true
+  # Autosave interval in seconds.
   save_interval: 300
+  # Default size of /chatstats and /chatstatstop leaderboards.
   top_size: 10
+  # Seconds the “reset confirm” click stays valid.
   reset_confirm_timeout: 15
 
 # ── Playtime ──────────────────────────────────────────────────
 playtime:
+  # Track online time per player.
   enabled: true
+  # Autosave interval in seconds.
   save_interval: 300
+  # Default size of /playtimetop.
   top_size: 10
 
 # ── File logging ──────────────────────────────────────────────
 logging:
+  # Write chat logs to disk under the folder below.
   enabled: true
+  # Folder relative to the plugin data folder.
   folder: "logs"
+  # Write log lines asynchronously (recommended).
   async: true
 
-# ── Broadcast ─────────────────────────────────────────────────
+# ── Broadcast (/broadcast) ────────────────────────────────────
 broadcast:
+  # Include the sender’s name in the broadcast line.
   show_sender: true
+  # Also show the message on the action bar.
   actionbar: false
   title:
+    # Show the broadcast as a title/subtitle.
     enable: false
     text: "%message%"
     subtitle: ""
   sound:
+    # Play a sound to everyone when broadcasting.
     enable: false
     name: "ENTITY_EXPERIENCE_ORB_PICKUP"
     volume: 1.0
     pitch: 1.0
+  # Named presets: /broadcast <name>
   presets:
     restart_5m: "&c&lServer restarting in 5 minutes!"
     restart_1m: "&c&lServer restarting in 1 minute!"
     maintenance: "&e&lServer is under maintenance."
 
-# ── Hover on clickable names (TAB-style) ──────────────────────
+# ── Hover tooltips on clickable names ─────────────────────────
+# Shown when the cursor hovers a clickable player name in chat.
 hover:
+  # Master switch for name hover tooltips.
   enabled: true
+  # Include playtime in the tooltip (requires playtime.enabled).
   show_playtime: true
-  # Multi-line hover. Placeholders: %player% %playtime% %playtime_seconds% %uuid%
-  # Empty list → hover.format → lang messages.join_hover*
+  # Multi-line hover, TAB-style. One list entry = one line.
+  # Placeholders: %player% %playtime% %playtime_seconds% %uuid%
+  # If this list is empty, `format` is used; if that is also empty,
+  # the plugin falls back to lang messages.join_hover(_playtime).
   lines:
     - "&f%player%"
     - "&8%playtime%"
+  # Single-string alternative. Use \n for new lines.
+  # Only used when `lines` is empty.
   format: ""
 
 # ── Feature toggles ───────────────────────────────────────────
 toggles:
+  # Tell the sender when nobody is in local-chat radius.
   local_noone: true
+  # Show custom join messages (messages.join).
   join_message: true
+  # Show custom quit messages (messages.quit).
   quit_message: true
+  # Notify the player who added someone to ignore.
   ignore_notify_sender: true
+  # Notify the player who was added to someone’s ignore list.
   ignore_notify_target: false
+  # Play PM receive sound (see pm.sound).
   pm_sound: true
+  # Allow SocialSpy feature.
   socialspy: true
+  # Log local chat to console (see chat.local.log_to_console).
   local_console_log: true
+  # Make player names in death messages clickable.
   clickable_death_name: true
+  # Make player names in advancement messages clickable.
   clickable_advancement_name: true
 
-# ── Teams ─────────────────────────────────────────────────────
+# ── Teams / parties ───────────────────────────────────────────
 teams:
+  # Enable the /team system.
   enabled: true
   permission: "chatsync.team"
   permission_create: "chatsync.team.create"
   permission_admin: "chatsync.team.admin"
+  # Hard limits.
   max_teams: 50
   max_members: 8
   max_co_owners: 3
   max_name_length: 16
+  # Default chat symbol assigned to a new team.
   default_symbol: "#"
+  # Pool of symbols the plugin can assign when creating teams.
   symbol_pool: "#$~@%^*"
+  # Character that starts a team-chat message (in addition to the
+  # team’s own symbol).
   chat_symbol: "#"
+  # Invite expiry in seconds.
   invite_timeout: 60
+  # Default display color for team name (&-codes).
   default_color: "&b"
+  # Allow team owners to change the team color.
   allow_color_change: true
+  # Save teams to disk across restarts.
   persist: true
+  # Team chat line format.
+  # Placeholders: %head% %player% %message% %team% %color%
   format: "%head%&8[%color%%team%&8] &f%player%&7: &f%message%"
 
 # ── Clickable names ───────────────────────────────────────────
 clickable_names:
+  # Make player names in chat clickable.
   enabled: true
+  # Command inserted on click. %player% = clicked name.
   click_command: "/msg %player% "
+  # SUGGEST_COMMAND (type into chat) or RUN_COMMAND (run immediately).
   click_action: "SUGGEST_COMMAND"
+  # Also show heads next to names inside command output (/chatstats…).
   heads_in_commands: true
 
-# ── Ignore ────────────────────────────────────────────────────
+# ── Ignore list ───────────────────────────────────────────────
 ignore:
+  # Allow clicking a name in /ignorelist to unignore.
   click_to_unignore: true
+  # Make the name clickable in the “you are now ignoring X” message.
   click_on_added_message: true
+  # Allow ignoring offline players by name.
   allow_offline: true
+  # Max ignored players per user. 0 = unlimited.
   max_ignored: 0
 
 # ── Console private messages ──────────────────────────────────
 console_pm:
+  # Allow /msg console and console → player messages.
   enabled: true
+  # Show a custom head for the console in PM lines.
   show_head: true
   head_name: "Console"
   head_uuid: "00000000-0000-0000-0000-0000000000c0"
+  # Base64 texture value (mineskin / minecraft-heads). Signature optional.
   head_texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGExNjAzOGJjOGU2NTE4YWZhOTE0OThkYWI3Njc1YzAxY2IzMWExMjVkMjFjNDliODYxMjk0ZDM5ZTFjNTYwYyJ9fX0="
   head_signature: ""
+  # How the console sees an incoming player PM.
   console_format: "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%"
+  # Also append console PMs to the log file.
   log_to_file: true
+  # Count console PMs in chat statistics.
   count_stats: true
 
-# ── Vanish ────────────────────────────────────────────────────
+# ── Vanish integration ────────────────────────────────────────
 vanish:
+  # Hide join/quit messages for vanished players.
   hide_join_quit: true
+  # Hide “online now” in /lastseen for vanished players (unless viewer
+  # has a see-permission below).
   hide_lastseen_online: true
+  # Permissions that allow seeing through vanish.
   see_permissions:
     - "sv.see"
     - "pv.see"
@@ -244,11 +371,16 @@ vanish:
 # ── SocialSpy ─────────────────────────────────────────────────
 socialspy:
   permission: "chatsync.spy"
+  # Also spy on local chat (not only PMs).
   local_chat: true
+  # Spy on /me messages.
   me: true
+  # Spy on team chat.
   team_chat: true
 
 # ── Advanced ──────────────────────────────────────────────────
 advanced:
+  # Permission required to use & color codes in chat / me / broadcast.
   color_permission: "chatsync.color"
+  # Extra debug logging to the console.
   debug: false

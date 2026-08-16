@@ -1,5 +1,5 @@
-# ChatSync - Français
-# Codes de locale : fr_fr, fr_ca, fr_be, fr_ch
+# ChatSync — French (Français)
+# Locale: fr_fr
 
 commands:
   reload:
@@ -24,7 +24,6 @@ commands:
     players_only: "&cRéservé aux joueurs."
     console_players_only: "&cSeuls les joueurs peuvent écrire à la console."
     console_no_permission: "&cPas la permission d'utiliser /msg console."
-
   reply:
     usage: "&7Utilisation : &f/reply <message>"
     no_target: "&cPersonne à qui répondre."
@@ -46,30 +45,25 @@ commands:
     enabled: "&eSocialSpy &aactivé&e."
     disabled: "&eSocialSpy &cdésactivé&e."
     no_permission: "&cVous n'avez pas la permission d'utiliser SocialSpy."
-
 chat:
   local_noone: "&7Personne ne vous entend."
   cooldown: "&c[!] Attendez encore &f%seconds%s &cavant le prochain message global."
   local_cooldown: "&c[!] Slowmode : attendez encore &f%seconds%s &cavant le prochain message."
   muted: "&c[!] Vous êtes muet et ne pouvez pas discuter."
-
 messages:
   join_hover: "&7Cliquez pour envoyer un message à &f%player%"
   join_hover_playtime: "&7Cliquez pour envoyer un message à &f%player%\n&8Temps de jeu : &e%playtime%"
-
 pm:
-  format_sender:   "%head_self%&eVous &e→ %head_other%&e%receiver%&e : &e%message%"
+  format_sender: "%head_self%&eVous &e→ %head_other%&e%receiver%&e : &e%message%"
   format_receiver: "%head_other%&e%sender% &e→ %head_self%&eVous&e : &e%message%"
   format_from_console: "%head_console%&e%console% &e→ &eVous&e : &e%message%"
   format_console_to_player: "&eConsole &e→ &e%player%&e : &e%message%"
   format_console_sender: "%head_self%&eVous &e→ %head_console%&eConsole&e : &e%message%"
   player_not_found: "&cLe joueur &f%player% &cn'est pas en ligne."
   no_reply_target: "&cPersonne à qui répondre."
-
 me:
   usage: "&7Utilisation : &f/me <action>"
   no_permission: "&cVous n'avez pas la permission d'utiliser /me."
-
 clear:
   no_permission: "&cVous n'avez pas la permission de vider le chat."
   confirm_hint: "&eCela videra le chat pour &ftout le monde&e. Cliquez ici ou tapez &f/clear confirm &epour confirmer."
@@ -77,7 +71,6 @@ clear:
   expired: "&cRien à confirmer, ou la confirmation a expiré. Relancez la commande."
   done_all: "&aChat vidé par &f%player%&a."
   done_player: "&aChat de &f%target% &avidé par &f%player%&a."
-
 chatstats:
   empty: "&7Pas encore de statistiques. Écrivez dans le chat (&f!message&7 = global)."
   no_permission: "&cVous n'avez pas la permission de voir les statistiques de chat."
@@ -93,7 +86,6 @@ chatstats:
   reset_expired: "&cRien à confirmer, ou la confirmation a expiré. Relancez la commande."
   reset_all_done: "&a&lToutes les statistiques de chat ont été réinitialisées."
   reset_player_done: "&aStatistiques de &f%player% &aréinitialisées."
-
 broadcast:
   lines:
     - " "
@@ -118,7 +110,6 @@ broadcast:
   preset_invalid_key: "&cClé invalide. Utilisez lettres, chiffres, _ et -."
   hide_on: "&eL'auteur des annonces est maintenant &cmasqué&e. Basculer : &f/broadcast hide"
   hide_off: "&eL'auteur des annonces est maintenant &avisible&e. Masquer : &f/broadcast hide"
-
 playtime:
   disabled: "&cLe suivi du temps de jeu est désactivé."
   no_permission: "&cVous n'avez pas la permission de voir le temps de jeu."
@@ -134,13 +125,11 @@ playtime:
   lastseen: "&7%player% &7était en ligne : &f%when%"
   lastseen_online: "&a%player% &aest actuellement en ligne."
   unknown_time: "&7inconnu"
-
 duration:
   days: "j"
   hours: "h"
   minutes: "min"
   seconds: "s"
-
 team:
   disabled: "&cSystème d'équipes désactivé."
   players_only: "&cRéservé aux joueurs."
@@ -189,7 +178,6 @@ team:
   symbol_taken: "&cSymbole déjà utilisé."
   symbol_clash: "&cSymbole du chat global interdit."
   target_in_team: "&cCe joueur est déjà dans une équipe."
-
   usage_transfer: "&7Usage: &f/team transfer <joueur>"
   usage_promote: "&7Usage: &f/team promote <joueur>"
   usage_demote: "&7Usage: &f/team demote <joueur>"
@@ -206,7 +194,6 @@ team:
   cannot_kick_owner: "&cImpossible d'expulser le chef principal."
   info_legend: "&8* chef  &7+ co-chef"
   bad_symbol: "&cSymbole invalide."
-
 gui:
   disabled: "&cGUI désactivé."
   no_permission: "&cPas de permission."
@@ -248,3 +235,6 @@ gui:
     team: "Équipe / party"
     gui: "Ouvrir ce menu"
     reload: "Recharger la config"
+  page: "&fPage %page%"
+  click_open: "&8› &7Open"
+  close: "&cClose"

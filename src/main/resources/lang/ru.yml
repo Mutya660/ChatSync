@@ -1,5 +1,5 @@
-# ChatSync - Русский язык
-# Коды локали: ru_ru
+# ChatSync — Russian (Русский)
+# Locale: ru_ru
 
 commands:
   reload:
@@ -24,7 +24,6 @@ commands:
     players_only: "&cТолько для игроков."
     console_players_only: "&cТолько игроки могут писать в консоль."
     console_no_permission: "&cНет прав писать в консоль (/msg console)."
-
   reply:
     usage: "&7Использование: &f/reply <сообщение>"
     no_target: "&cНет никого, кому можно ответить."
@@ -46,30 +45,25 @@ commands:
     enabled: "&eSocialSpy &aвключён&e."
     disabled: "&eSocialSpy &cвыключен&e."
     no_permission: "&cУ вас нет прав для использования SocialSpy."
-
 chat:
   local_noone: "&7Тебя никто не слышит."
   cooldown: "&c[!] Подожди ещё &f%seconds%с &cперед следующим глобальным сообщением."
   local_cooldown: "&c[!] Slowmode: подожди ещё &f%seconds%с &cперед следующим сообщением."
   muted: "&c[!] Вы в муте и не можете писать в чат."
-
 messages:
   join_hover: "&7Нажми, чтобы написать &f%player%"
   join_hover_playtime: "&7Нажми, чтобы написать &f%player%\n&8Время игры: &e%playtime%"
-
 pm:
-  format_sender:   "%head_self%&eВы &e→ %head_other%&e%receiver%&e: &e%message%"
+  format_sender: "%head_self%&eВы &e→ %head_other%&e%receiver%&e: &e%message%"
   format_receiver: "%head_other%&e%sender% &e→ %head_self%&eВы&e: &e%message%"
   format_from_console: "%head_console%&e%console% &e→ &eВы&e: &e%message%"
   format_console_to_player: "&eКонсоль &e→ &e%player%&e: &e%message%"
   format_console_sender: "%head_self%&eВы &e→ %head_console%&eКонсоль&e: &e%message%"
   player_not_found: "&cИгрок &f%player% &cне в сети."
   no_reply_target: "&cНет никого, кому можно ответить."
-
 me:
   usage: "&7Использование: &f/me <действие>"
   no_permission: "&cУ вас нет прав на использование /me."
-
 clear:
   no_permission: "&cУ вас нет прав на очистку чата."
   confirm_hint: "&eЭто очистит чат для &fвсех&e. Нажмите здесь или напишите &f/clear confirm &eдля подтверждения."
@@ -77,7 +71,6 @@ clear:
   expired: "&cНет действия для подтверждения, или время истекло. Выполните команду снова."
   done_all: "&aЧат был очищен игроком &f%player%&a."
   done_player: "&aЧат для &f%target% &aочищен игроком &f%player%&a."
-
 chatstats:
   empty: "&7Пока нет статистики. Напишите что-нибудь в чат (&f!сообщение&7 — глобальный)."
   no_permission: "&cУ вас нет прав на просмотр статистики чата."
@@ -93,7 +86,6 @@ chatstats:
   reset_expired: "&cНет действия для подтверждения, или время истекло. Выполните команду снова."
   reset_all_done: "&a&lВся статистика чата сброшена."
   reset_player_done: "&aСтатистика чата игрока &f%player% &aсброшена."
-
 broadcast:
   lines:
     - " "
@@ -118,7 +110,6 @@ broadcast:
   preset_invalid_key: "&cНекорректный ключ. Используйте латиницу, цифры, _ и -."
   hide_on: "&eАвтор объявлений &cскрыт&e. Снова: &f/broadcast hide"
   hide_off: "&eАвтор объявлений &aвиден&e. Скрыть: &f/broadcast hide"
-
 playtime:
   disabled: "&cОтслеживание playtime отключено."
   no_permission: "&cУ вас нет прав на просмотр playtime."
@@ -134,13 +125,11 @@ playtime:
   lastseen: "&7%player% &7был(а) онлайн: &f%when%"
   lastseen_online: "&a%player% &aсейчас онлайн."
   unknown_time: "&7неизвестно"
-
 duration:
   days: "д"
   hours: "ч"
   minutes: "м"
   seconds: "с"
-
 team:
   disabled: "&cСистема команд отключена."
   players_only: "&cТолько для игроков."
@@ -189,7 +178,6 @@ team:
   symbol_taken: "&cЭтот символ уже занят другой командой."
   symbol_clash: "&cНельзя использовать символ глобального чата."
   target_in_team: "&cИгрок уже в команде."
-
   usage_transfer: "&7Использование: &f/team transfer <игрок>"
   usage_promote: "&7Использование: &f/team promote <игрок>"
   usage_demote: "&7Использование: &f/team demote <игрок>"
@@ -206,7 +194,6 @@ team:
   cannot_kick_owner: "&cНельзя кикнуть главного владельца."
   info_legend: "&8* владелец  &7+ совладелец"
   bad_symbol: "&cНеверный символ (1–3 знака, без пробелов)."
-
 gui:
   page: "&fСтр. %page%"
   click_open: "&8› &7Открыть"

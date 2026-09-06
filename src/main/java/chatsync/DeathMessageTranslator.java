@@ -31,10 +31,23 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DeathMessageTranslator implements Listener {
 
+    private void purgeStalePending() {
+        long cutoff = System.currentTimeMillis() - 10_000L;
+        pendingAt.entrySet().removeIf(e -> {
+            if (e.getValue() < cutoff) {
+                pendingWithHeads.remove(e.getKey());
+                pendingClean.remove(e.getKey());
+                return true;
+            }
+            return false;
+        });
+    }
+
     private final ChatSync plugin;
     private final Map<String, String> translations;
     private final Map<UUID, Component> pendingWithHeads = new ConcurrentHashMap<>();
     private final Map<UUID, Component> pendingClean = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> pendingAt = new ConcurrentHashMap<>();
 
     public DeathMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
@@ -79,13 +92,13 @@ public class DeathMessageTranslator implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onPlayerDeathEarly(PlayerDeathEvent event) {
+        purgeStalePending();
         Component deathMessage = event.deathMessage();
         if (deathMessage == null) return;
 
-        boolean clickable = plugin.getConfig().getBoolean("toggles.clickable_death_name", true);
+        boolean clickable = plugin.isClickableEnabled("death");
         boolean translate = plugin.getConfig().getBoolean("death_messages.translate", true);
-        boolean heads = plugin.getConfig().getBoolean("chat.heads.enabled", true)
-                && plugin.getConfig().getBoolean("death_messages.show_heads", true);
+        boolean heads = plugin.isHeadsEnabled("death");
         Map<String, Player> targets = collectClickableTargets(event);
 
         Component body = null;
@@ -108,7 +121,9 @@ public class DeathMessageTranslator implements Listener {
 
         Component clean = plugin.stripObjectComponents(body);
         event.deathMessage(clean);
-        pendingClean.put(event.getEntity().getUniqueId(), clean);
+        UUID _id = event.getEntity().getUniqueId();
+        pendingClean.put(_id, clean);
+        pendingAt.put(_id, System.currentTimeMillis());
 
         Component withHeads = body;
         if (heads) {
@@ -122,10 +137,10 @@ public class DeathMessageTranslator implements Listener {
         UUID id = event.getEntity().getUniqueId();
         Component withHeads = pendingWithHeads.remove(id);
         Component clean = pendingClean.remove(id);
+        pendingAt.remove(id);
         if (withHeads == null && clean == null) return;
 
-        boolean heads = plugin.getConfig().getBoolean("death_messages.show_heads", true)
-                && plugin.getConfig().getBoolean("chat.heads.enabled", true);
+        boolean heads = plugin.isHeadsEnabled("death");
 
         if (heads && withHeads != null) {
             // DiscordSRV мог уже прочитать clean на своём MONITOR; если нет — шлём сами.
@@ -193,7 +208,7 @@ public class DeathMessageTranslator implements Listener {
                 }
                 Player p = clickable.get(matched);
                 if (p != null) {
-                    builder.append(plugin.clickableName(matched, matched, p.getUniqueId(), p));
+                    builder.append(plugin.clickableName(matched, matched, p.getUniqueId(), p, "death"));
                 } else {
                     builder.append(Component.text(matched));
                 }
@@ -229,7 +244,7 @@ public class DeathMessageTranslator implements Listener {
             Player match = targets.get(plain);
             if (match != null) {
                 newArgs.add(net.kyori.adventure.text.TranslationArgument.component(
-                        plugin.clickableName(plain, match.getName(), match.getUniqueId(), match)));
+                        plugin.clickableName(plain, match.getName(), match.getUniqueId(), match, "death")));
                 changed = true;
             } else {
                 Component nested = makeNamesClickable(argComponent, targets);
@@ -254,7 +269,7 @@ public class DeathMessageTranslator implements Listener {
         String plain = PlainTextComponentSerializer.plainText().serialize(component);
         Player match = targets.get(plain);
         if (match != null && component.children().isEmpty()) {
-            return plugin.clickableName(plain, match.getName(), match.getUniqueId(), match);
+            return plugin.clickableName(plain, match.getName(), match.getUniqueId(), match, "death");
         }
 
         List<Component> children = component.children();

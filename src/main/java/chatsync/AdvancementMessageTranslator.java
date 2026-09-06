@@ -25,6 +25,7 @@ public class AdvancementMessageTranslator implements Listener {
 
     private final ChatSync plugin;
     private final Map<UUID, Component> pendingWithHead = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> pendingAt = new ConcurrentHashMap<>();
 
     public AdvancementMessageTranslator(ChatSync plugin) {
         this.plugin = plugin;
@@ -32,7 +33,7 @@ public class AdvancementMessageTranslator implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onAdvancementEarly(PlayerAdvancementDoneEvent event) {
-        if (!plugin.getConfig().getBoolean("toggles.clickable_advancement_name", true)) return;
+        if (!plugin.isClickableEnabled("advancement")) return;
         if (event.getAdvancement().getDisplay() == null) return;
 
         Component message = event.message();
@@ -44,8 +45,7 @@ public class AdvancementMessageTranslator implements Listener {
 
         event.message(plugin.stripObjectComponents(body));
 
-        boolean heads = plugin.getConfig().getBoolean("chat.heads.enabled", true)
-                && plugin.getConfig().getBoolean("advancement_messages.show_heads", true);
+        boolean heads = plugin.isHeadsEnabled("advancement");
         Component withHead = body;
         if (heads) {
             withHead = Component.text()
@@ -54,14 +54,16 @@ public class AdvancementMessageTranslator implements Listener {
                     .build();
         }
         pendingWithHead.put(player.getUniqueId(), withHead);
+        pendingAt.put(player.getUniqueId(), System.currentTimeMillis());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onAdvancementLate(PlayerAdvancementDoneEvent event) {
-        Component withHead = pendingWithHead.remove(event.getPlayer().getUniqueId());
+        UUID _pid = event.getPlayer().getUniqueId();
+        Component withHead = pendingWithHead.remove(_pid);
+        pendingAt.remove(_pid);
         if (withHead == null) return;
-        boolean heads = plugin.getConfig().getBoolean("advancement_messages.show_heads", true)
-                && plugin.getConfig().getBoolean("chat.heads.enabled", true);
+        boolean heads = plugin.isHeadsEnabled("advancement");
         if (!heads) return;
         Component clean = plugin.stripObjectComponents(withHead);
         event.message(null);
@@ -96,7 +98,7 @@ public class AdvancementMessageTranslator implements Listener {
 
             if (!changed && plain.equals(playerName)) {
                 newArgs.add(TranslationArgument.component(
-                        plugin.clickableName(plain, playerName, player.getUniqueId(), player)));
+                        plugin.clickableName(plain, playerName, player.getUniqueId(), player, "advancement")));
                 changed = true;
             } else {
                 Component nested = makeNameClickable(argComponent, player);

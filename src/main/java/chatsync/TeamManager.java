@@ -62,6 +62,8 @@ public class TeamManager {
     private final Map<UUID, String> playerTeam = new ConcurrentHashMap<>();
     /** invitee → invite */
     private final Map<UUID, Invite> invites = new ConcurrentHashMap<>();
+    private volatile boolean dirty = false;
+    private volatile boolean saveScheduled = false;
 
     public TeamManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -102,7 +104,7 @@ public class TeamManager {
         Team team = new Team(id, name, color, owner.getUniqueId(), symbol);
         teams.put(id, team);
         playerTeam.put(owner.getUniqueId(), id);
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -146,7 +148,7 @@ public class TeamManager {
         Team other = findTeamBySymbol(symbol);
         if (other != null && other != team) return "taken";
         team.symbol = symbol;
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -189,7 +191,7 @@ public class TeamManager {
         team.members.add(player.getUniqueId());
         playerTeam.put(player.getUniqueId(), team.id);
         invites.remove(player.getUniqueId());
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -216,13 +218,13 @@ public class TeamManager {
                 team.owner = next;
                 team.coOwners.remove(next);
             }
-            save();
+            markDirty();
             return "ok_owner";
         }
         team.members.remove(player.getUniqueId());
         team.coOwners.remove(player.getUniqueId());
         playerTeam.remove(player.getUniqueId());
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -236,7 +238,7 @@ public class TeamManager {
         team.members.remove(target);
         team.coOwners.remove(target);
         playerTeam.remove(target);
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -246,7 +248,7 @@ public class TeamManager {
         if (!team.owner.equals(owner.getUniqueId())) return "not_owner";
         for (UUID m : new ArrayList<>(team.members)) playerTeam.remove(m);
         teams.remove(team.id);
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -262,7 +264,7 @@ public class TeamManager {
             if (t != team && t.name.equalsIgnoreCase(name)) return "name_taken";
         }
         team.name = name;
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -278,7 +280,7 @@ public class TeamManager {
         String lower = color.toLowerCase();
         if (!lower.matches("(&[0-9a-fk-or])+")) return "bad_color";
         team.color = lower;
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -293,7 +295,7 @@ public class TeamManager {
         team.coOwners.remove(target);
         team.coOwners.add(team.owner); // old owner becomes co-owner
         team.owner = target;
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -308,7 +310,7 @@ public class TeamManager {
         int maxCo = plugin.getConfig().getInt("teams.max_co_owners", 3);
         if (team.coOwners.size() >= maxCo) return "max_co";
         team.coOwners.add(target);
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -319,7 +321,7 @@ public class TeamManager {
         if (!team.isOwner(owner.getUniqueId())) return "not_owner";
         if (!team.coOwners.contains(target)) return "not_co";
         team.coOwners.remove(target);
-        save();
+        markDirty();
         return "ok";
     }
 
@@ -383,16 +385,36 @@ public class TeamManager {
         plugin.getLogger().info("Teams: loaded " + teams.size() + " team(s) from teams.yml");
     }
 
-    public void save() {
+    /** Mark teams dirty and schedule debounced async write (1s). */
+    private void markDirty() {
+        dirty = true;
         if (!plugin.getConfig().getBoolean("teams.persist", true)) return;
+        if (saveScheduled) return;
+        saveScheduled = true;
+        org.bukkit.Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
+            saveScheduled = false;
+            saveIfDirty();
+        }, 20L);
+    }
+
+    public void saveIfDirty() {
+        if (!dirty) return;
+        save();
+    }
+
+    public synchronized void save() {
+        if (!plugin.getConfig().getBoolean("teams.persist", true)) return;
+        dirty = false;
+        // Snapshot under lock to avoid concurrent mutation mid-write
+        java.util.List<Team> snapshot = new ArrayList<>(teams.values());
         File f = new File(plugin.getDataFolder(), "teams.yml");
         YamlConfiguration y = new YamlConfiguration();
-        for (Team team : teams.values()) {
+        for (Team team : snapshot) {
             String path = "teams." + team.id;
             y.set(path + ".name", team.name);
             y.set(path + ".color", team.color);
             y.set(path + ".symbol", team.symbol);
-            y.set(path + ".owner", team.owner.toString());
+            y.set(path + ".owner", team.owner != null ? team.owner.toString() : "");
             List<String> members = new ArrayList<>();
             for (UUID u : team.members) members.add(u.toString());
             y.set(path + ".members", members);
@@ -401,9 +423,12 @@ public class TeamManager {
             y.set(path + ".co_owners", cos);
         }
         try {
+            File parent = f.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
             y.save(f);
         } catch (IOException e) {
             plugin.getLogger().warning("Could not save teams.yml: " + e.getMessage());
+            dirty = true; // retry later
         }
     }
 }

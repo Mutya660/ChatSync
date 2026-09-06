@@ -21,39 +21,60 @@
 # If a key is missing in the chosen language file, English is used.
 language: "en"
 
-# ── Chat ──────────────────────────────────────────────────────
-chat:
-  heads:
-    # Show player head icons next to names in chat (requires Paper +
-    # a client that supports text object heads, e.g. 1.21.9+).
-    enabled: true
-    # If true, the head is always prepended even when the format
-    # string does not contain %head%.
-    force_first: true
-    # Characters inserted between the head and the rest of the line.
-    gap: " "
-    # Log head-building failures to the server console.
-    debug: false
-    # Text used when a head cannot be rendered. Empty = show nothing
-    # (avoids a broken square glyph).
-    fallback: ""
+# Internal. Do not change — used to merge new keys on upgrade.
+config-version: 4
 
-  # Which channel receives messages that have no global prefix symbol.
+# ── Compatibility ─────────────────────────────────────────────
+# ChatSync runs on Paper/Purpur and on hybrid servers (Arclight).
+# Arclight = Bukkit plugins + Forge/NeoForge/Fabric mods.
+# On Arclight, Paper AsyncChatEvent is used when the bridge provides it;
+# otherwise the plugin falls back to AsyncPlayerChatEvent automatically.
+# Object-head icons need a 1.21.9+ client and working Adventure on the bridge.
+compatibility:
+  # Log detected platform (Paper / Arclight / Spigot) at startup.
+  log_platform: true
+
+# ── Chat ──────────────────────────────────────────────────────
+# Ready-made presets (copy into the keys below):
+#
+#  A) Classic local + "!" for global (plugin default):
+#       default_channel: local
+#       global.enabled: true   global.symbol: "!"   global.require_symbol: true
+#       local.enabled: true    local.symbol: ""
+#
+#  B) Only global, no prefix needed:
+#       default_channel: global
+#       global.enabled: true   global.symbol: "!"   global.require_symbol: false
+#       local.enabled: false
+#
+#  C) Global by default, local via "@":
+#       default_channel: global
+#       global.enabled: true   global.symbol: "!"   global.require_symbol: false
+#       local.enabled: true    local.symbol: "@"
+#
+#  D) Local by default, global via "!" (same as A):
+#       default_channel: local
+#       global.require_symbol: true
+#
+chat:
+  # Head icons in chat use top-level `heads.chat` (see Heads section below).
+  # force_first / gap / debug / fallback live under top-level `heads`.
+
+  # Channel used when the message has NO channel prefix.
   #   local  — radius-limited local chat
-  #   global — server-wide global chat
+  #   global — server-wide global chat (no "!" needed when this is set)
   default_channel: "local"
 
   global:
     # Master switch for global chat. false = only local + team chat.
     enabled: true
-    # true  = player must start the message with `symbol` (e.g. !hello)
-    #         to send it globally; messages without the symbol use
-    #         default_channel above.
-    # false = every normal chat message goes to default_channel
-    #         (no prefix required).
-    require_symbol: true
-    # Prefix character(s) for global chat when require_symbol is true.
+    # Prefix that forces global (e.g. "!hello"). Empty = no global prefix.
     symbol: "!"
+    # Legacy flag. When true and default_channel is local, only messages
+    # starting with `symbol` go global. When default_channel is global,
+    # messages go global without any prefix regardless of this flag.
+    # Prefer setting default_channel + local.symbol for new configs.
+    require_symbol: true
     # Format of a global chat line.
     # Placeholders:
     #   %head%              player head icon
@@ -68,9 +89,13 @@ chat:
     cooldown: 3
 
   local:
-    # Master switch for local chat. false = everything goes global
-    # (if global.enabled is true).
+    # Master switch for local chat. false = pure global (no radius chat).
+    # Combine with default_channel: global for "only global, no !".
     enabled: true
+    # Optional prefix that forces local chat (e.g. "@hello").
+    # Empty = no local prefix. Useful when default_channel is global:
+    #   default_channel: global + local.symbol: "@"
+    symbol: ""
     # Visibility radius in blocks for local messages.
     radius: 100.0
     # Slowmode for local chat in seconds. 0 = off.
@@ -109,6 +134,41 @@ discord:
   # Forward chat / deaths / etc. through DiscordSRV when it is installed.
   enabled: true
 
+
+# ── Heads (2D object icons, Paper 1.21.9+ clients) ────────────
+# Each context can be toggled independently.
+# Discord / console never receive head objects (always stripped).
+heads:
+  # On Arclight (Forge/NeoForge/Fabric + Bukkit hybrid): set false if head
+  # icons glitch or spam console. Paper/Purpur ignore this flag.
+  arclight: true
+  # Normal chat (global / local).
+  chat: true
+  # Death messages.
+  death: true
+  # Advancement announcements.
+  advancement: true
+  # Join / quit lines (messages.join / messages.quit).
+  join_quit: true
+  # Command feedback (/chatstats, /playtime, /lastseen, …).
+  commands: true
+  # Private messages (/msg, /reply).
+  pm: true
+  # Team chat.
+  team: true
+  # /me action messages.
+  me: true
+  # /broadcast announcements.
+  broadcast: false
+  # Always put the head at the start even without %head% in the format.
+  force_first: true
+  # Characters between head and the rest of the line.
+  gap: " "
+  # Log head-building failures to console.
+  debug: false
+  # Fallback text when a head cannot be built (empty = nothing).
+  fallback: ""
+
 # ── Death & advancement messages ──────────────────────────────
 death_messages:
   # Try to translate vanilla death messages using language packs
@@ -116,12 +176,11 @@ death_messages:
   translate: true
   # Legacy flag kept for compatibility; prefer `translate` + language.
   translate_to_russian: false
-  # Show player heads in death messages in-game.
-  # Discord / console always receive plain text without head objects.
+  # Deprecated: use heads.death instead (still read as fallback).
   show_heads: true
 
 advancement_messages:
-  # Show player heads in advancement announcements in-game.
+  # Deprecated: use heads.advancement instead (still read as fallback).
   show_heads: true
 
 # ── Join / quit ───────────────────────────────────────────────
@@ -137,6 +196,13 @@ gui:
   enabled: true
   # Permission required to open the main menu.
   permission: "chatsync.gui"
+  # Apply skull textures asynchronously so the server never freezes
+  # while opening tops / ignore list. Heads appear a tick later.
+  async_skins: true
+  # Cache resolved textures (UUID → base64) in memory across GUI opens.
+  skin_cache: true
+  # Max entries in the skin texture cache (0 = unlimited).
+  skin_cache_max: 500
   # Permission required to unignore a player from the GUI.
   permission_unmute: "chatsync.gui.unmute"
   # Max entries loaded into chat-top / playtime-top lists.
@@ -278,9 +344,8 @@ toggles:
   socialspy: true
   # Log local chat to console (see chat.local.log_to_console).
   local_console_log: true
-  # Make player names in death messages clickable.
+  # Deprecated clickable flags — use clickable_names.death / .advancement.
   clickable_death_name: true
-  # Make player names in advancement messages clickable.
   clickable_advancement_name: true
 
 # ── Teams / parties ───────────────────────────────────────────
@@ -316,14 +381,27 @@ teams:
 
 # ── Clickable names ───────────────────────────────────────────
 clickable_names:
-  # Make player names in chat clickable.
+  # Per-context toggles. Default ON for chat, deaths, advancements.
+  # Requires a client that supports click events (all modern clients).
+  chat: true
+  death: true
+  advancement: true
+  join_quit: true
+  commands: true
+  pm: true
+  team: true
+  me: true
+  ignore: true
+  broadcast: true
+  # Legacy master switch (used only if a per-context key is missing).
   enabled: true
-  # Command inserted on click. %player% = clicked name.
+  # Command suggested/run when a name is clicked. %player% = name.
   click_command: "/msg %player% "
-  # SUGGEST_COMMAND (type into chat) or RUN_COMMAND (run immediately).
+  # SUGGEST_COMMAND | RUN_COMMAND | COPY_TO_CLIPBOARD
   click_action: "SUGGEST_COMMAND"
-  # Also show heads next to names inside command output (/chatstats…).
+  # Deprecated: use heads.commands instead.
   heads_in_commands: true
+
 
 # ── Ignore list ───────────────────────────────────────────────
 ignore:

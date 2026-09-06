@@ -1,6 +1,5 @@
 package chatsync;
 
-import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -32,17 +31,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     //  State
     // ──────────────────────────────────────────────────────────────
 
-    private final Map<UUID, UUID>      lastMessaged  = new HashMap<>();
+    private final Map<UUID, UUID>      lastMessaged  = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<UUID, Set<UUID>> ignoreList    = new java.util.concurrent.ConcurrentHashMap<>();
-    private final Set<UUID>            socialSpy     = new HashSet<>();
+    private final Set<UUID>            socialSpy     = java.util.concurrent.ConcurrentHashMap.newKeySet();
     /** UUID → timestamp последнего глобального сообщения (для кулдауна) */
-    private final Map<UUID, Long>      globalCooldown = new HashMap<>();
+    private final Map<UUID, Long>      globalCooldown = new java.util.concurrent.ConcurrentHashMap<>();
     /** UUID → timestamp последнего локального сообщения (slowmode) */
-    private final Map<UUID, Long>      localCooldown  = new HashMap<>();
+    private final Map<UUID, Long>      localCooldown  = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, YamlConfiguration> langConfigs = new HashMap<>();
 
     /** Ожидающие подтверждения запросы /clear: ключ отправителя → цель + время истечения. */
-    private final Map<UUID, PendingClear> pendingClears = new HashMap<>();
+    private final Map<UUID, PendingClear> pendingClears = new java.util.concurrent.ConcurrentHashMap<>();
     private static final UUID CONSOLE_UUID = new UUID(0L, 0L);
 
     private ChatStatsManager statsManager;
@@ -55,13 +54,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private TeamManager      teamManager;
 
     /** Ожидающие подтверждения сброса статистики: ключ отправителя → время истечения. */
-    private final Map<UUID, Long> pendingStatsResets = new HashMap<>();
+    private final Map<UUID, Long> pendingStatsResets = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Анти-спам: UUID → последние сообщения (текст + timestamp). */
     private final Map<UUID, java.util.Deque<SpamEntry>> recentMessages = new java.util.concurrent.ConcurrentHashMap<>();
+    /** UUID → {value, signature?} for GUI skulls — filled without network I/O. */
+    private final java.util.concurrent.ConcurrentHashMap<UUID, String[]> skinTextureCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.List<org.bukkit.scheduler.BukkitTask> scheduledTasks = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** Админы, у которых скрыт автор в /broadcast (персональный toggle). */
-    private final Set<UUID> broadcastHideAuthor = new HashSet<>();
+    private final Set<UUID> broadcastHideAuthor = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private record SpamEntry(String text, long time, String channel) {}
 
@@ -108,8 +110,48 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     // ──────────────────────────────────────────────────────────────
 
     @Override
+
+    /**
+     * Merge missing keys from the JAR default config into the live config.yml
+     * without overwriting user values. Bumps config-version when done.
+     */
+    private void mergeConfigDefaults() {
+        final int CURRENT = 4;
+        int ver = getConfig().getInt("config-version", 0);
+        java.io.InputStream in = getResource("config.yml");
+        if (in == null) return;
+        YamlConfiguration def;
+        try (java.io.InputStreamReader reader = new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)) {
+            def = YamlConfiguration.loadConfiguration(reader);
+        } catch (Exception e) {
+            getLogger().warning("Could not read default config.yml from JAR: " + e.getMessage());
+            return;
+        }
+        boolean changed = false;
+        for (String key : def.getKeys(true)) {
+            if (def.isConfigurationSection(key)) continue;
+            if (!getConfig().isSet(key)) {
+                getConfig().set(key, def.get(key));
+                changed = true;
+            }
+        }
+        if (ver < CURRENT) {
+            getConfig().set("config-version", CURRENT);
+            changed = true;
+        }
+        if (changed) {
+            try {
+                saveConfig();
+                getLogger().info("Config merged to version " + CURRENT + " (new keys added, existing values kept).");
+            } catch (Exception e) {
+                getLogger().warning("Could not save merged config: " + e.getMessage());
+            }
+        }
+    }
+
     public void onEnable() {
         saveDefaultConfig();
+        mergeConfigDefaults();
         loadLangFiles();
 
         this.statsManager    = new ChatStatsManager(this);
@@ -131,6 +173,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         this.gui = new ChatSyncGui(this);
         getServer().getPluginManager().registerEvents(gui, this);
 
+        // Chat listener: Paper AsyncChatEvent when available, else Spigot/Arclight legacy
+        registerChatListener();
+
         registerCmd("msg",         this);
         registerCmd("reply",       this);
         registerCmd("ignore",      this);
@@ -149,18 +194,18 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (getConfig().getBoolean("stats.enabled", true)) {
             long intervalTicks = 20L * Math.max(30, getConfig().getInt("stats.save_interval", 300));
-            Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                    () -> statsManager.saveIfDirty(), intervalTicks, intervalTicks);
+            scheduledTasks.add(Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                    () -> statsManager.saveIfDirty(), intervalTicks, intervalTicks));
         }
 
         if (getConfig().getBoolean("playtime.enabled", true)) {
             long ptTicks = 20L * Math.max(30, getConfig().getInt("playtime.save_interval", 300));
             // Main-thread: sync vanilla playtime into cache, then async save
-            Bukkit.getScheduler().runTaskTimer(this, () -> {
+            scheduledTasks.add(Bukkit.getScheduler().runTaskTimer(this, () -> {
                 if (playtimeManager != null) playtimeManager.syncOnlinePlayers();
-            }, ptTicks, ptTicks);
-            Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                    () -> playtimeManager.saveIfDirty(), ptTicks + 20L, ptTicks);
+            }, ptTicks, ptTicks));
+            scheduledTasks.add(Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                    () -> playtimeManager.saveIfDirty(), ptTicks + 20L, ptTicks));
             // Уже онлайн на момент включения плагина (reload / late enable)
             for (Player online : Bukkit.getOnlinePlayers()) {
                 playtimeManager.onJoin(online.getUniqueId(), online.getName());
@@ -168,7 +213,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         // Периодическая очистка просроченных заявок /clear, чтобы карта не росла бесконечно.
-        Bukkit.getScheduler().runTaskTimer(this, this::purgeExpiredClears, 20L * 60, 20L * 60);
+        scheduledTasks.add(Bukkit.getScheduler().runTaskTimer(this, this::purgeExpiredClears, 20L * 60, 20L * 60));
 
         // PlaceholderAPI expansion (reverse direction — own placeholders for TAB/scoreboard)
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -189,6 +234,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     @Override
     public void onDisable() {
+        for (org.bukkit.scheduler.BukkitTask task : scheduledTasks) {
+            try { if (task != null) task.cancel(); } catch (Throwable ignored) {}
+        }
+        scheduledTasks.clear();
         if (statsManager != null) statsManager.save();
         if (playtimeManager != null && getConfig().getBoolean("playtime.enabled", true)) {
             for (Player online : Bukkit.getOnlinePlayers()) {
@@ -389,8 +438,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
     private Component buildJoinQuitMessage(String template, Player player) {
-        // hover строится внутри buildNameComponent через clickableName
-        return buildNameComponentPublic(template, player);
+        return buildNameComponentPublic(template, player, "join_quit");
     }
 
     /**
@@ -421,6 +469,86 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         return changed ? component.children(cleaned) : component;
     }
 
+
+    /**
+     * Whether 2D head icons are enabled for a context.
+     * Contexts: chat, death, advancement, join_quit, commands, pm, team, me, broadcast.
+     * Falls back to legacy keys for older configs.
+     */
+
+    /** Cached offline textures for GUI (main-thread safe). */
+    public String[] getCachedSkinTextures(UUID uuid) {
+        if (uuid == null) return null;
+        return skinTextureCache.get(uuid);
+    }
+
+    public void putCachedSkinTextures(UUID uuid, String[] tex) {
+        if (uuid == null || tex == null || tex[0] == null) return;
+        if (!getConfig().getBoolean("gui.skin_cache", true)) return;
+        int max = getConfig().getInt("gui.skin_cache_max", 500);
+        if (max > 0 && skinTextureCache.size() >= max && !skinTextureCache.containsKey(uuid)) {
+            UUID first = skinTextureCache.keySet().stream().findFirst().orElse(null);
+            if (first != null) skinTextureCache.remove(first);
+        }
+        skinTextureCache.put(uuid, tex);
+    }
+
+    public boolean isHeadsEnabled(String context) {
+        if (context == null) context = "chat";
+        // Master switch for hybrid servers (Arclight): heads.arclight = false disables all heads
+        if (ServerCompat.isArclight() && !getConfig().getBoolean("heads.arclight", true)) {
+            return false;
+        }
+        String key = "heads." + context;
+        if (getConfig().isSet(key)) {
+            return getConfig().getBoolean(key, true);
+        }
+        // Legacy fallbacks
+        return switch (context) {
+            case "chat", "pm", "team", "me" -> getConfig().getBoolean("chat.heads.enabled", true);
+            case "death" -> getConfig().getBoolean("death_messages.show_heads", true)
+                    && getConfig().getBoolean("chat.heads.enabled", true);
+            case "advancement" -> getConfig().getBoolean("advancement_messages.show_heads", true)
+                    && getConfig().getBoolean("chat.heads.enabled", true);
+            case "join_quit" -> getConfig().getBoolean("chat.heads.enabled", true);
+            case "commands" -> getConfig().getBoolean("clickable_names.heads_in_commands", true)
+                    && getConfig().getBoolean("chat.heads.enabled", true);
+            case "broadcast" -> false;
+            default -> getConfig().getBoolean("chat.heads.enabled", true);
+        };
+    }
+
+    /**
+     * Whether player names are clickable for a context.
+     * Contexts: chat, death, advancement, join_quit, commands, pm, team, me, ignore, broadcast.
+     */
+    public boolean isClickableEnabled(String context) {
+        if (context == null) context = "chat";
+        String key = "clickable_names." + context;
+        if (getConfig().isSet(key)) {
+            return getConfig().getBoolean(key, true);
+        }
+        return switch (context) {
+            case "death" -> getConfig().getBoolean("toggles.clickable_death_name", true);
+            case "advancement" -> getConfig().getBoolean("toggles.clickable_advancement_name", true);
+            default -> getConfig().getBoolean("clickable_names.enabled", true);
+        };
+    }
+
+    public boolean isHeadsForceFirst() {
+        if (getConfig().isSet("heads.force_first")) {
+            return getConfig().getBoolean("heads.force_first", true);
+        }
+        return getConfig().getBoolean("chat.heads.force_first", true);
+    }
+
+    public String headsGap() {
+        if (getConfig().isSet("heads.gap")) {
+            return getConfig().getString("heads.gap", " ");
+        }
+        return getConfig().getString("chat.heads.gap", " ");
+    }
+
     /** Plain text from Component without "[name head]" object noise. */
     String plainComponent(Component component) {
         if (component == null) return "";
@@ -434,20 +562,50 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     //  Chat
     // ──────────────────────────────────────────────────────────────
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onChat(AsyncChatEvent event) {
-        event.setCancelled(true);
+    /**
+     * Shared chat pipeline for Paper AsyncChatEvent and Spigot/Arclight AsyncPlayerChatEvent.
+     * Called from PaperChatListener / LegacyChatListener after the source event is cancelled.
+     */
 
-        Player sender     = event.getPlayer();
-        String rawMessage = LEGACY.serialize(event.message());
+    private void registerChatListener() {
+        if (getConfig().getBoolean("compatibility.log_platform", true)) {
+            getLogger().info("Server platform: " + ServerCompat.describe());
+        }
+        if (ServerCompat.hasPaperAsyncChat()) {
+            try {
+                getServer().getPluginManager().registerEvents(new PaperChatListener(this), this);
+                getLogger().info("Chat pipeline: Paper AsyncChatEvent"
+                        + (ServerCompat.isArclight() ? " (Arclight)" : ""));
+                return;
+            } catch (Throwable t) {
+                getLogger().warning("Paper AsyncChatEvent present but failed to register: " + t.getMessage());
+            }
+        }
+        getServer().getPluginManager().registerEvents(new LegacyChatListener(this), this);
+        getLogger().info("Chat pipeline: AsyncPlayerChatEvent (Spigot/Arclight compatibility mode)"
+                + (ServerCompat.isArclight() ? " — hybrid mod+plugin server detected" : ""));
+        if (ServerCompat.isArclight()) {
+            getLogger().info("Arclight notes: object heads (1.21.9+ clients) and some Paper-only APIs "
+                    + "may be limited; core chat/PM/teams/stats use portable Bukkit APIs.");
+        }
+    }
+
+    public void processChatMessage(Player sender, String rawMessage) {
+        if (sender == null || rawMessage == null) return;
 
         if (!sender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) rawMessage = stripColorCodes(rawMessage);
 
         boolean globalEnabled = getConfig().getBoolean("chat.global.enabled", true);
         boolean localEnabled  = getConfig().getBoolean("chat.local.enabled", true);
-        boolean requireSymbol = getConfig().getBoolean("chat.global.require_symbol", true);
-        String  globalSymbol  = getConfig().getString("chat.global.symbol", "!");
-        if (globalSymbol == null || globalSymbol.isEmpty()) globalSymbol = "!";
+        // Global prefix (e.g. "!"). Empty = no dedicated global prefix.
+        String globalSymbol = getConfig().getString("chat.global.symbol", "!");
+        if (globalSymbol == null) globalSymbol = "";
+        // Local prefix (e.g. "@"). Empty = no dedicated local prefix.
+        String localSymbol = getConfig().getString("chat.local.symbol", "");
+        if (localSymbol == null) localSymbol = "";
+        // Legacy: require_symbol only forced global via prefix; still supported.
+        boolean requireGlobalSymbol = getConfig().getBoolean("chat.global.require_symbol", true);
+
         String defaultCh = getConfig().getString("chat.default_channel", "local");
         if (defaultCh == null) defaultCh = "local";
         defaultCh = defaultCh.toLowerCase(java.util.Locale.ROOT).trim();
@@ -457,33 +615,50 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String  formatStr;
 
         if (!globalEnabled && !localEnabled) {
+            // Fallback: treat as local format, still deliver somehow
             isGlobal = false;
             formatStr = getConfig().getString("chat.local.format");
         } else if (!globalEnabled) {
+            // Local only — strip optional local/global symbols if present
             isGlobal = false;
-            if (requireSymbol && rawMessage.startsWith(globalSymbol)) {
+            if (!localSymbol.isEmpty() && rawMessage.startsWith(localSymbol)) {
+                rawMessage = rawMessage.substring(localSymbol.length()).trim();
+            } else if (!globalSymbol.isEmpty() && rawMessage.startsWith(globalSymbol)) {
                 rawMessage = rawMessage.substring(globalSymbol.length()).trim();
             }
             formatStr = getConfig().getString("chat.local.format");
         } else if (!localEnabled) {
+            // Global only — no "!" required; optional symbol is stripped if typed
             isGlobal = true;
-            if (requireSymbol && rawMessage.startsWith(globalSymbol)) {
+            if (!globalSymbol.isEmpty() && rawMessage.startsWith(globalSymbol)) {
                 rawMessage = rawMessage.substring(globalSymbol.length()).trim();
             }
             formatStr = getConfig().getString("chat.global.format");
-        } else if (requireSymbol) {
-            boolean hasSym = rawMessage.startsWith(globalSymbol);
-            if (hasSym) {
+        } else {
+            // Both channels enabled — decide by explicit prefix, else default_channel
+            boolean forcedGlobal = !globalSymbol.isEmpty() && rawMessage.startsWith(globalSymbol);
+            boolean forcedLocal  = !localSymbol.isEmpty()  && rawMessage.startsWith(localSymbol);
+
+            // Prefer longer prefix if both match the start (rare)
+            if (forcedGlobal && forcedLocal) {
+                if (localSymbol.length() > globalSymbol.length()) forcedGlobal = false;
+                else forcedLocal = false;
+            }
+
+            if (forcedGlobal) {
                 isGlobal = true;
                 rawMessage = rawMessage.substring(globalSymbol.length()).trim();
+            } else if (forcedLocal) {
+                isGlobal = false;
+                rawMessage = rawMessage.substring(localSymbol.length()).trim();
+            } else if (requireGlobalSymbol && defaultGlobal == false && !globalSymbol.isEmpty()) {
+                // Classic mode: default local; only "!" sends global
+                isGlobal = false;
             } else {
+                // No prefix → default_channel
+                // When default is global, messages go global WITHOUT needing "!"
                 isGlobal = defaultGlobal;
             }
-            formatStr = isGlobal
-                    ? getConfig().getString("chat.global.format")
-                    : getConfig().getString("chat.local.format");
-        } else {
-            isGlobal = defaultGlobal;
             formatStr = isGlobal
                     ? getConfig().getString("chat.global.format")
                     : getConfig().getString("chat.local.format");
@@ -766,7 +941,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 rest = rest.substring(next + tok.length());
             }
             if (!anyHeadToken && getConfig().getBoolean("chat.heads.enabled", true)
-                    && getConfig().getBoolean("chat.heads.force_first", true)) {
+                    && isHeadsForceFirst()) {
                 pSender.sendMessage(Component.text()
                         .append(buildHeadComponent(pSender))
                         .append(buildConsoleHeadComponent())
@@ -855,7 +1030,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             rest = rest.substring(next + tok.length());
         }
         if (!receiverFmt.contains("%head") && getConfig().getBoolean("chat.heads.enabled", true)
-                && getConfig().getBoolean("chat.heads.force_first", true)) {
+                && isHeadsForceFirst()) {
             to.sendMessage(Component.text().append(buildConsoleHeadComponent()).append(out.build()).build());
         } else {
             to.sendMessage(out.build());
@@ -1810,7 +1985,12 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
      * Клик подставляет /msg <ник> в чат. Hover — настраиваемый (см. hover.* в config).
      */
     private Component buildClickableNameLine(String template, String playerName, CommandSender viewer) {
+        return buildClickableNameLine(template, playerName, viewer, "commands");
+    }
+
+    private Component buildClickableNameLine(String template, String playerName, CommandSender viewer, String context) {
         if (template == null) template = "";
+        if (context == null) context = "commands";
         Player headPlayer = Bukkit.getPlayerExact(playerName);
         UUID nameUuid = headPlayer != null ? headPlayer.getUniqueId() : null;
         if (nameUuid == null && playtimeManager != null) {
@@ -1819,10 +1999,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (nameUuid == null && statsManager != null) {
             try { nameUuid = statsManager.findUuidByName(playerName); } catch (Throwable ignored) {}
         }
-        final boolean wantHead = getConfig().getBoolean("chat.heads.enabled", true)
+        final boolean wantHead = isHeadsEnabled(context)
                 && (template.contains("%head%")
-                    || getConfig().getBoolean("chat.heads.force_first", true)
-                    || getConfig().getBoolean("clickable_names.heads_in_commands", true));
+                    || isHeadsForceFirst());
         template = stripHeadPlaceholder(template);
 
         final String PH = "%player%";
@@ -1835,7 +2014,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             } else {
                 String before = template.substring(0, idx);
                 String after  = template.substring(idx + playerName.length());
-                Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, nameUuid, viewer);
+                Component nameComp = clickableName(extractTrailingColor(before) + playerName, playerName, nameUuid, viewer, context);
                 body = Component.text()
                         .append(color(before))
                         .append(nameComp)
@@ -1846,7 +2025,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             String before = template.substring(0, idx);
             String after  = template.substring(idx + PH.length());
             Component nameComp = clickableName(
-                    extractTrailingColor(before) + playerName, playerName, nameUuid, viewer);
+                    extractTrailingColor(before) + playerName, playerName, nameUuid, viewer, context);
             body = Component.text()
                     .append(color(before))
                     .append(nameComp)
@@ -1860,9 +2039,14 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     }
 
 
-    /** Кликабельный ник с hover (playtime опционально). */
+    /** Clickable name with hover (default context = chat). */
     Component clickableName(String coloredName, String playerName, UUID uuid, CommandSender viewer) {
-        if (!getConfig().getBoolean("clickable_names.enabled", true)) {
+        return clickableName(coloredName, playerName, uuid, viewer, "chat");
+    }
+
+    /** Clickable name with hover; context selects clickable_names.<context>. */
+    Component clickableName(String coloredName, String playerName, UUID uuid, CommandSender viewer, String context) {
+        if (!isClickableEnabled(context)) {
             return color(coloredName);
         }
         String cmd = getConfig().getString("clickable_names.click_command", "/msg %player% ");
@@ -2134,11 +2318,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     
     /** If format contains %head% (or heads.force_first), prepend head for online player. */
     private Component maybePrefixHead(Player player, String template, Component body) {
-        if (player == null || !getConfig().getBoolean("chat.heads.enabled", true)) {
+        return maybePrefixHead(player, template, body, "chat");
+    }
+
+    private Component maybePrefixHead(Player player, String template, Component body, String context) {
+        if (player == null || !isHeadsEnabled(context)) {
             return body;
         }
         boolean inFormat = template != null && template.contains("%head%");
-        boolean force = getConfig().getBoolean("chat.heads.force_first", true);
+        boolean force = isHeadsForceFirst();
         if (!inFormat && !force) return body;
         Component head = buildHeadComponent(player);
         return Component.text().append(head).append(body).build();
@@ -2155,8 +2343,8 @@ private Component buildChatComponent(String format, Player sender, String rawMes
         String userColor = resolveUsernameColor(sender);
         format = format.replace("{username-color}", userColor).replace("%username-color%", userColor);
         // голова всегда первой, если включено
-        if (getConfig().getBoolean("chat.heads.enabled", true)
-                && getConfig().getBoolean("chat.heads.force_first", true)
+        if (isHeadsEnabled("chat")
+                && isHeadsForceFirst()
                 && !format.contains("%head%")) {
             format = "%head%" + format;
         }
@@ -2233,9 +2421,6 @@ private Component buildChatComponent(String format, Player sender, String rawMes
      */
     Component buildHeadComponent(Player player) {
         if (player == null) return Component.empty();
-        if (!getConfig().getBoolean("chat.heads.enabled", true)) {
-            return Component.empty();
-        }
 
         Component head = null;
         try {
@@ -2244,15 +2429,15 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                 head = toObjectComponent(contents);
             }
         } catch (Throwable t) {
-            if (getConfig().getBoolean("chat.heads.debug", false)) {
+            if (getConfig().getBoolean("heads.debug", getConfig().getBoolean("chat.heads.debug", false))) {
                 getLogger().warning("[heads] native failed for " + player.getName() + ": " + t.getMessage());
             }
         }
 
         if (head == null) {
-            String fb = getConfig().getString("chat.heads.fallback", "");
+            String fb = getConfig().getString("heads.fallback", getConfig().getString("chat.heads.fallback", ""));
             if (fb == null || fb.isEmpty()) {
-                if (getConfig().getBoolean("chat.heads.debug", false)) {
+                if (getConfig().getBoolean("heads.debug", getConfig().getBoolean("chat.heads.debug", false))) {
                     getLogger().warning("[heads] empty for " + player.getName());
                 }
                 return Component.empty();
@@ -2261,7 +2446,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
         }
 
         // Space after head so it doesn't stick to [G]/] / name
-        String gap = getConfig().getString("chat.heads.gap", " ");
+        String gap = headsGap();
         if (gap == null) gap = " ";
         if (gap.isEmpty()) return head;
         return Component.text().append(head).append(LEGACY.deserialize(gap)).build();
@@ -2273,7 +2458,6 @@ private Component buildChatComponent(String format, Player sender, String rawMes
      * Set console_pm.head_texture to a base64 skin value (from mineskin / minecraft-heads).
      */
     Component buildConsoleHeadComponent() {
-        if (!getConfig().getBoolean("chat.heads.enabled", true)) return Component.empty();
         if (!getConfig().getBoolean("console_pm.show_head", true)) return Component.empty();
         try {
             String name = getConfig().getString("console_pm.head_name", "Console");
@@ -2295,11 +2479,11 @@ private Component buildChatComponent(String format, Player sender, String rawMes
             if (contents == null) return Component.empty();
             Component head = toObjectComponent(contents);
             if (head == null) return Component.empty();
-            String gap = getConfig().getString("chat.heads.gap", " ");
+            String gap = headsGap();
             if (gap == null || gap.isEmpty()) return head;
             return Component.text().append(head).append(LEGACY.deserialize(gap)).build();
         } catch (Throwable t) {
-            if (getConfig().getBoolean("chat.heads.debug", false)) {
+            if (getConfig().getBoolean("heads.debug", getConfig().getBoolean("chat.heads.debug", false))) {
                 getLogger().warning("[heads] console head failed: " + t.getMessage());
             }
             return Component.empty();
@@ -2404,19 +2588,23 @@ private Component buildChatComponent(String format, Player sender, String rawMes
      */
     public String[] resolveSkinTexturesOffline(UUID uuid, String name) {
         if (uuid == null && (name == null || name.isEmpty())) return null;
+        if (uuid != null) {
+            String[] cached = skinTextureCache.get(uuid);
+            if (cached != null) return cached;
+        }
         // Online first (already in memory)
         if (uuid != null) {
             Player online = Bukkit.getPlayer(uuid);
             if (online != null) {
                 String[] tex = resolveSkinTextures(online);
-                if (tex != null) return tex;
+                if (tex != null) { putCachedSkinTextures(uuid, tex); return tex; }
             }
         }
         if (name != null) {
             Player online = Bukkit.getPlayerExact(name);
             if (online != null) {
                 String[] tex = resolveSkinTextures(online);
-                if (tex != null) return tex;
+                if (tex != null) { putCachedSkinTextures(uuid, tex); return tex; }
             }
         }
         // Paper local profile cache only — no network
@@ -2435,16 +2623,16 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                     profile.getClass().getMethod("completeFromCache").invoke(profile);
                 } catch (NoSuchMethodException ignored) {}
                 String[] fromProfile = texturesFromProfile(profile);
-                if (fromProfile != null) return fromProfile;
+                if (fromProfile != null) { putCachedSkinTextures(uuid, fromProfile); return fromProfile; }
             }
         } catch (Throwable ignored) {}
         // SkinsRestorer: local player-skin storage only (no Mojang lookup)
         if (Bukkit.getPluginManager().isPluginEnabled("SkinsRestorer") && uuid != null) {
             try {
                 String[] fromSr = texturesFromSkinsRestorerLocalOnly(uuid);
-                if (fromSr != null) return fromSr;
+                if (fromSr != null) { putCachedSkinTextures(uuid, fromSr); return fromSr; }
             } catch (Throwable t) {
-                if (getConfig().getBoolean("chat.heads.debug", false)) {
+                if (getConfig().getBoolean("heads.debug", getConfig().getBoolean("chat.heads.debug", false))) {
                     getLogger().warning("[heads] SR local: " + t.getMessage());
                 }
             }
@@ -2521,7 +2709,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                 String[] fromSr = texturesFromSkinsRestorer(player);
                 if (fromSr != null) return fromSr;
             } catch (Throwable t) {
-                if (getConfig().getBoolean("chat.heads.debug", false)) {
+                if (getConfig().getBoolean("heads.debug", getConfig().getBoolean("chat.heads.debug", false))) {
                     getLogger().warning("[heads] SkinsRestorer: " + t.getMessage());
                 }
             }
@@ -2694,7 +2882,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                         .invoke(builder, java.util.List.of(prop));
             } catch (ReflectiveOperationException ignored) {}
         } catch (Throwable t) {
-            if (getConfig().getBoolean("chat.heads.debug", false)) {
+            if (getConfig().getBoolean("heads.debug", getConfig().getBoolean("chat.heads.debug", false))) {
                 getLogger().warning("[heads] texture property: " + t.getMessage());
             }
         }
@@ -2744,9 +2932,14 @@ private Component buildChatComponent(String format, Player sender, String rawMes
     }
 
     Component buildNameComponentPublic(String template, Player player) {
+        return buildNameComponentPublic(template, player, "chat");
+    }
+
+    Component buildNameComponentPublic(String template, Player player, String context) {
         if (template == null) template = "";
-        final boolean wantHead = template.contains("%head%")
-                || getConfig().getBoolean("chat.heads.force_first", true);
+        if (context == null) context = "chat";
+        final boolean wantHead = isHeadsEnabled(context)
+                && (template.contains("%head%") || isHeadsForceFirst());
         template = stripHeadPlaceholder(template);
 
         final String PH = "%player%";
@@ -2761,7 +2954,8 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                     extractTrailingColor(before) + player.getName(),
                     player.getName(),
                     player.getUniqueId(),
-                    player);
+                    player,
+                    context);
             body = Component.text()
                     .append(LEGACY.deserialize(before))
                     .append(nameComp)
@@ -2779,8 +2973,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
         if (format == null) format = "";
         // Tokens: %head_self% %head_other% %head% %sender% %receiver% %message%
         // %head% legacy = other player's head once at start if force_first
-        boolean force = getConfig().getBoolean("chat.heads.force_first", true)
-                && getConfig().getBoolean("chat.heads.enabled", true);
+        boolean force = isHeadsForceFirst() && isHeadsEnabled("pm");
         if (force && !format.contains("%head_self%") && !format.contains("%head_other%") && !format.contains("%head%")) {
             format = "%head_self%%head_other%" + format;
         }
@@ -3335,7 +3528,7 @@ private String resolvePlaceholders(String text, Player player) {
         for (java.util.UUID id : team.members) {
             Player p = Bukkit.getPlayer(id);
             if (p == null || !p.isOnline()) continue;
-            Component line = buildClickableNameLine(out, sender.getName(), p);
+            Component line = buildClickableNameLine(out, sender.getName(), p, "team");
             p.sendMessage(line);
         }
         // SocialSpy — team chat visible to spies who are not in the team
@@ -3349,7 +3542,7 @@ private String resolvePlaceholders(String text, Player player) {
                 if (team.members.contains(uid)) continue;
                 Player spy = Bukkit.getPlayer(uid);
                 if (spy == null || spy.equals(sender)) continue;
-                spy.sendMessage(buildClickableNameLine(spyTeamFmt, sender.getName(), spy));
+                spy.sendMessage(buildClickableNameLine(spyTeamFmt, sender.getName(), spy, "team"));
             }
         }
         if (chatLogger != null) {

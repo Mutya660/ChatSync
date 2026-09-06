@@ -71,7 +71,10 @@ public class ChatStatsManager {
 
     public PlayerStats get(UUID uuid) {
         PlayerStats s = stats.get(uuid);
-        return s == null ? null : s.copy();
+        if (s == null) return null;
+        synchronized (s) {
+            return s.copy();
+        }
     }
 
     /** Есть ли хотя бы одна запись. */

@@ -182,11 +182,30 @@ public class ChatSyncGui implements Listener {
         Inventory inv = Bukkit.createInventory(new GuiHolder(type, page), 54, LEGACY.deserialize(title));
         int perPage = Math.max(1, Math.min(45, plugin.getConfig().getInt("gui.page_size", 45)));
         int start = page * perPage;
+        List<UUID> pageIds = new ArrayList<>();
+        List<String> pageNames = new ArrayList<>();
         for (int i = 0; i < perPage; i++) {
             int index = start + i;
             if (index >= total) break;
             ItemStack it = filler.get(i, index);
-            if (it != null) inv.setItem(i, it);
+            if (it != null) {
+                inv.setItem(i, it);
+                // collect targets for async skin fill
+                ItemMeta im = it.getItemMeta();
+                if (im != null) {
+                    String tid = im.getPersistentDataContainer().get(targetKey, PersistentDataType.STRING);
+                    if (tid != null) {
+                        try {
+                            pageIds.add(UUID.fromString(tid));
+                            String dn = im.displayName() != null
+                                    ? net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                                        .serialize(im.displayName())
+                                    : null;
+                            pageNames.add(dn);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
         }
         // bottom bar
         for (int i = 45; i < 54; i++) {
@@ -207,6 +226,7 @@ public class ChatSyncGui implements Listener {
                     tr(player, "gui.empty", "&8Пусто"), List.of(), "noop", 0, null));
         }
         player.openInventory(inv);
+        scheduleAsyncSkullFill(player, inv, pageIds, pageNames);
     }
 
     private void fillBorder(Inventory inv, Material mat) {
@@ -310,16 +330,18 @@ public class ChatSyncGui implements Listener {
         }
         meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, action);
         meta.getPersistentDataContainer().set(pageKey, PersistentDataType.INTEGER, page);
-        if (target != null) meta.getPersistentDataContainer().set(targetKey, PersistentDataType.STRING, target);
+        String tid = target != null ? target : (uuid != null ? uuid.toString() : null);
+        if (tid != null) meta.getPersistentDataContainer().set(targetKey, PersistentDataType.STRING, tid);
         stack.setItemMeta(meta);
         return stack;
     }
 
     /**
-     * Скин: online → SkinsRestorer (UUID/name) → Paper profile → OfflinePlayer.
+     * Скин: online → cache → Paper profile cache (async SR fill later).
      * Нужно для игроков из старых stats/playtime до обновления плагина.
      */
     private void applySkullSkin(SkullMeta meta, UUID uuid, String name) {
+        // Fast path only — never blocks on Mojang / SkinsRestorer network.
         Player online = uuid != null ? Bukkit.getPlayer(uuid) : null;
         if (online != null) {
             try {
@@ -328,23 +350,22 @@ public class ChatSyncGui implements Listener {
             } catch (Throwable ignored) {}
         }
 
-        // SkinsRestorer / offline textures → base64 → PlayerProfile textures
-        try {
-            String[] tex = plugin.resolveSkinTexturesOffline(uuid, name);
-            if (tex != null && tex[0] != null && !tex[0].isEmpty()) {
-                if (applyTextureToSkull(meta, uuid, name, tex[0])) {
+        // Memory cache (filled by async resolver or previous opens)
+        if (uuid != null) {
+            String[] cached = plugin.getCachedSkinTextures(uuid);
+            if (cached != null && cached[0] != null && !cached[0].isEmpty()) {
+                if (applyTextureToSkull(meta, uuid, name, cached[0])) {
                     return;
                 }
             }
-        } catch (Throwable ignored) {}
+        }
 
-        // Paper createProfile + cache
+        // Paper local profile cache only
         try {
             Method create = Bukkit.class.getMethod("createProfile", UUID.class, String.class);
             Object profile = create.invoke(null, uuid != null ? uuid : UUID.randomUUID(),
                     name != null ? name : "Player");
             try {
-                // Cache only — never complete(true): that hits Mojang and freezes the server thread
                 profile.getClass().getMethod("completeFromCache").invoke(profile);
             } catch (NoSuchMethodException ignored) {}
             try {
@@ -358,13 +379,69 @@ public class ChatSyncGui implements Listener {
             }
         } catch (Throwable ignored) {}
 
+        // Last resort: offline player (may be Steve until async fill)
         try {
-            if (uuid != null) meta.setOwningPlayer(Bukkit.getOfflinePlayer(uuid));
-            else if (name != null) meta.setOwningPlayer(Bukkit.getOfflinePlayer(name));
+            if (uuid != null) {
+                meta.setOwningPlayer(Bukkit.getOfflinePlayer(uuid));
+            } else if (name != null) {
+                meta.setOwningPlayer(Bukkit.getOfflinePlayer(name));
+            }
         } catch (Throwable ignored) {}
     }
 
-    /** Apply base64 textures property to SkullMeta via PlayerProfile / reflection. */
+    /**
+     * After inventory is open, resolve local SR/cache textures async and refresh skulls.
+     * Never calls Mojang from the main thread.
+     */
+    private void scheduleAsyncSkullFill(Player viewer, Inventory inv, List<UUID> uuids, List<String> names) {
+        if (!plugin.getConfig().getBoolean("gui.async_skins", true)) return;
+        if (uuids == null || uuids.isEmpty()) return;
+        final UUID viewerId = viewer.getUniqueId();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            java.util.Map<UUID, String[]> found = new java.util.HashMap<>();
+            for (int i = 0; i < uuids.size(); i++) {
+                UUID id = uuids.get(i);
+                if (id == null) continue;
+                if (plugin.getCachedSkinTextures(id) != null) continue;
+                String n = i < names.size() ? names.get(i) : null;
+                try {
+                    String[] tex = plugin.resolveSkinTexturesOffline(id, n);
+                    if (tex != null && tex[0] != null) {
+                        plugin.putCachedSkinTextures(id, tex);
+                        found.put(id, tex);
+                    }
+                } catch (Throwable ignored) {}
+            }
+            if (found.isEmpty()) return;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                Player v = Bukkit.getPlayer(viewerId);
+                if (v == null || !v.isOnline()) return;
+                if (v.getOpenInventory() == null || v.getOpenInventory().getTopInventory() != inv) return;
+                for (int slot = 0; slot < inv.getSize(); slot++) {
+                    ItemStack stack = inv.getItem(slot);
+                    if (stack == null || stack.getType() != Material.PLAYER_HEAD) continue;
+                    ItemMeta im = stack.getItemMeta();
+                    if (!(im instanceof SkullMeta sm)) continue;
+                    String tid = im.getPersistentDataContainer().get(targetKey, PersistentDataType.STRING);
+                    if (tid == null) continue;
+                    UUID id;
+                    try { id = UUID.fromString(tid); } catch (Exception e) { continue; }
+                    String[] tex = found.get(id);
+                    if (tex == null) tex = plugin.getCachedSkinTextures(id);
+                    if (tex == null || tex[0] == null) continue;
+                    String pname = sm.getDisplayName() != null
+                            ? net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(sm.displayName())
+                            : null;
+                    if (applyTextureToSkull(sm, id, pname, tex[0])) {
+                        stack.setItemMeta(sm);
+                        inv.setItem(slot, stack);
+                    }
+                }
+            });
+        });
+    }
+
+
     private boolean applyTextureToSkull(SkullMeta meta, UUID uuid, String name, String textureValue) {
         UUID id = uuid != null ? uuid : UUID.nameUUIDFromBytes(("OfflinePlayer:" + (name != null ? name : "x")).getBytes(StandardCharsets.UTF_8));
         String display = name != null ? name : "Player";

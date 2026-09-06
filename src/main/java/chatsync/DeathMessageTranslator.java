@@ -141,28 +141,30 @@ public class DeathMessageTranslator implements Listener {
         if (withHeads == null && clean == null) return;
 
         boolean heads = plugin.isHeadsEnabled("death");
+        // Plain text for console + Discord (never include object heads).
+        Component forLog = clean != null ? clean
+                : (withHeads != null ? plugin.stripObjectComponents(withHeads) : null);
+        String plain = forLog != null ? plugin.plainComponent(forLog) : "";
 
         if (heads && withHeads != null) {
-            // DiscordSRV мог уже прочитать clean на своём MONITOR; если нет — шлём сами.
-            // Обнуляем, чтобы не было двойного сообщения игрокам без голов.
+            // Replace vanilla broadcast with our headed message in-game.
+            // Null the event so DiscordSRV does not double-post an empty/vanilla line.
             event.deathMessage(null);
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.sendMessage(withHeads);
             }
-            // Консоль + Discord всегда
-            Component forLog = clean != null ? clean : plugin.stripObjectComponents(withHeads);
-            String plain = plugin.plainComponent(forLog);
-            if (!plain.isEmpty()) {
-                plugin.logToConsolePublic("[Death] " + plain);
-                plugin.relayGameMessageToDiscord(forLog);
-            }
         } else if (clean != null) {
-            // Без голов — оставляем clean в event (DiscordSRV + ванильный broadcast + консоль)
+            // Keep translated/clickable text on the event for vanilla in-game broadcast.
             event.deathMessage(clean);
-            String plain = plugin.plainComponent(clean);
-            if (!plain.isEmpty()) {
-                plugin.logToConsolePublic("[Death] " + plain);
-            }
+        }
+
+        // Always push death line to console + Discord ourselves.
+        // Critical for language != en: we replace the TranslatableComponent with plain
+        // translated text; DiscordSRV often only auto-forwards vanilla death components,
+        // so without an explicit relay Russian (and other packs) never appear in Discord.
+        if (!plain.isEmpty()) {
+            plugin.logToConsolePublic("[Death] " + plain);
+            plugin.relayGameMessageToDiscord(forLog);
         }
     }
 

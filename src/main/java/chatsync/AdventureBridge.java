@@ -2,6 +2,8 @@ package chatsync;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -13,16 +15,23 @@ import java.lang.reflect.Method;
 
 /**
  * Bridges Paper Adventure audience methods to Spigot/Arclight String API.
- * Arclight exposes Adventure classes when shaded, but CraftPlayer often has
- * no sendMessage(Component) / joinMessage(Component) — only legacy String.
+ * <p>
+ * Arclight may load shaded Adventure classes but still lack
+ * {@code Player.sendMessage(Component)} / {@code joinMessage(Component)}.
+ * Falling back must use {@code §} section codes — {@code &} codes are shown
+ * literally by the vanilla client.
  */
 public final class AdventureBridge {
 
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.builder()
+    /** Deserialize formats written with {@code &} in config/lang. */
+    private static final LegacyComponentSerializer AMPERSAND = LegacyComponentSerializer.builder()
             .character('&')
             .hexColors()
             .useUnusualXRepeatedCharacterHexFormat()
             .build();
+
+    /** Serialize for Bukkit {@code sendMessage(String)} (§ codes). */
+    private static final LegacyComponentSerializer SECTION = LegacyComponentSerializer.legacySection();
 
     private static Boolean componentSend;
     private static Boolean joinMessageComponent;
@@ -31,19 +40,39 @@ public final class AdventureBridge {
     private static Boolean deathMessageGetter;
     private static Boolean advancementMessageComponent;
 
+    static {
+        // Hybrid servers: never call Component audience methods — they throw NoSuchMethodError.
+        if (ServerCompat.isArclight()) {
+            componentSend = false;
+            joinMessageComponent = false;
+            quitMessageComponent = false;
+            deathMessageComponent = false;
+            advancementMessageComponent = false;
+        }
+    }
+
     private AdventureBridge() {}
 
+    /**
+     * Component → legacy string with section signs (§) for Bukkit String API.
+     * Click/hover are lost on the String path (Arclight limitation).
+     */
     public static String toLegacy(Component component) {
         if (component == null) return "";
         try {
-            return LEGACY.serialize(component);
-        } catch (Throwable t) {
-            try {
-                return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
-                        .serialize(component);
-            } catch (Throwable t2) {
-                return component.toString();
+            String section = SECTION.serialize(component);
+            if (section != null && !section.isEmpty()) return section;
+        } catch (Throwable ignored) {}
+        try {
+            String amp = AMPERSAND.serialize(component);
+            if (amp != null && !amp.isEmpty()) {
+                return ChatColor.translateAlternateColorCodes('&', amp);
             }
+        } catch (Throwable ignored) {}
+        try {
+            return PlainTextComponentSerializer.plainText().serialize(component);
+        } catch (Throwable t) {
+            return "";
         }
     }
 
@@ -55,11 +84,14 @@ public final class AdventureBridge {
         } catch (Throwable ignored) {}
     }
 
-    /** Legacy string path (avoids accidental String→Component compile errors). */
-    public static void send(CommandSender sender, String legacyText) {
-        if (sender == null || legacyText == null) return;
+    /** Legacy string path. Accepts {@code &} or {@code §} color codes. */
+    public static void send(CommandSender sender, String text) {
+        if (sender == null || text == null) return;
         try {
-            sender.sendMessage(legacyText);
+            if (text.indexOf('&') >= 0) {
+                text = ChatColor.translateAlternateColorCodes('&', text);
+            }
+            sender.sendMessage(text);
         } catch (Throwable ignored) {}
     }
 
@@ -79,7 +111,6 @@ public final class AdventureBridge {
                 componentSend = false;
                 return false;
             }
-            // other errors: fall back
             return false;
         }
     }
@@ -87,7 +118,9 @@ public final class AdventureBridge {
     public static void setJoinMessage(PlayerJoinEvent event, Component message) {
         if (event == null) return;
         if (Boolean.FALSE.equals(joinMessageComponent)) {
-            event.setJoinMessage(message == null ? null : toLegacy(message));
+            try {
+                event.setJoinMessage(message == null ? null : toLegacy(message));
+            } catch (Throwable ignored) {}
             return;
         }
         try {
@@ -105,7 +138,9 @@ public final class AdventureBridge {
     public static void setQuitMessage(PlayerQuitEvent event, Component message) {
         if (event == null) return;
         if (Boolean.FALSE.equals(quitMessageComponent)) {
-            event.setQuitMessage(message == null ? null : toLegacy(message));
+            try {
+                event.setQuitMessage(message == null ? null : toLegacy(message));
+            } catch (Throwable ignored) {}
             return;
         }
         try {
@@ -157,7 +192,7 @@ public final class AdventureBridge {
         try {
             String s = event.getDeathMessage();
             if (s == null) return null;
-            return LEGACY.deserialize(s);
+            return AMPERSAND.deserialize(s.replace('§', '&'));
         } catch (Throwable t) {
             return null;
         }
@@ -187,13 +222,15 @@ public final class AdventureBridge {
 
     public static void actionBar(Player player, Component component) {
         if (player == null || component == null) return;
-        try {
-            Method m = player.getClass().getMethod("sendActionBar", Component.class);
-            m.invoke(player, component);
-        } catch (Throwable t) {
+        if (!Boolean.FALSE.equals(componentSend)) {
             try {
-                player.sendMessage(toLegacy(component));
-            } catch (Throwable ignored) {}
+                Method m = player.getClass().getMethod("sendActionBar", Component.class);
+                m.invoke(player, component);
+                return;
+            } catch (Throwable t) {
+                componentSend = false;
+            }
         }
+        send(player, component);
     }
 }

@@ -827,7 +827,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (sub.equals("gui") || sub.equals("menu")) {
             if (!(sender instanceof Player p)) {
-                AdventureBridge.send(sender, "Players only.");
+                AdventureBridge.send(sender, color("&cPlayers only."));
                 return true;
             }
             if (gui == null) {
@@ -1205,7 +1205,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     // ── /me ──────────────────────────────────────────────────────
 
     private boolean cmdMe(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player pSender)) { AdventureBridge.send(sender, "Players only."); return true; }
+        if (!(sender instanceof Player pSender)) { AdventureBridge.send(sender, color("&cPlayers only.")); return true; }
 
         String permission = getConfig().getString("commands.me.permission", "chatsync.me");
         if (!pSender.hasPermission(permission)) {

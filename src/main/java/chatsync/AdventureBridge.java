@@ -55,6 +55,14 @@ public final class AdventureBridge {
         } catch (Throwable ignored) {}
     }
 
+    /** Legacy string path (avoids accidental String→Component compile errors). */
+    public static void send(CommandSender sender, String legacyText) {
+        if (sender == null || legacyText == null) return;
+        try {
+            sender.sendMessage(legacyText);
+        } catch (Throwable ignored) {}
+    }
+
     private static boolean trySendComponent(CommandSender sender, Component component) {
         if (Boolean.FALSE.equals(componentSend)) return false;
         try {

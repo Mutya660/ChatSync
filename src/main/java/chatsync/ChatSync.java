@@ -3044,57 +3044,132 @@ private Component buildChatComponent(String format, Player sender, String rawMes
         if (!Bukkit.getPluginManager().isPluginEnabled("DiscordSRV")) return;
         final String plain = plainComponent(message);
         if (plain.isEmpty()) return;
+        final String preferred = getConfig().getString("discord.system_channel", "deaths");
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             try {
-                Class<?> dsrv = Class.forName("github.scarsz.discordsrv.DiscordSRV");
-                Object dsrvPlugin = dsrv.getMethod("getPlugin").invoke(null);
-                Class<?> discordUtil = Class.forName("github.scarsz.discordsrv.util.DiscordUtil");
-                Object channel = null;
-                // DiscordSRV 1.x optional channel
-                try {
-                    Object opt = dsrvPlugin.getClass().getMethod("getOptionalMainTextChannel").invoke(dsrvPlugin);
-                    if (opt instanceof java.util.Optional<?> o && o.isPresent()) {
-                        channel = o.get();
-                    }
-                } catch (Throwable ignored) {}
-                if (channel == null) {
-                    try {
-                        channel = dsrvPlugin.getClass().getMethod("getMainTextChannel").invoke(dsrvPlugin);
-                    } catch (Throwable ignored) {}
-                }
-                if (channel == null) {
-                    getLogger().warning("Discord death/system relay: main text channel is null (check DiscordSRV channels).");
+                Class<?> dsrvCls = Class.forName("github.scarsz.discordsrv.DiscordSRV");
+                Object dsrvPlugin = dsrvCls.getMethod("getPlugin").invoke(null);
+                if (dsrvPlugin == null) {
+                    getLogger().warning("[Discord] DiscordSRV.getPlugin() is null");
                     return;
                 }
-                // Prefer TextChannel sendMessage; fall back to Object signature
-                boolean sent = false;
-                for (String chClass : new String[]{
-                        "net.dv8tion.jda.api.entities.TextChannel",
-                        "net.dv8tion.jda.api.entities.channel.concrete.TextChannel",
-                        "net.dv8tion.jda.api.entities.MessageChannel"
-                }) {
-                    try {
-                        Class<?> c = Class.forName(chClass);
-                        if (!c.isInstance(channel)) continue;
-                        discordUtil.getMethod("sendMessage", c, String.class).invoke(null, channel, plain);
-                        sent = true;
-                        break;
-                    } catch (Throwable ignored) {}
+                Class<?> discordUtil = Class.forName("github.scarsz.discordsrv.util.DiscordUtil");
+                try {
+                    Object jda = discordUtil.getMethod("getJda").invoke(null);
+                    if (jda == null) {
+                        getLogger().warning("[Discord] JDA not ready — skipped: " + plain);
+                        return;
+                    }
+                } catch (Throwable ignored) {}
+
+                Object channel = resolveDiscordChannel(dsrvPlugin, preferred);
+                if (channel == null) {
+                    getLogger().warning("[Discord] No channel for system message. "
+                            + "Set DiscordSRV Channels {\"global\":\"ID\",\"deaths\":\"ID\"}. Msg: " + plain);
+                    return;
                 }
+
+                boolean sent = sendDiscordChannelMessage(discordUtil, channel, plain);
                 if (!sent) {
-                    // last resort: sendMessage(Object, String) if present
-                    try {
-                        discordUtil.getMethod("sendMessage", Object.class, String.class).invoke(null, channel, plain);
-                        sent = true;
-                    } catch (Throwable ignored) {}
-                }
-                if (!sent) {
-                    getLogger().warning("Discord death/system relay: could not invoke DiscordUtil.sendMessage for: " + plain);
+                    getLogger().warning("[Discord] Failed to send: " + plain
+                            + " (channel class=" + channel.getClass().getName() + ")");
+                } else if (getConfig().getBoolean("discord.debug", false)
+                        || getConfig().getBoolean("advanced.debug", false)) {
+                    getLogger().info("[Discord] Sent: " + plain);
                 }
             } catch (Exception e) {
-                getLogger().warning("Discord relay failed: " + e.getMessage());
+                getLogger().warning("[Discord] relay failed: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         });
+    }
+
+    /** Resolve DiscordSRV text channel without hard JDA class refs (classloader-safe). */
+    private Object resolveDiscordChannel(Object dsrvPlugin, String preferred) {
+        for (String gameName : new String[]{
+                preferred, "deaths", "global", "main", "chat"
+        }) {
+            if (gameName == null || gameName.isEmpty()) continue;
+            try {
+                Object ch = dsrvPlugin.getClass()
+                        .getMethod("getDestinationTextChannelForGameChannelName", String.class)
+                        .invoke(dsrvPlugin, gameName);
+                if (ch != null) return ch;
+            } catch (Throwable ignored) {}
+        }
+        try {
+            Object opt = dsrvPlugin.getClass().getMethod("getOptionalMainTextChannel").invoke(dsrvPlugin);
+            if (opt instanceof java.util.Optional<?> o && o.isPresent()) return o.get();
+        } catch (Throwable ignored) {}
+        try {
+            return dsrvPlugin.getClass().getMethod("getMainTextChannel").invoke(dsrvPlugin);
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    /**
+     * Classloader-safe send: DiscordUtil methods are matched by parameter assignability
+     * against the live channel instance (JDA lives in DiscordSRV's loader, not ours).
+     */
+    private boolean sendDiscordChannelMessage(Class<?> discordUtil, Object channel, String plain) {
+        // 1) DiscordUtil.sendMessage / queueMessage / sendMessageBlocking
+        for (String name : new String[]{"queueMessage", "sendMessage", "sendMessageBlocking"}) {
+            for (java.lang.reflect.Method m : discordUtil.getMethods()) {
+                if (!m.getName().equals(name)) continue;
+                Class<?>[] pt = m.getParameterTypes();
+                if (pt.length < 2) continue;
+                if (!pt[0].isInstance(channel)) continue;
+                if (pt[1] != String.class) continue;
+                try {
+                    m.setAccessible(true);
+                    if (pt.length == 2) {
+                        m.invoke(null, channel, plain);
+                        return true;
+                    }
+                    if (pt.length == 3 && (pt[2] == boolean.class || pt[2] == Boolean.class)) {
+                        m.invoke(null, channel, plain, false);
+                        return true;
+                    }
+                    if (pt.length == 3 && pt[2] == int.class) {
+                        m.invoke(null, channel, plain, 0);
+                        return true;
+                    }
+                } catch (Throwable t) {
+                    getLogger().warning("[Discord] " + name + " invoke error: " + t.getMessage());
+                }
+            }
+        }
+        // 2) Direct JDA: channel.sendMessage(plain).queue()
+        try {
+            java.lang.reflect.Method sendMessage = null;
+            for (java.lang.reflect.Method m : channel.getClass().getMethods()) {
+                if (!m.getName().equals("sendMessage")) continue;
+                Class<?>[] pt = m.getParameterTypes();
+                if (pt.length == 1 && pt[0] == String.class) {
+                    sendMessage = m;
+                    break;
+                }
+            }
+            if (sendMessage != null) {
+                Object action = sendMessage.invoke(channel, plain);
+                if (action != null) {
+                    for (java.lang.reflect.Method m : action.getClass().getMethods()) {
+                        if (m.getName().equals("queue") && m.getParameterCount() == 0) {
+                            m.invoke(action);
+                            return true;
+                        }
+                    }
+                    for (java.lang.reflect.Method m : action.getClass().getMethods()) {
+                        if (m.getName().equals("queue") && m.getParameterCount() == 2) {
+                            m.invoke(action, null, null);
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            getLogger().warning("[Discord] JDA channel.sendMessage error: " + t.getMessage());
+        }
+        return false;
     }
 
 

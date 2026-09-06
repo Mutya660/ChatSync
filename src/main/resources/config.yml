@@ -131,8 +131,14 @@ pm:
 
 # ── Discord (requires DiscordSRV soft-depend) ─────────────────
 discord:
-  # Forward chat / deaths / etc. through DiscordSRV when it is installed.
+  # Forward chat / deaths / join / advancements through DiscordSRV.
   enabled: true
+  # DiscordSRV game-channel name for system lines (deaths, join, advancements).
+  # Must exist in DiscordSRV Channels map, e.g. {"global":"ID","deaths":"ID"}.
+  # If "deaths" is missing, ChatSync falls back to "global".
+  system_channel: "deaths"
+  # Log successful system relays to console.
+  debug: false
 
 
 # ── Heads (2D object icons, Paper 1.21.9+ clients) ────────────

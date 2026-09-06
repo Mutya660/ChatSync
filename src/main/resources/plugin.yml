@@ -2,6 +2,11 @@ name: ChatSync
 version: 1.7.2
 main: chatsync.ChatSync
 api-version: '1.21'
+libraries:
+  - net.kyori:adventure-api:4.17.0
+  - net.kyori:adventure-text-serializer-legacy:4.17.0
+  - net.kyori:adventure-text-serializer-plain:4.17.0
+  - net.kyori:adventure-text-serializer-gson:4.17.0
 softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans, SuperVanish, PremiumVanish, Essentials, SkinsRestorer]
 description: Multifunctional chat plugin — global/local chat, PM, ignore, socialspy, teams, stats, playtime, GUI. Supports Paper/Purpur and Arclight hybrid servers.
 authors: [Mutya660]

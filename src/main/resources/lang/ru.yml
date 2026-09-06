@@ -100,6 +100,7 @@ broadcast:
   usage: "&7Использование: &f/broadcast <сообщение|пресет|preset|hide|-h>"
   usage_hide: "&7Скрыть автора: &f/broadcast -h <сообщение|пресет>"
   no_permission: "&cУ вас нет прав на отправку объявлений."
+  presets_list: "&7Пресеты: &f%list%"
   preset_empty: "&cПресет &f%preset% &cпустой."
   preset_usage: "&7Использование: &f/broadcast preset list|set <ключ> <текст>|remove <ключ>"
   preset_empty_list: "&7Пресеты объявлений не заданы."

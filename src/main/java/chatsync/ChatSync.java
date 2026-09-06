@@ -1566,7 +1566,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             sender.sendMessage(color(tAny(sender, "broadcast.usage")));
             var presets = getConfig().getConfigurationSection("broadcast.presets");
             if (presets != null && !presets.getKeys(false).isEmpty()) {
-                sender.sendMessage(color("&7Пресеты: &f" + String.join("&7, &f", presets.getKeys(false))));
+                sender.sendMessage(color(tAny(sender, "broadcast.presets_list").replace("%list%", String.join("&7, &f", presets.getKeys(false)))));
             }
             return true;
         }
@@ -1583,7 +1583,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 sender.sendMessage(color(tAny(sender, "broadcast.usage_hide")));
                 var presetsHelp = getConfig().getConfigurationSection("broadcast.presets");
                 if (presetsHelp != null && !presetsHelp.getKeys(false).isEmpty()) {
-                    sender.sendMessage(color("&7Пресеты: &f" + String.join("&7, &f", presetsHelp.getKeys(false))));
+                    sender.sendMessage(color(tAny(sender, "broadcast.presets_list").replace("%list%", String.join("&7, &f", presetsHelp.getKeys(false)))));
                 }
                 return true;
             }

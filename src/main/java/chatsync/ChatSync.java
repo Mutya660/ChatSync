@@ -389,16 +389,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         if (liteBansHook != null) liteBansHook.onJoin(player);
         if (!tog("join_message") || (vanishHook != null && vanishHook.shouldHideJoinQuit(player))) {
-            event.joinMessage(null);
+            AdventureBridge.setJoinMessage(event, null);
             return;
         }
         // ObjectComponent в event.joinMessage → консоль пишет "[name head]".
         // Обнуляем event, шлём игрокам с головой, в консоль — plain-текст.
         Component withHead = buildJoinQuitMessage(
                 getConfig().getString("messages.join", "&a+ &f%player%"), player);
-        event.joinMessage(null);
+        AdventureBridge.setJoinMessage(event, null);
         for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendMessage(withHead);
+            AdventureBridge.send(p, withHead);
         }
         logToConsole(plainComponent(withHead));
     }
@@ -410,17 +410,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             playtimeManager.onQuit(player.getUniqueId(), player.getName());
         }
         if (!tog("quit_message") || (vanishHook != null && vanishHook.shouldHideJoinQuit(player))) {
-            event.quitMessage(null);
+            AdventureBridge.setQuitMessage(event, null);
         } else {
             Component withHead = buildJoinQuitMessage(
                     getConfig().getString("messages.quit", "&c- &f%player%"), player);
-            event.quitMessage(null);
+            AdventureBridge.setQuitMessage(event, null);
             final Component msg = withHead;
             final UUID quitter = player.getUniqueId();
             // На quit игрок ещё online — шлём сразу; консоль — plain
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (p.getUniqueId().equals(quitter)) continue;
-                p.sendMessage(msg);
+                AdventureBridge.send(p, msg);
             }
             logToConsole(plainComponent(msg));
         }
@@ -691,7 +691,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         // LiteBans mute — ChatSync сам обрабатывает чат, поэтому проверяем явно
         if (liteBansHook != null && liteBansHook.isMuted(sender)) {
-            sender.sendMessage(color(t(sender, "chat.muted")));
+            AdventureBridge.send(sender, color(t(sender, "chat.muted")));
             return;
         }
 
@@ -708,7 +708,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     long remaining = (cooldownSec * 1000L) - elapsed;
                     if (remaining > 0) {
                         String sec = String.valueOf((int) Math.ceil(remaining / 1000.0));
-                        sender.sendMessage(color(t(sender, "chat.cooldown").replace("%seconds%", sec)));
+                        AdventureBridge.send(sender, color(t(sender, "chat.cooldown").replace("%seconds%", sec)));
                         return;
                     }
                 }
@@ -722,7 +722,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     long remaining = (cooldownSec * 1000L) - elapsed;
                     if (remaining > 0) {
                         String sec = String.valueOf((int) Math.ceil(remaining / 1000.0));
-                        sender.sendMessage(color(t(sender, "chat.local_cooldown").replace("%seconds%", sec)));
+                        AdventureBridge.send(sender, color(t(sender, "chat.local_cooldown").replace("%seconds%", sec)));
                         return;
                     }
                 }
@@ -733,7 +733,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (isGlobal) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (!p.equals(sender) && isIgnoring(p, sender)) continue;
-                p.sendMessage(buildChatComponent(formatStr, sender, rawMessage, p));
+                AdventureBridge.send(p, buildChatComponent(formatStr, sender, rawMessage, p));
             }
             logToConsole("[GlobalChat] " + sender.getName() + ": " + rawMessage);
             if (getConfig().getBoolean("stats.enabled", true)) {
@@ -748,10 +748,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 if (!r.getWorld().equals(sender.getWorld())) continue;
                 if (r.getLocation().distance(sender.getLocation()) > radius) continue;
                 if (!r.equals(sender) && isIgnoring(r, sender)) continue;
-                r.sendMessage(buildChatComponent(formatStr, sender, rawMessage, r));
+                AdventureBridge.send(r, buildChatComponent(formatStr, sender, rawMessage, r));
                 recipients++;
             }
-            if (recipients == 1 && tog("local_noone")) sender.sendMessage(color(t(sender, "chat.local_noone")));
+            if (recipients == 1 && tog("local_noone")) AdventureBridge.send(sender, color(t(sender, "chat.local_noone")));
             if (tog("local_console_log") && getConfig().getBoolean("chat.local.log_to_console", true)) {
                 logToConsole(getConfig()
                         .getString("chat.local.console_format", "[LocalChat] %player%: %message%")
@@ -769,7 +769,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     // Не дублируем тем, кто уже видел сообщение (был в радиусе)
                     if (spy.getWorld().equals(sender.getWorld()) &&
                             spy.getLocation().distance(sender.getLocation()) <= radius) continue;
-                    spy.sendMessage(buildClickableNameLine(spyLocalFmt, sender.getName(), spy));
+                    AdventureBridge.send(spy, buildClickableNameLine(spyLocalFmt, sender.getName(), spy));
                 }
             }
             if (getConfig().getBoolean("stats.enabled", true)) {
@@ -810,7 +810,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (sub.equals("reload")) {
             if (!sender.hasPermission(getConfig().getString("commands.reload.permission", "chatsync.admin"))) {
-                sender.sendMessage(color(tAny(sender, "commands.reload.no_permission")));
+                AdventureBridge.send(sender, color(tAny(sender, "commands.reload.no_permission")));
                 return true;
             }
             reloadConfig();
@@ -821,17 +821,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             if (statsManager != null) statsManager.reload();
             if (playtimeManager != null) playtimeManager.reload();
             if (teamManager != null) teamManager.reload();
-            sender.sendMessage(color(tAny(sender, "commands.reload.success")));
+            AdventureBridge.send(sender, color(tAny(sender, "commands.reload.success")));
             return true;
         }
 
         if (sub.equals("gui") || sub.equals("menu")) {
             if (!(sender instanceof Player p)) {
-                sender.sendMessage("Players only.");
+                AdventureBridge.send(sender, "Players only.");
                 return true;
             }
             if (gui == null) {
-                sender.sendMessage(color("&cGUI not initialized."));
+                AdventureBridge.send(sender, color("&cGUI not initialized."));
                 return true;
             }
             gui.openMain(p);
@@ -844,7 +844,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             return true;
         }
 
-        sender.sendMessage(color(tAny(sender, "commands.chatsync.usage")));
+        AdventureBridge.send(sender, color(tAny(sender, "commands.chatsync.usage")));
         return true;
     }
 
@@ -857,7 +857,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (lines != null && !lines.isEmpty()) {
             for (String line : lines) {
                 if (line == null) continue;
-                sender.sendMessage(color(line
+                AdventureBridge.send(sender, color(line
                         .replace("%version%", ver)
                         .replace("%chatsync_version%", ver)
                         .replace("%author%", "Mutya660")
@@ -865,40 +865,40 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
             return;
         }
-        sender.sendMessage(color(""));
-        sender.sendMessage(color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-        sender.sendMessage(color("&b&l  ChatSync &8» &7Information"));
-        sender.sendMessage(color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-        sender.sendMessage(color("&7  Multifunctional chat plugin for Minecraft"));
-        sender.sendMessage(color("&7  Version &8» &e" + ver));
-        sender.sendMessage(color("&7  Author  &8» &aMutya660"));
-        sender.sendMessage(color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-        sender.sendMessage(color(""));
+        AdventureBridge.send(sender, color(""));
+        AdventureBridge.send(sender, color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        AdventureBridge.send(sender, color("&b&l  ChatSync &8» &7Information"));
+        AdventureBridge.send(sender, color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        AdventureBridge.send(sender, color("&7  Multifunctional chat plugin for Minecraft"));
+        AdventureBridge.send(sender, color("&7  Version &8» &e" + ver));
+        AdventureBridge.send(sender, color("&7  Author  &8» &aMutya660"));
+        AdventureBridge.send(sender, color("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        AdventureBridge.send(sender, color(""));
     }
 
     private boolean cmdMsg(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage(color(tAny(sender, "commands.msg.usage")));
+            AdventureBridge.send(sender, color(tAny(sender, "commands.msg.usage")));
             return true;
         }
 
         // /msg console <text> — write to server console (tests / alert log watchers)
         if (args[0].equalsIgnoreCase("console")) {
             if (!getConfig().getBoolean("console_pm.enabled", true)) {
-                sender.sendMessage(color(tAny(sender, "commands.msg.usage")));
+                AdventureBridge.send(sender, color(tAny(sender, "commands.msg.usage")));
                 return true;
             }
             if (!(sender instanceof Player pSender)) {
-                sender.sendMessage(color(tAny(sender, "commands.msg.console_players_only")));
+                AdventureBridge.send(sender, color(tAny(sender, "commands.msg.console_players_only")));
                 return true;
             }
             if (!pSender.hasPermission(getConfig().getString("commands.msg.console_permission", "chatsync.msg.console"))) {
-                pSender.sendMessage(color(t(pSender, "commands.msg.console_no_permission")));
+                AdventureBridge.send(pSender, color(t(pSender, "commands.msg.console_no_permission")));
                 return true;
             }
             String message = joinArgs(args, 1);
             if (message.isBlank()) {
-                pSender.sendMessage(color(t(pSender, "commands.msg.usage")));
+                AdventureBridge.send(pSender, color(t(pSender, "commands.msg.usage")));
                 return true;
             }
             if (!pSender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) message = stripColorCodes(message);
@@ -907,7 +907,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%");
             if (cfmt == null) cfmt = "&8[&eChatSync&8] &7PM from &f%player%&7: &f%message%";
             getLogger().info("[ChatSync PM → Console] " + pSender.getName() + ": " + message.replace("\u00A7", "&"));
-            Bukkit.getConsoleSender().sendMessage(color(
+            AdventureBridge.send(Bukkit.getConsoleSender(), color(
                     cfmt.replace("%player%", pSender.getName()).replace("%message%", message)));
 
             String senderFmt = t(pSender, "pm.format_console_sender");
@@ -941,13 +941,13 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
             if (!anyHeadToken && getConfig().getBoolean("chat.heads.enabled", true)
                     && isHeadsForceFirst()) {
-                pSender.sendMessage(Component.text()
+                AdventureBridge.send(pSender, Component.text()
                         .append(buildHeadComponent(pSender))
                         .append(buildConsoleHeadComponent())
                         .append(out.build())
                         .build());
             } else {
-                pSender.sendMessage(out.build());
+                AdventureBridge.send(pSender, out.build());
             }
 
             if (getConfig().getBoolean("console_pm.log_to_file", true) && chatLogger != null) {
@@ -966,12 +966,12 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!(sender instanceof Player)) {
             Player target = Bukkit.getPlayer(args[0]);
             if (target == null || !target.isOnline()) {
-                sender.sendMessage(color(tAny(sender, "pm.player_not_found").replace("%player%", args[0])));
+                AdventureBridge.send(sender, color(tAny(sender, "pm.player_not_found").replace("%player%", args[0])));
                 return true;
             }
             String message = joinArgs(args, 1);
             if (message.isBlank()) {
-                sender.sendMessage(color(tAny(sender, "commands.msg.usage")));
+                AdventureBridge.send(sender, color(tAny(sender, "commands.msg.usage")));
                 return true;
             }
             sendPMFromConsole(sender, target, message);
@@ -983,13 +983,13 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (target == null || !target.isOnline()) {
             String nf = t(pSender, "pm.player_not_found");
             if (!nf.contains("%player%")) nf = nf + " &8(%player%)";
-            pSender.sendMessage(buildClickableNameLine(nf, args[0], pSender));
+            AdventureBridge.send(pSender, buildClickableNameLine(nf, args[0], pSender));
             return true;
         }
-        if (target.equals(pSender)) { pSender.sendMessage(color(t(pSender, "commands.msg.self"))); return true; }
+        if (target.equals(pSender)) { AdventureBridge.send(pSender, color(t(pSender, "commands.msg.self"))); return true; }
         if (isIgnoring(target, pSender)) {
             if (tog("ignore_notify_sender"))
-                pSender.sendMessage(buildClickableNameLine(t(pSender, "commands.ignore.ignores_you"), target.getName(), pSender));
+                AdventureBridge.send(pSender, buildClickableNameLine(t(pSender, "commands.ignore.ignores_you"), target.getName(), pSender));
             return true;
         }
         sendPM(pSender, target, joinArgs(args, 1));
@@ -1030,9 +1030,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         if (!receiverFmt.contains("%head") && getConfig().getBoolean("chat.heads.enabled", true)
                 && isHeadsForceFirst()) {
-            to.sendMessage(Component.text().append(buildConsoleHeadComponent()).append(out.build()).build());
+            AdventureBridge.send(to, Component.text().append(buildConsoleHeadComponent()).append(out.build()).build());
         } else {
-            to.sendMessage(out.build());
+            AdventureBridge.send(to, out.build());
         }
 
         // Confirmation in console
@@ -1040,7 +1040,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (conf == null || conf.isEmpty() || conf.equals("pm.format_console_to_player")) {
             conf = "&eConsole &e→ &e%player%&e: &e%message%";
         }
-        console.sendMessage(color(conf.replace("%player%", to.getName()).replace("%message%", message)));
+        AdventureBridge.send(console, color(conf.replace("%player%", to.getName()).replace("%message%", message)));
 
         // SocialSpy
         if (tog("socialspy") && getConfig().getBoolean("socialspy.private_messages", true)) {
@@ -1054,7 +1054,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             for (UUID uid : socialSpy) {
                 Player spy = Bukkit.getPlayer(uid);
                 if (spy == null || spy.equals(to)) continue;
-                spy.sendMessage(color(spyFmt));
+                AdventureBridge.send(spy, color(spyFmt));
             }
         }
 
@@ -1067,15 +1067,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private boolean cmdReply(CommandSender sender, String[] args) {
         if (!(sender instanceof Player pSender)) return true;
-        if (args.length < 1) { pSender.sendMessage(color(t(pSender, "commands.reply.usage"))); return true; }
+        if (args.length < 1) { AdventureBridge.send(pSender, color(t(pSender, "commands.reply.usage"))); return true; }
 
         UUID lastUUID = lastMessaged.get(pSender.getUniqueId());
-        if (lastUUID == null) { pSender.sendMessage(color(t(pSender, "commands.reply.no_target"))); return true; }
+        if (lastUUID == null) { AdventureBridge.send(pSender, color(t(pSender, "commands.reply.no_target"))); return true; }
 
         Player target = Bukkit.getPlayer(lastUUID);
         if (target == null || !target.isOnline()) {
             lastMessaged.remove(pSender.getUniqueId()); // чистим устаревшую запись
-            pSender.sendMessage(color(t(pSender, "commands.reply.offline")));
+            AdventureBridge.send(pSender, color(t(pSender, "commands.reply.offline")));
             return true;
         }
         sendPM(pSender, target, joinArgs(args, 0));
@@ -1084,17 +1084,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private boolean cmdIgnore(CommandSender sender, String[] args) {
         if (!(sender instanceof Player pSender)) return true;
-        if (args.length < 1) { pSender.sendMessage(color(t(pSender, "commands.ignore.usage"))); return true; }
+        if (args.length < 1) { AdventureBridge.send(pSender, color(t(pSender, "commands.ignore.usage"))); return true; }
 
         // Нельзя игнорить себя
         if (args[0].equalsIgnoreCase(pSender.getName())) {
-            pSender.sendMessage(color(t(pSender, "commands.ignore.self")));
+            AdventureBridge.send(pSender, color(t(pSender, "commands.ignore.self")));
             return true;
         }
 
         Player target = Bukkit.getPlayer(args[0]);
         if (target == null) {
-            pSender.sendMessage(color(t(pSender, "pm.player_not_found").replace("%player%", args[0])));
+            AdventureBridge.send(pSender, color(t(pSender, "pm.player_not_found").replace("%player%", args[0])));
             return true;
         }
 
@@ -1102,9 +1102,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (ignored.contains(target.getUniqueId())) {
             ignored.remove(target.getUniqueId());
             saveIgnoreList();
-            pSender.sendMessage(buildClickableNameLine(t(pSender, "commands.ignore.removed"), target.getName(), pSender));
+            AdventureBridge.send(pSender, buildClickableNameLine(t(pSender, "commands.ignore.removed"), target.getName(), pSender));
             if (tog("ignore_notify_target"))
-                target.sendMessage(buildClickableNameLine(t(target, "commands.ignore.target_removed"), pSender.getName(), target));
+                AdventureBridge.send(target, buildClickableNameLine(t(target, "commands.ignore.target_removed"), pSender.getName(), target));
         } else {
             ignored.add(target.getUniqueId());
             saveIgnoreList();
@@ -1127,9 +1127,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             } else {
                 addedMsg = buildClickableNameLine(added, target.getName(), pSender);
             }
-            pSender.sendMessage(addedMsg);
+            AdventureBridge.send(pSender, addedMsg);
             if (tog("ignore_notify_target"))
-                target.sendMessage(buildClickableNameLine(t(target, "commands.ignore.target_added"), pSender.getName(), target));
+                AdventureBridge.send(target, buildClickableNameLine(t(target, "commands.ignore.target_added"), pSender.getName(), target));
         }
         return true;
     }
@@ -1138,7 +1138,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!(sender instanceof Player pSender)) return true;
         Set<UUID> ignored = ignoreList.get(pSender.getUniqueId());
         if (ignored == null || ignored.isEmpty()) {
-            pSender.sendMessage(color(t(pSender, "commands.ignorelist.empty")));
+            AdventureBridge.send(pSender, color(t(pSender, "commands.ignorelist.empty")));
             return true;
         }
 
@@ -1157,7 +1157,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         String header = t(pSender, "commands.ignorelist.header").replace("%count%", String.valueOf(entries.size()));
-        pSender.sendMessage(color(header));
+        AdventureBridge.send(pSender, color(header));
 
         // Clickable names: click runs /ignore <name> to remove from ignore list
         net.kyori.adventure.text.TextComponent.Builder line = Component.text();
@@ -1180,7 +1180,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             }
             line.append(nameComp);
         }
-        pSender.sendMessage(line.build());
+        AdventureBridge.send(pSender, line.build());
         return true;
     }
 
@@ -1188,15 +1188,15 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!(sender instanceof Player pSender)) return true;
         String spyPerm = getConfig().getString("socialspy.permission", "chatsync.spy");
         if (!pSender.hasPermission(spyPerm != null ? spyPerm : "chatsync.spy")) {
-            pSender.sendMessage(color(t(pSender, "commands.socialspy.no_permission")));
+            AdventureBridge.send(pSender, color(t(pSender, "commands.socialspy.no_permission")));
             return true;
         }
         UUID uuid = pSender.getUniqueId();
         if (socialSpy.remove(uuid)) {
-            pSender.sendMessage(color(t(pSender, "commands.socialspy.disabled")));
+            AdventureBridge.send(pSender, color(t(pSender, "commands.socialspy.disabled")));
         } else {
             socialSpy.add(uuid);
-            pSender.sendMessage(color(t(pSender, "commands.socialspy.enabled")));
+            AdventureBridge.send(pSender, color(t(pSender, "commands.socialspy.enabled")));
         }
         saveSocialSpy();
         return true;
@@ -1205,17 +1205,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     // ── /me ──────────────────────────────────────────────────────
 
     private boolean cmdMe(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player pSender)) { sender.sendMessage("Players only."); return true; }
+        if (!(sender instanceof Player pSender)) { AdventureBridge.send(sender, "Players only."); return true; }
 
         String permission = getConfig().getString("commands.me.permission", "chatsync.me");
         if (!pSender.hasPermission(permission)) {
-            pSender.sendMessage(color(t(pSender, "me.no_permission")));
+            AdventureBridge.send(pSender, color(t(pSender, "me.no_permission")));
             return true;
         }
-        if (args.length < 1) { pSender.sendMessage(color(t(pSender, "me.usage"))); return true; }
+        if (args.length < 1) { AdventureBridge.send(pSender, color(t(pSender, "me.usage"))); return true; }
 
         if (liteBansHook != null && liteBansHook.isMuted(pSender)) {
-            pSender.sendMessage(color(t(pSender, "chat.muted")));
+            AdventureBridge.send(pSender, color(t(pSender, "chat.muted")));
             return true;
         }
 
@@ -1230,14 +1230,14 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (radius < 0) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (!p.equals(pSender) && isIgnoring(p, pSender)) continue;
-                p.sendMessage(buildChatComponent(format, pSender, rawMessage, p));
+                AdventureBridge.send(p, buildChatComponent(format, pSender, rawMessage, p));
             }
         } else {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (!p.getWorld().equals(pSender.getWorld())) continue;
                 if (p.getLocation().distance(pSender.getLocation()) > radius) continue;
                 if (!p.equals(pSender) && isIgnoring(p, pSender)) continue;
-                p.sendMessage(buildChatComponent(format, pSender, rawMessage, p));
+                AdventureBridge.send(p, buildChatComponent(format, pSender, rawMessage, p));
             }
         }
 
@@ -1250,7 +1250,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             for (UUID uid : socialSpy) {
                 Player spy = Bukkit.getPlayer(uid);
                 if (spy == null || spy.equals(pSender)) continue;
-                spy.sendMessage(buildClickableNameLine(spyMeFmt, pSender.getName(), spy));
+                AdventureBridge.send(spy, buildClickableNameLine(spyMeFmt, pSender.getName(), spy));
             }
         }
 
@@ -1268,7 +1268,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private boolean cmdClear(CommandSender sender, String[] args) {
         String permission = getConfig().getString("commands.clear.permission", "chatsync.clear");
         if (!sender.hasPermission(permission)) {
-            sender.sendMessage(color(tAny(sender, "clear.no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "clear.no_permission")));
             return true;
         }
 
@@ -1281,7 +1281,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             PendingClear pending = pendingClears.get(key);
             if (pending == null || pending.expiresAt() < System.currentTimeMillis()) {
                 pendingClears.remove(key);
-                sender.sendMessage(color(tAny(sender, "clear.expired")));
+                AdventureBridge.send(sender, color(tAny(sender, "clear.expired")));
                 return true;
             }
             pendingClears.remove(key);
@@ -1295,7 +1295,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (args.length >= 1) {
             Player target = Bukkit.getPlayer(args[0]);
             if (target == null) {
-                sender.sendMessage(color(tAny(sender, "pm.player_not_found").replace("%player%", args[0])));
+                AdventureBridge.send(sender, color(tAny(sender, "pm.player_not_found").replace("%player%", args[0])));
                 return true;
             }
             targetUuid = target.getUniqueId();
@@ -1309,7 +1309,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String hintText       = tAny(sender, hintKey).replace("%target%", targetName != null ? targetName : "");
 
         Component hint = color(hintText).clickEvent(ClickEvent.runCommand(confirmCommand));
-        sender.sendMessage(hint);
+        AdventureBridge.send(sender, hint);
         return true;
     }
 
@@ -1319,27 +1319,27 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         if (target == null) {
             for (Player p : Bukkit.getOnlinePlayers()) {
-                for (int i = 0; i < lines; i++) p.sendMessage(blank);
+                for (int i = 0; i < lines; i++) AdventureBridge.send(p, blank);
             }
             String msg = tAny(sender, "clear.done_all").replace("%player%", executorName);
             if (getConfig().getBoolean("clear.broadcast_notice", true)) {
-                for (Player p : Bukkit.getOnlinePlayers()) p.sendMessage(color(t(p, "clear.done_all").replace("%player%", executorName)));
+                for (Player p : Bukkit.getOnlinePlayers()) AdventureBridge.send(p, color(t(p, "clear.done_all").replace("%player%", executorName)));
             } else {
-                sender.sendMessage(color(msg));
+                AdventureBridge.send(sender, color(msg));
             }
             if (sender instanceof Player p2) coreProtectHook.logClear(p2, "all");
             logToConsole("[Clear] " + executorName + " cleared the chat for everyone.");
         } else {
             Player targetPlayer = Bukkit.getPlayer(target);
             if (targetPlayer == null) {
-                sender.sendMessage(color(tAny(sender, "clear.expired")));
+                AdventureBridge.send(sender, color(tAny(sender, "clear.expired")));
                 return;
             }
-            for (int i = 0; i < lines; i++) targetPlayer.sendMessage(blank);
+            for (int i = 0; i < lines; i++) AdventureBridge.send(targetPlayer, blank);
             String msg = tAny(sender, "clear.done_player")
                     .replace("%target%", targetPlayer.getName())
                     .replace("%player%", executorName);
-            sender.sendMessage(color(msg));
+            AdventureBridge.send(sender, color(msg));
             if (sender instanceof Player p2) coreProtectHook.logClear(p2, targetPlayer.getName());
             logToConsole("[Clear] " + executorName + " cleared the chat for " + targetPlayer.getName() + ".");
         }
@@ -1360,11 +1360,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String permission = getConfig().getString("commands.chatstatstop.permission",
                 getConfig().getString("commands.chatstats.permission", "chatsync.chatstats"));
         if (!sender.hasPermission(permission) && !sender.hasPermission("chatsync.chatstatstop")) {
-            sender.sendMessage(color(tAny(sender, "chatstats.no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.no_permission")));
             return true;
         }
         if (statsManager == null) {
-            sender.sendMessage(color(tAny(sender, "chatstats.empty")));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.empty")));
             return true;
         }
         int pageSize = Math.max(1, getConfig().getInt("stats.top_size", 10));
@@ -1375,7 +1375,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> all =
                 statsManager.top(getConfig().getInt("gui.top_limit", 200));
         if (all.isEmpty()) {
-            sender.sendMessage(color(tAny(sender, "chatstats.empty")));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.empty")));
             return true;
         }
         int pages = Math.max(1, (all.size() + pageSize - 1) / pageSize);
@@ -1383,7 +1383,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         int from = (page - 1) * pageSize;
         int to = Math.min(all.size(), from + pageSize);
 
-        sender.sendMessage(color(tAny(sender, "chatstats.top_header")
+        AdventureBridge.send(sender, color(tAny(sender, "chatstats.top_header")
                 .replace("%count%", String.valueOf(all.size()))
                 .replace("%page%", String.valueOf(page))
                 .replace("%pages%", String.valueOf(pages))));
@@ -1395,7 +1395,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     .replace("%rank%", String.valueOf(i + 1))
                     .replace("%player%", name)
                     .replace("%total%", String.valueOf(e.getValue().total()));
-            sender.sendMessage(color(line));
+            AdventureBridge.send(sender, color(line));
         }
         sendTopPager(sender, "chatstatstop", page, pages);
         return true;
@@ -1405,7 +1405,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private boolean cmdChatStats(CommandSender sender, String[] args) {
         String permission = getConfig().getString("commands.chatstats.permission", "chatsync.chatstats");
         if (!sender.hasPermission(permission)) {
-            sender.sendMessage(color(tAny(sender, "chatstats.no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.no_permission")));
             return true;
         }
 
@@ -1418,10 +1418,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             int topSize = getConfig().getInt("stats.top_size", 10);
             List<Map.Entry<UUID, ChatStatsManager.PlayerStats>> top = statsManager.top(topSize);
             if (top.isEmpty()) {
-                sender.sendMessage(color(tAny(sender, "chatstats.empty")));
+                AdventureBridge.send(sender, color(tAny(sender, "chatstats.empty")));
                 return true;
             }
-            sender.sendMessage(color(tAny(sender, "chatstats.top_header")
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.top_header")
                     .replace("%count%", String.valueOf(top.size()))));
             int rank = 1;
             for (Map.Entry<UUID, ChatStatsManager.PlayerStats> entry : top) {
@@ -1432,7 +1432,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 String line = tAny(sender, "chatstats.top_entry")
                         .replace("%rank%", String.valueOf(rank++))
                         .replace("%total%", String.valueOf(entry.getValue().total()));
-                sender.sendMessage(buildClickableNameLine(line, name, sender));
+                AdventureBridge.send(sender, buildClickableNameLine(line, name, sender));
             }
             return true;
         }
@@ -1442,14 +1442,14 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!isSelf) {
             String othersPermission = getConfig().getString("commands.chatstats.permission_others", "chatsync.chatstats.others");
             if (!sender.hasPermission(othersPermission)) {
-                sender.sendMessage(color(tAny(sender, "chatstats.no_permission_others")));
+                AdventureBridge.send(sender, color(tAny(sender, "chatstats.no_permission_others")));
                 return true;
             }
         }
 
         ResolvedPlayer resolved = resolvePlayer(targetName);
         if (resolved == null) {
-            sender.sendMessage(color(tAny(sender, "chatstats.no_data").replace("%player%", targetName)));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.no_data").replace("%player%", targetName)));
             return true;
         }
         ChatStatsManager.PlayerStats stats = statsManager.get(resolved.uuid());
@@ -1462,9 +1462,9 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         Player online = Bukkit.getPlayer(resolved.uuid());
         if (online != null) displayName = online.getName();
 
-        sender.sendMessage(buildClickableNameLine(
+        AdventureBridge.send(sender, buildClickableNameLine(
                 tAny(sender, "chatstats.player_header"), displayName, sender));
-        sender.sendMessage(color(tAny(sender, "chatstats.player_line")
+        AdventureBridge.send(sender, color(tAny(sender, "chatstats.player_line")
                 .replace("%global%", String.valueOf(stats.global))
                 .replace("%local%", String.valueOf(stats.local))
                 .replace("%pm%", String.valueOf(stats.pm))
@@ -1477,11 +1477,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private boolean cmdChatStatsReset(CommandSender sender, String[] args) {
         String resetPerm = getConfig().getString("commands.chatstats.permission_reset", "chatsync.chatstats.reset");
         if (!sender.hasPermission(resetPerm)) {
-            sender.sendMessage(color(tAny(sender, "chatstats.reset_no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.reset_no_permission")));
             return true;
         }
         if (args.length < 2) {
-            sender.sendMessage(color(tAny(sender, "chatstats.reset_usage")));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.reset_usage")));
             return true;
         }
 
@@ -1495,16 +1495,16 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                 pendingStatsResets.put(key, System.currentTimeMillis() + timeoutMs);
                 Component hint = color(tAny(sender, "chatstats.reset_all_confirm"))
                         .clickEvent(ClickEvent.runCommand("/chatstats reset all confirm"));
-                sender.sendMessage(hint);
+                AdventureBridge.send(sender, hint);
                 return true;
             }
             Long expires = pendingStatsResets.remove(key);
             if (expires == null || expires < System.currentTimeMillis()) {
-                sender.sendMessage(color(tAny(sender, "chatstats.reset_expired")));
+                AdventureBridge.send(sender, color(tAny(sender, "chatstats.reset_expired")));
                 return true;
             }
             statsManager.resetAll();
-            sender.sendMessage(color(tAny(sender, "chatstats.reset_all_done")));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.reset_all_done")));
             logToConsole("[ChatStats] " + (sender instanceof Player p ? p.getName() : "Console") + " reset ALL chat statistics.");
             return true;
         }
@@ -1516,7 +1516,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             // try offline by name cache
             UUID uuid = statsManager.findUuidByName(targetName);
             if (uuid == null) {
-                sender.sendMessage(color(tAny(sender, "chatstats.no_data").replace("%player%", targetName)));
+                AdventureBridge.send(sender, color(tAny(sender, "chatstats.no_data").replace("%player%", targetName)));
                 return true;
             }
             resolved = new ResolvedPlayer(uuid, statsManager.nameOf(uuid));
@@ -1524,11 +1524,11 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
         boolean removed = statsManager.resetPlayer(resolved.uuid());
         if (removed) {
-            sender.sendMessage(color(tAny(sender, "chatstats.reset_player_done").replace("%player%", resolved.name())));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.reset_player_done").replace("%player%", resolved.name())));
             logToConsole("[ChatStats] " + (sender instanceof Player p ? p.getName() : "Console")
                     + " reset chat statistics for " + resolved.name() + ".");
         } else {
-            sender.sendMessage(color(tAny(sender, "chatstats.no_data").replace("%player%", resolved.name())));
+            AdventureBridge.send(sender, color(tAny(sender, "chatstats.no_data").replace("%player%", resolved.name())));
         }
         return true;
     }
@@ -1538,21 +1538,21 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     private boolean cmdBroadcast(CommandSender sender, String[] args) {
         String permission = getConfig().getString("commands.broadcast.permission", "chatsync.broadcast");
         if (!sender.hasPermission(permission)) {
-            sender.sendMessage(color(tAny(sender, "broadcast.no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "broadcast.no_permission")));
             return true;
         }
 
         // /broadcast hide  — toggle «скрывать автора»
         if (args.length == 1 && args[0].equalsIgnoreCase("hide")) {
             if (!(sender instanceof Player p)) {
-                sender.sendMessage(color("&cТолько для игроков."));
+                AdventureBridge.send(sender, color("&cТолько для игроков."));
                 return true;
             }
             if (broadcastHideAuthor.remove(p.getUniqueId())) {
-                p.sendMessage(color(tAny(sender, "broadcast.hide_off")));
+                AdventureBridge.send(p, color(tAny(sender, "broadcast.hide_off")));
             } else {
                 broadcastHideAuthor.add(p.getUniqueId());
-                p.sendMessage(color(tAny(sender, "broadcast.hide_on")));
+                AdventureBridge.send(p, color(tAny(sender, "broadcast.hide_on")));
             }
             return true;
         }
@@ -1563,10 +1563,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         if (args.length < 1) {
-            sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+            AdventureBridge.send(sender, color(tAny(sender, "broadcast.usage")));
             var presets = getConfig().getConfigurationSection("broadcast.presets");
             if (presets != null && !presets.getKeys(false).isEmpty()) {
-                sender.sendMessage(color(tAny(sender, "broadcast.presets_list").replace("%list%", String.join("&7, &f", presets.getKeys(false)))));
+                AdventureBridge.send(sender, color(tAny(sender, "broadcast.presets_list").replace("%list%", String.join("&7, &f", presets.getKeys(false)))));
             }
             return true;
         }
@@ -1580,10 +1580,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             msgStart = 1;
             if (args.length < 2) {
                 // /broadcast -h  → подсказка + список пресетов
-                sender.sendMessage(color(tAny(sender, "broadcast.usage_hide")));
+                AdventureBridge.send(sender, color(tAny(sender, "broadcast.usage_hide")));
                 var presetsHelp = getConfig().getConfigurationSection("broadcast.presets");
                 if (presetsHelp != null && !presetsHelp.getKeys(false).isEmpty()) {
-                    sender.sendMessage(color(tAny(sender, "broadcast.presets_list").replace("%list%", String.join("&7, &f", presetsHelp.getKeys(false)))));
+                    AdventureBridge.send(sender, color(tAny(sender, "broadcast.presets_list").replace("%list%", String.join("&7, &f", presetsHelp.getKeys(false)))));
                 }
                 return true;
             }
@@ -1599,7 +1599,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (isPreset) {
             rawMessage = presets.getString(maybeKey, "");
             if (rawMessage == null || rawMessage.isEmpty()) {
-                sender.sendMessage(color(tAny(sender, "broadcast.preset_empty").replace("%preset%", maybeKey)));
+                AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_empty").replace("%preset%", maybeKey)));
                 return true;
             }
         } else {
@@ -1607,7 +1607,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
 
         if (rawMessage.isBlank()) {
-            sender.sendMessage(color(tAny(sender, "broadcast.usage")));
+            AdventureBridge.send(sender, color(tAny(sender, "broadcast.usage")));
             return true;
         }
 
@@ -1643,17 +1643,17 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                         .replace("%message%", rawMessage)
                         .replace("%text%", rawMessage);
                 if (!hideAuthor && (withMsg.contains("%sender%") || withMsg.contains("%player%"))) {
-                    p.sendMessage(buildClickableNameLine(
+                    AdventureBridge.send(p, buildClickableNameLine(
                             withMsg.replace("%sender%", "%player%"),
                             executorName,
                             p));
                 } else {
-                    p.sendMessage(color(withMsg
+                    AdventureBridge.send(p, color(withMsg
                             .replace("%sender%", "")
                             .replace("%player%", "")));
                 }
             }
-            if (actionbar) p.sendActionBar(plainMsg);
+            if (actionbar) AdventureBridge.actionBar(p, plainMsg);
             if (titleEnable) p.showTitle(Title.title(color(titleText), color(subtitle)));
             playCustomSound(p, "broadcast.sound");
         }
@@ -1674,12 +1674,12 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String presetPerm = getConfig().getString("commands.broadcast.permission_preset", "chatsync.broadcast.preset");
         if (!sender.hasPermission(presetPerm) && !sender.hasPermission(
                 getConfig().getString("commands.broadcast.permission", "chatsync.broadcast"))) {
-            sender.sendMessage(color(tAny(sender, "broadcast.no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "broadcast.no_permission")));
             return true;
         }
 
         if (args.length < 2) {
-            sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+            AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_usage")));
             return true;
         }
 
@@ -1688,51 +1688,51 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             case "list" -> {
                 var section = getConfig().getConfigurationSection("broadcast.presets");
                 if (section == null || section.getKeys(false).isEmpty()) {
-                    sender.sendMessage(color(tAny(sender, "broadcast.preset_empty_list")));
+                    AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_empty_list")));
                     return true;
                 }
-                sender.sendMessage(color(tAny(sender, "broadcast.preset_list_header")));
+                AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_list_header")));
                 for (String key : section.getKeys(false)) {
                     String text = section.getString(key, "");
-                    sender.sendMessage(color("&8• &e" + key + " &8→ &f" + text));
+                    AdventureBridge.send(sender, color("&8• &e" + key + " &8→ &f" + text));
                 }
                 return true;
             }
             case "set", "add", "create" -> {
                 if (args.length < 4) {
-                    sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+                    AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_usage")));
                     return true;
                 }
                 String key = args[2].toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_\\-]", "");
                 if (key.isEmpty()) {
-                    sender.sendMessage(color(tAny(sender, "broadcast.preset_invalid_key")));
+                    AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_invalid_key")));
                     return true;
                 }
                 String text = joinArgs(args, 3);
                 getConfig().set("broadcast.presets." + key, text);
                 saveConfig();
-                sender.sendMessage(color(tAny(sender, "broadcast.preset_saved")
+                AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_saved")
                         .replace("%preset%", key)
                         .replace("%message%", text)));
                 return true;
             }
             case "remove", "delete", "del" -> {
                 if (args.length < 3) {
-                    sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+                    AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_usage")));
                     return true;
                 }
                 String key = args[2];
                 if (!getConfig().contains("broadcast.presets." + key)) {
-                    sender.sendMessage(color(tAny(sender, "broadcast.preset_not_found").replace("%preset%", key)));
+                    AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_not_found").replace("%preset%", key)));
                     return true;
                 }
                 getConfig().set("broadcast.presets." + key, null);
                 saveConfig();
-                sender.sendMessage(color(tAny(sender, "broadcast.preset_removed").replace("%preset%", key)));
+                AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_removed").replace("%preset%", key)));
                 return true;
             }
             default -> {
-                sender.sendMessage(color(tAny(sender, "broadcast.preset_usage")));
+                AdventureBridge.send(sender, color(tAny(sender, "broadcast.preset_usage")));
                 return true;
             }
         }
@@ -1743,22 +1743,22 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private boolean cmdPlaytime(CommandSender sender, String[] args) {
         if (!getConfig().getBoolean("playtime.enabled", true)) {
-            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.disabled")));
             return true;
         }
         String permission = getConfig().getString("commands.playtime.permission", "chatsync.playtime");
         if (!sender.hasPermission(permission)) {
-            sender.sendMessage(color(tAny(sender, "playtime.no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.no_permission")));
             return true;
         }
 
         if (args.length == 0) {
             if (!(sender instanceof Player pSender)) {
-                sender.sendMessage(color(tAny(sender, "playtime.usage")));
+                AdventureBridge.send(sender, color(tAny(sender, "playtime.usage")));
                 return true;
             }
             long seconds = playtimeManager.getPlaytimeSeconds(pSender.getUniqueId());
-            sender.sendMessage(color(tAny(sender, "playtime.self")
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.self")
                     .replace("%time%", formatDuration(seconds, sender))));
             return true;
         }
@@ -1766,7 +1766,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         ResolvedPlayer resolved = resolvePlayer(args[0]);
         if (resolved == null) {
             // ник неизвестен — без клика
-            sender.sendMessage(color(tAny(sender, "playtime.no_data").replace("%player%", args[0])));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.no_data").replace("%player%", args[0])));
             return true;
         }
         // Игрок заходил на сервер (OfflinePlayer) или есть в кэше плагина —
@@ -1781,18 +1781,18 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         if (!line.contains("%player%")) {
             line = line + " &8(%player%)";
         }
-        sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
+        AdventureBridge.send(sender, buildClickableNameLine(line, resolved.name(), sender));
         return true;
     }
 
     private boolean cmdPlaytimeTop(CommandSender sender, String[] args) {
         String permission = getConfig().getString("commands.playtimetop.permission", "chatsync.playtimetop");
         if (!sender.hasPermission(permission) && !sender.hasPermission("chatsync.playtimetop")) {
-            sender.sendMessage(color(tAny(sender, "playtime.top_no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.top_no_permission")));
             return true;
         }
         if (playtimeManager == null || !getConfig().getBoolean("playtime.enabled", true)) {
-            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.disabled")));
             return true;
         }
         int pageSize = Math.max(1, getConfig().getInt("playtime.top_size", 10));
@@ -1802,7 +1802,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
         List<Map.Entry<UUID, Long>> all = playtimeManager.top(getConfig().getInt("gui.top_limit", 200));
         if (all.isEmpty()) {
-            sender.sendMessage(color(tAny(sender, "playtime.no_data").replace("%player%", "—")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.no_data").replace("%player%", "—")));
             return true;
         }
         int pages = Math.max(1, (all.size() + pageSize - 1) / pageSize);
@@ -1810,7 +1810,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         int from = (page - 1) * pageSize;
         int to = Math.min(all.size(), from + pageSize);
 
-        sender.sendMessage(color(tAny(sender, "playtime.top_header")
+        AdventureBridge.send(sender, color(tAny(sender, "playtime.top_header")
                 .replace("%count%", String.valueOf(all.size()))
                 .replace("%page%", String.valueOf(page))
                 .replace("%pages%", String.valueOf(pages))));
@@ -1822,7 +1822,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
                     .replace("%rank%", String.valueOf(i + 1))
                     .replace("%player%", name)
                     .replace("%time%", formatDuration(e.getValue(), sender));
-            sender.sendMessage(color(line));
+            AdventureBridge.send(sender, color(line));
         }
         sendTopPager(sender, "playtimetop", page, pages);
         return true;
@@ -1831,28 +1831,28 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private boolean cmdLastSeen(CommandSender sender, String[] args) {
         if (!getConfig().getBoolean("playtime.enabled", true)) {
-            sender.sendMessage(color(tAny(sender, "playtime.disabled")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.disabled")));
             return true;
         }
         String permission = getConfig().getString("commands.playtime.lastseen.permission", "chatsync.lastseen");
         if (!sender.hasPermission(permission)) {
-            sender.sendMessage(color(tAny(sender, "playtime.lastseen_no_permission")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.lastseen_no_permission")));
             return true;
         }
         if (args.length < 1) {
-            sender.sendMessage(color(tAny(sender, "playtime.lastseen_usage")));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.lastseen_usage")));
             return true;
         }
 
         ResolvedPlayer resolved = resolvePlayer(args[0]);
         if (resolved == null) {
-            sender.sendMessage(color(tAny(sender, "playtime.no_data").replace("%player%", args[0])));
+            AdventureBridge.send(sender, color(tAny(sender, "playtime.no_data").replace("%player%", args[0])));
             return true;
         }
 
         Player online = Bukkit.getPlayer(resolved.uuid());
         if (isOnlineVisible(sender, online)) {
-            sender.sendMessage(buildClickableNameLine(
+            AdventureBridge.send(sender, buildClickableNameLine(
                     tAny(sender, "playtime.lastseen_online"), resolved.name(), sender));
             return true;
         }
@@ -1864,14 +1864,14 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             // всё равно кликабельный ник + «неизвестно»
             String line = tAny(sender, "playtime.lastseen")
                     .replace("%when%", tAny(sender, "playtime.unknown_time"));
-            sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
+            AdventureBridge.send(sender, buildClickableNameLine(line, resolved.name(), sender));
             return true;
         }
 
         long when = logout != null ? logout : login;
         String line = tAny(sender, "playtime.lastseen")
                 .replace("%when%", formatTimestamp(when, sender));
-        sender.sendMessage(buildClickableNameLine(line, resolved.name(), sender));
+        AdventureBridge.send(sender, buildClickableNameLine(line, resolved.name(), sender));
         return true;
     }
 
@@ -1943,7 +1943,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         } else {
             b.append(LEGACY.deserialize("&8[→]"));
         }
-        sender.sendMessage(b.build());
+        AdventureBridge.send(sender, b.build());
     }
 
     private String formatDuration(long totalSeconds, CommandSender sender) {
@@ -2271,7 +2271,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     private void sendPM(Player from, Player to, String message) {
         if (liteBansHook != null && liteBansHook.isMuted(from)) {
-            from.sendMessage(color(t(from, "chat.muted")));
+            AdventureBridge.send(from, color(t(from, "chat.muted")));
             return;
         }
 
@@ -2282,8 +2282,8 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         String hoverFrom   = t(from, "messages.join_hover").replace("%player%", to.getName());
         String hoverTo     = t(to,   "messages.join_hover").replace("%player%", from.getName());
 
-        from.sendMessage(formatPM(senderFmt, from, to,   hoverFrom));
-        to.sendMessage(formatPM(receiverFmt, to,   from, hoverTo));
+        AdventureBridge.send(from, formatPM(senderFmt, from, to,   hoverFrom));
+        AdventureBridge.send(to, formatPM(receiverFmt, to,   from, hoverTo));
 
         lastMessaged.put(from.getUniqueId(), to.getUniqueId());
         lastMessaged.put(to.getUniqueId(), from.getUniqueId());
@@ -2300,7 +2300,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
             for (UUID uid : socialSpy) {
                 Player spy = Bukkit.getPlayer(uid);
                 if (spy != null && !spy.equals(from) && !spy.equals(to))
-                    spy.sendMessage(buildClickableNameLine(spyFmt, from.getName(), spy));
+                    AdventureBridge.send(spy, buildClickableNameLine(spyFmt, from.getName(), spy));
             }
         }
         logToConsole("[PM] " + from.getName() + " → " + to.getName() + ": " + message);
@@ -3138,7 +3138,7 @@ private Component buildChatComponent(String format, Player sender, String rawMes
                 }
             }
         }
-        // 2) Direct JDA: channel.sendMessage(plain).queue()
+        // 2) Direct JDA: AdventureBridge.send(channel, plain).queue()
         try {
             java.lang.reflect.Method sendMessage = null;
             for (java.lang.reflect.Method m : channel.getClass().getMethods()) {
@@ -3339,7 +3339,7 @@ private String resolvePlaceholders(String text, Player player) {
         String perm = getConfig().getString("spam.notify.permission", "chatsync.spam.notify");
         for (Player staff : Bukkit.getOnlinePlayers()) {
             if (staff.hasPermission(perm) && !staff.equals(player)) {
-                staff.sendMessage(color(alert));
+                AdventureBridge.send(staff, color(alert));
             }
         }
         logToConsole("[SPAM] " + player.getName() + " (" + reason + "/" + channel + "): " + plain);
@@ -3350,7 +3350,7 @@ private String resolvePlaceholders(String text, Player player) {
     }
 
     private void logToConsole(String message) {
-        Bukkit.getConsoleSender().sendMessage(
+        AdventureBridge.send(Bukkit.getConsoleSender(),
                 LEGACY.deserialize(message));
     }
 
@@ -3578,7 +3578,7 @@ private String resolvePlaceholders(String text, Player player) {
         if (teamManager == null) return;
         TeamManager.Team team = teamManager.getTeamOf(sender.getUniqueId());
         if (team == null) {
-            sender.sendMessage(color(t(sender, "team.no_team")));
+            AdventureBridge.send(sender, color(t(sender, "team.no_team")));
             return;
         }
         sendTeamChat(sender, team, message);
@@ -3586,15 +3586,15 @@ private String resolvePlaceholders(String text, Player player) {
 
     private void sendTeamChat(Player sender, TeamManager.Team team, String message) {
         if (teamManager == null || !teamManager.enabled()) {
-            sender.sendMessage(color(t(sender, "team.disabled")));
+            AdventureBridge.send(sender, color(t(sender, "team.disabled")));
             return;
         }
         if (team == null || !team.members.contains(sender.getUniqueId())) {
-            sender.sendMessage(color(t(sender, "team.no_team")));
+            AdventureBridge.send(sender, color(t(sender, "team.no_team")));
             return;
         }
         if (liteBansHook != null && liteBansHook.isMuted(sender)) {
-            sender.sendMessage(color(t(sender, "chat.muted")));
+            AdventureBridge.send(sender, color(t(sender, "chat.muted")));
             return;
         }
         if (!sender.hasPermission(getConfig().getString("advanced.color_permission", "chatsync.color"))) message = stripColorCodes(message);
@@ -3620,7 +3620,7 @@ private String resolvePlaceholders(String text, Player player) {
             Player p = Bukkit.getPlayer(id);
             if (p == null || !p.isOnline()) continue;
             Component line = buildClickableNameLine(out, sender.getName(), p, "team");
-            p.sendMessage(line);
+            AdventureBridge.send(p, line);
         }
         // SocialSpy — team chat visible to spies who are not in the team
         if (tog("socialspy") && getConfig().getBoolean("socialspy.team_chat", true)) {
@@ -3633,7 +3633,7 @@ private String resolvePlaceholders(String text, Player player) {
                 if (team.members.contains(uid)) continue;
                 Player spy = Bukkit.getPlayer(uid);
                 if (spy == null || spy.equals(sender)) continue;
-                spy.sendMessage(buildClickableNameLine(spyTeamFmt, sender.getName(), spy, "team"));
+                AdventureBridge.send(spy, buildClickableNameLine(spyTeamFmt, sender.getName(), spy, "team"));
             }
         }
         if (chatLogger != null) {
@@ -3644,50 +3644,50 @@ private String resolvePlaceholders(String text, Player player) {
 
     private boolean cmdTeam(CommandSender sender, String[] args) {
         if (teamManager == null || !teamManager.enabled()) {
-            sender.sendMessage(color(tAny(sender, "team.disabled")));
+            AdventureBridge.send(sender, color(tAny(sender, "team.disabled")));
             return true;
         }
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(color(tAny(sender, "team.players_only")));
+            AdventureBridge.send(sender, color(tAny(sender, "team.players_only")));
             return true;
         }
         if (!player.hasPermission(getConfig().getString("teams.permission", "chatsync.team"))) {
-            player.sendMessage(color(t(player, "team.no_permission")));
+            AdventureBridge.send(player, color(t(player, "team.no_permission")));
             return true;
         }
         if (args.length == 0) {
-            player.sendMessage(color(t(player, "team.usage")));
+            AdventureBridge.send(player, color(t(player, "team.usage")));
             return true;
         }
         String sub = args[0].toLowerCase();
         switch (sub) {
             case "create" -> {
                 if (!player.hasPermission(getConfig().getString("teams.permission_create", "chatsync.team.create"))) {
-                    player.sendMessage(color(t(player, "team.no_permission")));
+                    AdventureBridge.send(player, color(t(player, "team.no_permission")));
                     return true;
                 }
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_create"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_create"))); return true; }
                 String name = args[1];
                 String r = teamManager.create(player, name);
                 switch (r) {
                     case "ok" -> {
                         TeamManager.Team nt = teamManager.getTeamOf(player.getUniqueId());
                         String sym = nt != null && nt.symbol != null ? nt.symbol : "#";
-                        player.sendMessage(color(t(player, "team.created")
+                        AdventureBridge.send(player, color(t(player, "team.created")
                                 .replace("%team%", name)
                                 .replace("%symbol%", sym)));
                     }
-                    case "already_in" -> player.sendMessage(color(t(player, "team.already_in")));
-                    case "max_teams" -> player.sendMessage(color(t(player, "team.max_teams")));
-                    case "name_taken" -> player.sendMessage(color(t(player, "team.name_taken")));
-                    case "name_long", "bad_name" -> player.sendMessage(color(t(player, "team.bad_name")));
-                    default -> player.sendMessage(color(t(player, "team.disabled")));
+                    case "already_in" -> AdventureBridge.send(player, color(t(player, "team.already_in")));
+                    case "max_teams" -> AdventureBridge.send(player, color(t(player, "team.max_teams")));
+                    case "name_taken" -> AdventureBridge.send(player, color(t(player, "team.name_taken")));
+                    case "name_long", "bad_name" -> AdventureBridge.send(player, color(t(player, "team.bad_name")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.disabled")));
                 }
             }
             case "invite" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_invite"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_invite"))); return true; }
                 Player target = Bukkit.getPlayerExact(args[1]);
-                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                if (target == null) { AdventureBridge.send(player, color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
                 String r = teamManager.invite(player, target);
                 switch (r) {
                     case "ok" -> {
@@ -3696,7 +3696,7 @@ private String resolvePlaceholders(String text, Player player) {
                             String sent = t(player, "team.invite_sent")
                                     .replace("%team%", team != null ? team.name : "");
                             if (!sent.contains("%player%")) sent = sent + " &f%player%";
-                            player.sendMessage(buildClickableNameLine(sent, target.getName(), player));
+                            AdventureBridge.send(player, buildClickableNameLine(sent, target.getName(), player));
                         }
                         // Clickable accept / deny
                         String invTpl = t(target, "team.invite_received")
@@ -3709,14 +3709,14 @@ private String resolvePlaceholders(String text, Player player) {
                         Component deny = color(" " + t(target, "team.btn_deny"))
                                 .clickEvent(ClickEvent.runCommand("/team deny"))
                                 .hoverEvent(HoverEvent.showText(color(t(target, "team.btn_deny_hover"))));
-                        target.sendMessage(base.append(accept).append(deny));
+                        AdventureBridge.send(target, base.append(accept).append(deny));
                     }
-                    case "no_team" -> player.sendMessage(color(t(player, "team.no_team")));
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
-                    case "target_in_team" -> player.sendMessage(color(t(player, "team.target_in_team")));
-                    case "full" -> player.sendMessage(color(t(player, "team.full")));
-                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "no_team" -> AdventureBridge.send(player, color(t(player, "team.no_team")));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_owner")));
+                    case "target_in_team" -> AdventureBridge.send(player, color(t(player, "team.target_in_team")));
+                    case "full" -> AdventureBridge.send(player, color(t(player, "team.full")));
+                    case "self" -> AdventureBridge.send(player, color(t(player, "team.cannot_self")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
             case "accept" -> {
@@ -3724,116 +3724,116 @@ private String resolvePlaceholders(String text, Player player) {
                 switch (r) {
                     case "ok" -> {
                         TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
-                        player.sendMessage(color(t(player, "team.joined").replace("%team%", team != null ? team.name : "")));
+                        AdventureBridge.send(player, color(t(player, "team.joined").replace("%team%", team != null ? team.name : "")));
                         if (team != null) {
                             for (java.util.UUID id : team.members) {
                                 Player p = Bukkit.getPlayer(id);
                                 if (p != null && !p.equals(player))
                                     {
                                         String mj = t(p, "team.member_joined").replace("%team%", team.name);
-                                        p.sendMessage(buildClickableNameLine(mj, player.getName(), p));
+                                        AdventureBridge.send(p, buildClickableNameLine(mj, player.getName(), p));
                                     }
                             }
                         }
                     }
-                    case "no_invite" -> player.sendMessage(color(t(player, "team.no_invite")));
-                    case "already_in" -> player.sendMessage(color(t(player, "team.already_in")));
-                    case "team_gone" -> player.sendMessage(color(t(player, "team.team_gone")));
-                    case "full" -> player.sendMessage(color(t(player, "team.full")));
-                    default -> player.sendMessage(color(t(player, "team.no_invite")));
+                    case "no_invite" -> AdventureBridge.send(player, color(t(player, "team.no_invite")));
+                    case "already_in" -> AdventureBridge.send(player, color(t(player, "team.already_in")));
+                    case "team_gone" -> AdventureBridge.send(player, color(t(player, "team.team_gone")));
+                    case "full" -> AdventureBridge.send(player, color(t(player, "team.full")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_invite")));
                 }
             }
             case "deny" -> {
                 String r = teamManager.deny(player);
-                player.sendMessage(color(t(player, r.equals("ok") ? "team.invite_denied" : "team.no_invite")));
+                AdventureBridge.send(player, color(t(player, r.equals("ok") ? "team.invite_denied" : "team.no_invite")));
             }
             case "leave" -> {
                 TeamManager.Team before = teamManager.getTeamOf(player.getUniqueId());
                 String r = teamManager.leave(player);
                 if (r.startsWith("ok")) {
-                    player.sendMessage(color(t(player, "team.left")));
+                    AdventureBridge.send(player, color(t(player, "team.left")));
                     if (before != null) {
                         for (java.util.UUID id : before.members) {
                             Player p = Bukkit.getPlayer(id);
                             if (p != null)
-                                p.sendMessage(buildClickableNameLine(t(p, "team.member_left"), player.getName(), p));
+                                AdventureBridge.send(p, buildClickableNameLine(t(p, "team.member_left"), player.getName(), p));
                         }
                     }
-                } else player.sendMessage(color(t(player, "team.no_team")));
+                } else AdventureBridge.send(player, color(t(player, "team.no_team")));
             }
             case "kick" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_kick"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_kick"))); return true; }
                 Player target = Bukkit.getPlayerExact(args[1]);
                 java.util.UUID tid = target != null ? target.getUniqueId() : null;
                 if (tid == null) {
                     // offline by name not supported simply
-                    player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1])));
+                    AdventureBridge.send(player, color(t(player, "pm.player_not_found").replace("%player%", args[1])));
                     return true;
                 }
                 String r = teamManager.kick(player, tid);
                 switch (r) {
                     case "ok" -> {
-                        player.sendMessage(color(t(player, "team.kicked").replace("%player%", target.getName())));
-                        target.sendMessage(color(t(target, "team.you_kicked")));
+                        AdventureBridge.send(player, color(t(player, "team.kicked").replace("%player%", target.getName())));
+                        AdventureBridge.send(target, color(t(target, "team.you_kicked")));
                     }
-                    case "no_team" -> player.sendMessage(color(t(player, "team.no_team")));
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
-                    case "not_member" -> player.sendMessage(color(t(player, "team.not_member")));
-                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
-                    case "cannot_kick_owner" -> player.sendMessage(color(t(player, "team.cannot_kick_owner")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "no_team" -> AdventureBridge.send(player, color(t(player, "team.no_team")));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_owner")));
+                    case "not_member" -> AdventureBridge.send(player, color(t(player, "team.not_member")));
+                    case "self" -> AdventureBridge.send(player, color(t(player, "team.cannot_self")));
+                    case "cannot_kick_owner" -> AdventureBridge.send(player, color(t(player, "team.cannot_kick_owner")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
             case "disband" -> {
                 TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
-                if (team == null) { player.sendMessage(color(t(player, "team.no_team"))); return true; }
+                if (team == null) { AdventureBridge.send(player, color(t(player, "team.no_team"))); return true; }
                 String teamName = team.name;
                 java.util.List<java.util.UUID> members = new java.util.ArrayList<>(team.members);
                 String r = teamManager.disband(player);
                 if (r.equals("ok")) {
                     for (java.util.UUID id : members) {
                         Player p = Bukkit.getPlayer(id);
-                        if (p != null) p.sendMessage(color(t(p, "team.disbanded").replace("%team%", teamName)));
+                        if (p != null) AdventureBridge.send(p, color(t(p, "team.disbanded").replace("%team%", teamName)));
                     }
-                } else if (r.equals("not_owner")) player.sendMessage(color(t(player, "team.not_owner")));
-                else player.sendMessage(color(t(player, "team.no_team")));
+                } else if (r.equals("not_owner")) AdventureBridge.send(player, color(t(player, "team.not_owner")));
+                else AdventureBridge.send(player, color(t(player, "team.no_team")));
             }
             case "chat", "c" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_chat"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_chat"))); return true; }
                 String msg = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
                 sendTeamChat(player, msg);
             }
             case "name", "rename" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_name"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_name"))); return true; }
                 String r = teamManager.rename(player, args[1]);
                 switch (r) {
-                    case "ok" -> player.sendMessage(color(t(player, "team.renamed").replace("%team%", args[1])));
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
-                    case "name_taken" -> player.sendMessage(color(t(player, "team.name_taken")));
-                    case "bad_name" -> player.sendMessage(color(t(player, "team.bad_name")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "ok" -> AdventureBridge.send(player, color(t(player, "team.renamed").replace("%team%", args[1])));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_owner")));
+                    case "name_taken" -> AdventureBridge.send(player, color(t(player, "team.name_taken")));
+                    case "bad_name" -> AdventureBridge.send(player, color(t(player, "team.bad_name")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
             case "color" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_color"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_color"))); return true; }
                 String r = teamManager.setColor(player, args[1]);
                 switch (r) {
                     case "ok" -> {
                         TeamManager.Team tcol = teamManager.getTeamOf(player.getUniqueId());
                         String shown = (tcol != null && tcol.color != null) ? tcol.color : args[1];
                         // preview square uses the actual team color codes
-                        player.sendMessage(color(t(player, "team.color_set").replace("%color%", shown)));
+                        AdventureBridge.send(player, color(t(player, "team.color_set").replace("%color%", shown)));
                     }
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
-                    case "bad_color" -> player.sendMessage(color(t(player, "team.bad_color")));
-                    case "disabled" -> player.sendMessage(color(t(player, "team.color_disabled")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_owner")));
+                    case "bad_color" -> AdventureBridge.send(player, color(t(player, "team.bad_color")));
+                    case "disabled" -> AdventureBridge.send(player, color(t(player, "team.color_disabled")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
             case "info" -> {
                 TeamManager.Team team = teamManager.getTeamOf(player.getUniqueId());
-                if (team == null) { player.sendMessage(color(t(player, "team.no_team"))); return true; }
-                player.sendMessage(color(t(player, "team.info_header").replace("%team%", team.name).replace("%color%", team.color).replace("%symbol%", team.symbol != null ? team.symbol : "")));
+                if (team == null) { AdventureBridge.send(player, color(t(player, "team.no_team"))); return true; }
+                AdventureBridge.send(player, color(t(player, "team.info_header").replace("%team%", team.name).replace("%color%", team.color).replace("%symbol%", team.symbol != null ? team.symbol : "")));
                 StringBuilder members = new StringBuilder();
                 for (java.util.UUID id : team.members) {
                     Player p = Bukkit.getPlayer(id);
@@ -3844,71 +3844,71 @@ private String resolvePlaceholders(String text, Player player) {
                     if (members.length() > 0) members.append("&7, &f");
                     members.append(n);
                 }
-                player.sendMessage(color(t(player, "team.info_members").replace("%members%", members.toString())));
-                player.sendMessage(color(t(player, "team.info_legend")));
+                AdventureBridge.send(player, color(t(player, "team.info_members").replace("%members%", members.toString())));
+                AdventureBridge.send(player, color(t(player, "team.info_legend")));
             }
             case "transfer" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_transfer"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_transfer"))); return true; }
                 Player target = Bukkit.getPlayerExact(args[1]);
-                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                if (target == null) { AdventureBridge.send(player, color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
                 String r = teamManager.transfer(player, target.getUniqueId());
                 switch (r) {
                     case "ok" -> {
-                        player.sendMessage(color(t(player, "team.transferred").replace("%player%", target.getName())));
-                        target.sendMessage(color(t(target, "team.you_owner")));
+                        AdventureBridge.send(player, color(t(player, "team.transferred").replace("%player%", target.getName())));
+                        AdventureBridge.send(target, color(t(target, "team.you_owner")));
                     }
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_primary_owner")));
-                    case "not_member" -> player.sendMessage(color(t(player, "team.not_member")));
-                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_primary_owner")));
+                    case "not_member" -> AdventureBridge.send(player, color(t(player, "team.not_member")));
+                    case "self" -> AdventureBridge.send(player, color(t(player, "team.cannot_self")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
             case "promote" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_promote"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_promote"))); return true; }
                 Player target = Bukkit.getPlayerExact(args[1]);
-                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                if (target == null) { AdventureBridge.send(player, color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
                 String r = teamManager.promote(player, target.getUniqueId());
                 switch (r) {
                     case "ok" -> {
-                        player.sendMessage(color(t(player, "team.promoted").replace("%player%", target.getName())));
-                        target.sendMessage(color(t(target, "team.you_co_owner")));
+                        AdventureBridge.send(player, color(t(player, "team.promoted").replace("%player%", target.getName())));
+                        AdventureBridge.send(target, color(t(target, "team.you_co_owner")));
                     }
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_primary_owner")));
-                    case "not_member" -> player.sendMessage(color(t(player, "team.not_member")));
-                    case "already_co" -> player.sendMessage(color(t(player, "team.already_co")));
-                    case "max_co" -> player.sendMessage(color(t(player, "team.max_co")));
-                    case "self" -> player.sendMessage(color(t(player, "team.cannot_self")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_primary_owner")));
+                    case "not_member" -> AdventureBridge.send(player, color(t(player, "team.not_member")));
+                    case "already_co" -> AdventureBridge.send(player, color(t(player, "team.already_co")));
+                    case "max_co" -> AdventureBridge.send(player, color(t(player, "team.max_co")));
+                    case "self" -> AdventureBridge.send(player, color(t(player, "team.cannot_self")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
             case "demote" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_demote"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_demote"))); return true; }
                 Player target = Bukkit.getPlayerExact(args[1]);
-                if (target == null) { player.sendMessage(color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
+                if (target == null) { AdventureBridge.send(player, color(t(player, "pm.player_not_found").replace("%player%", args[1]))); return true; }
                 String r = teamManager.demote(player, target.getUniqueId());
                 switch (r) {
                     case "ok" -> {
-                        player.sendMessage(color(t(player, "team.demoted").replace("%player%", target.getName())));
-                        target.sendMessage(color(t(target, "team.you_demoted")));
+                        AdventureBridge.send(player, color(t(player, "team.demoted").replace("%player%", target.getName())));
+                        AdventureBridge.send(target, color(t(target, "team.you_demoted")));
                     }
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_primary_owner")));
-                    case "not_co" -> player.sendMessage(color(t(player, "team.not_co")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_primary_owner")));
+                    case "not_co" -> AdventureBridge.send(player, color(t(player, "team.not_co")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
             case "symbol" -> {
-                if (args.length < 2) { player.sendMessage(color(t(player, "team.usage_symbol"))); return true; }
+                if (args.length < 2) { AdventureBridge.send(player, color(t(player, "team.usage_symbol"))); return true; }
                 String r = teamManager.setSymbol(player, args[1]);
                 switch (r) {
-                    case "ok" -> player.sendMessage(color(t(player, "team.symbol_set").replace("%symbol%", args[1])));
-                    case "not_owner" -> player.sendMessage(color(t(player, "team.not_owner")));
-                    case "taken" -> player.sendMessage(color(t(player, "team.symbol_taken")));
-                    case "clash_global" -> player.sendMessage(color(t(player, "team.symbol_clash")));
-                    case "bad_symbol" -> player.sendMessage(color(t(player, "team.bad_symbol")));
-                    default -> player.sendMessage(color(t(player, "team.no_team")));
+                    case "ok" -> AdventureBridge.send(player, color(t(player, "team.symbol_set").replace("%symbol%", args[1])));
+                    case "not_owner" -> AdventureBridge.send(player, color(t(player, "team.not_owner")));
+                    case "taken" -> AdventureBridge.send(player, color(t(player, "team.symbol_taken")));
+                    case "clash_global" -> AdventureBridge.send(player, color(t(player, "team.symbol_clash")));
+                    case "bad_symbol" -> AdventureBridge.send(player, color(t(player, "team.bad_symbol")));
+                    default -> AdventureBridge.send(player, color(t(player, "team.no_team")));
                 }
             }
-            default -> player.sendMessage(color(t(player, "team.usage")));
+            default -> AdventureBridge.send(player, color(t(player, "team.usage")));
         }
         return true;
     }

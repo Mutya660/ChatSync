@@ -93,7 +93,7 @@ public class DeathMessageTranslator implements Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onPlayerDeathEarly(PlayerDeathEvent event) {
         purgeStalePending();
-        Component deathMessage = event.deathMessage();
+        Component deathMessage = AdventureBridge.getDeathMessage(event);
         if (deathMessage == null) {
             // Another plugin cleared it, or showDeathMessages is false.
             // Do not invent a message if the server intentionally hid deaths.
@@ -124,7 +124,7 @@ public class DeathMessageTranslator implements Listener {
         if (body == null) body = deathMessage;
 
         Component clean = plugin.stripObjectComponents(body);
-        event.deathMessage(clean);
+        AdventureBridge.setDeathMessage(event, clean);
         UUID _id = event.getEntity().getUniqueId();
         pendingClean.put(_id, clean);
         pendingAt.put(_id, System.currentTimeMillis());
@@ -158,11 +158,11 @@ public class DeathMessageTranslator implements Listener {
         // Always take ownership of the death line:
         // 1) clear event so Paper/DiscordSRV do not broadcast a second copy
         // 2) send ourselves (works for en + translated ru/etc.)
-        event.deathMessage(null);
+        AdventureBridge.setDeathMessage(event, null);
         if (show != null) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 try {
-                    p.sendMessage(show);
+                    AdventureBridge.send(p, show);
                 } catch (Throwable ignored) {}
             }
         }

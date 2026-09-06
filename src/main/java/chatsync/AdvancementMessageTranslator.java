@@ -36,14 +36,14 @@ public class AdvancementMessageTranslator implements Listener {
         if (!plugin.isClickableEnabled("advancement")) return;
         if (event.getAdvancement().getDisplay() == null) return;
 
-        Component message = event.message();
+        Component message = AdventureBridge.getAdvancementMessage(event);
         if (message == null) return;
 
         Player player = event.getPlayer();
         Component body = makeNameClickable(message, player);
         if (body == null) body = message;
 
-        event.message(plugin.stripObjectComponents(body));
+        AdventureBridge.setAdvancementMessage(event, plugin.stripObjectComponents(body));
 
         boolean heads = plugin.isHeadsEnabled("advancement");
         Component withHead = body;
@@ -66,9 +66,9 @@ public class AdvancementMessageTranslator implements Listener {
         boolean heads = plugin.isHeadsEnabled("advancement");
         if (!heads) return;
         Component clean = plugin.stripObjectComponents(withHead);
-        event.message(null);
+        AdventureBridge.setAdvancementMessage(event, null);
         for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendMessage(withHead);
+            AdventureBridge.send(p, withHead);
         }
         String plain = plugin.plainComponent(clean);
         if (!plain.isEmpty()) {

@@ -8,7 +8,7 @@ libraries:
   - net.kyori:adventure-text-serializer-plain:4.17.0
   - net.kyori:adventure-text-serializer-gson:4.17.0
 softdepend: [PlaceholderAPI, DiscordSRV, LuckPerms, CoreProtect, LiteBans, SuperVanish, PremiumVanish, Essentials, SkinsRestorer]
-description: Multifunctional chat plugin — global/local chat, PM, ignore, socialspy, teams, stats, playtime, GUI. Supports Paper/Purpur and Arclight hybrid servers.
+description: Multifunctional chat plugin — global/local chat, PM, ignore, socialspy, teams, stats, playtime, GUI. Use chatsync-*-arclight.jar on Arclight/Spigot/Mohist; plain jar on Paper/Purpur.
 authors: [Mutya660]
 website: "https://modrinth.com/plugin/chatsync"
 

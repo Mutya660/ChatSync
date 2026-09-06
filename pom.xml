@@ -8,11 +8,24 @@
     <artifactId>chatsync</artifactId>
     <version>1.7.2</version>
 
+    <!--
+      Artifacts after `mvn clean package`:
+
+      1) target/chatsync-1.7.2.jar
+         → Paper, Purpur, Leaf, Pufferfish, Folia*
+         Adventure is provided by the server. Small JAR.
+
+      2) target/chatsync-1.7.2-arclight.jar
+         → Arclight (Forge/NeoForge/Fabric hybrid), Mohist, Magma,
+           plain Spigot/CraftBukkit (no Adventure on the server)
+         Adventure API is shaded into the JAR.
+
+      * Folia: chat works; some global schedulers are not region-aware.
+    -->
+
     <properties>
-        <!-- Java 21: builds on common JDKs and runs on Paper 1.21.x … 26.2 -->
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Bundled for Arclight/Spigot; on Paper the server copy is preferred by the classloader -->
         <adventure.version>4.17.0</adventure.version>
     </properties>
 
@@ -36,11 +49,6 @@
     </repositories>
 
     <dependencies>
-        <!--
-          Compile against Paper 1.21.4 API (Java 21 bytecode).
-          The same JAR runs on newer Paper (1.21.x–26.2) as long as we
-          don't call APIs that only exist on the newest server.
-        -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
@@ -66,28 +74,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Adventure: Paper already has it (provided transitively). Arclight/Spigot do not
-             expose net.kyori.adventure to plugins → NoClassDefFoundError without shading. -->
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>${adventure.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>${adventure.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>${adventure.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>${adventure.version}</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -100,20 +86,27 @@
                     <release>21</release>
                 </configuration>
             </plugin>
+
+            <!--
+              Second artifact: chatsync-VERSION-arclight.jar
+              Main artifact stays thin (Paper/Purpur).
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.6.0</version>
                 <executions>
                     <execution>
+                        <id>shade-arclight</id>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>arclight</shadedClassifierName>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <minimizeJar>false</minimizeJar>
-                            <!-- Overlaps between examination-*/option are only module-info / META-INF -->
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
@@ -160,4 +153,36 @@
             </resource>
         </resources>
     </build>
+
+    <!-- Optional: force-include Adventure for shade even though scope is provided -->
+    <profiles>
+        <profile>
+            <id>arclight-deps</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-api</artifactId>
+                    <version>${adventure.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-legacy</artifactId>
+                    <version>${adventure.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-plain</artifactId>
+                    <version>${adventure.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-gson</artifactId>
+                    <version>${adventure.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>

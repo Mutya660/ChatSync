@@ -94,7 +94,11 @@ public class DeathMessageTranslator implements Listener {
     public void onPlayerDeathEarly(PlayerDeathEvent event) {
         purgeStalePending();
         Component deathMessage = event.deathMessage();
-        if (deathMessage == null) return;
+        if (deathMessage == null) {
+            // Another plugin cleared it, or showDeathMessages is false.
+            // Do not invent a message if the server intentionally hid deaths.
+            return;
+        }
 
         boolean clickable = plugin.isClickableEnabled("death");
         boolean translate = plugin.getConfig().getBoolean("death_messages.translate", true);
@@ -141,27 +145,28 @@ public class DeathMessageTranslator implements Listener {
         if (withHeads == null && clean == null) return;
 
         boolean heads = plugin.isHeadsEnabled("death");
-        // Plain text for console + Discord (never include object heads).
+
+        // Text without object-heads for console / Discord.
         Component forLog = clean != null ? clean
-                : (withHeads != null ? plugin.stripObjectComponents(withHeads) : null);
+                : plugin.stripObjectComponents(withHeads);
         String plain = forLog != null ? plugin.plainComponent(forLog) : "";
 
-        if (heads && withHeads != null) {
-            // Replace vanilla broadcast with our headed message in-game.
-            // Null the event so DiscordSRV does not double-post an empty/vanilla line.
-            event.deathMessage(null);
+        // What players see in-game.
+        Component show = (heads && withHeads != null) ? withHeads : clean;
+        if (show == null) show = forLog;
+
+        // Always take ownership of the death line:
+        // 1) clear event so Paper/DiscordSRV do not broadcast a second copy
+        // 2) send ourselves (works for en + translated ru/etc.)
+        event.deathMessage(null);
+        if (show != null) {
             for (Player p : Bukkit.getOnlinePlayers()) {
-                p.sendMessage(withHeads);
+                try {
+                    p.sendMessage(show);
+                } catch (Throwable ignored) {}
             }
-        } else if (clean != null) {
-            // Keep translated/clickable text on the event for vanilla in-game broadcast.
-            event.deathMessage(clean);
         }
 
-        // Always push death line to console + Discord ourselves.
-        // Critical for language != en: we replace the TranslatableComponent with plain
-        // translated text; DiscordSRV often only auto-forwards vanilla death components,
-        // so without an explicit relay Russian (and other packs) never appear in Discord.
         if (!plain.isEmpty()) {
             plugin.logToConsolePublic("[Death] " + plain);
             plugin.relayGameMessageToDiscord(forLog);

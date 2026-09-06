@@ -109,8 +109,6 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     //  Lifecycle
     // ──────────────────────────────────────────────────────────────
 
-    @Override
-
     /**
      * Merge missing keys from the JAR default config into the live config.yml
      * without overwriting user values. Bumps config-version when done.
@@ -149,6 +147,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
     }
 
+    @Override
     public void onEnable() {
         saveDefaultConfig();
         mergeConfigDefaults();

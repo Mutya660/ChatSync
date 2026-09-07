@@ -100,6 +100,7 @@ broadcast:
   usage: "&7Verwendung: &f/broadcast <Nachricht|Preset|hide|-h>"
   usage_hide: "&7Autor verbergen: &f/broadcast -h <Nachricht|Preset>"
   no_permission: "&cDu hast keine Berechtigung, Ankündigungen zu senden."
+  presets_list: "&7Presets: &f%list%"
   preset_empty: "&cPreset &f%preset% &cist leer."
   preset_usage: "&7Verwendung: &f/broadcast preset list|set <Schlüssel> <Text>|remove <Schlüssel>"
   preset_empty_list: "&7Keine Broadcast-Presets konfiguriert."

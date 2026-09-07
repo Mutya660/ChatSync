@@ -6,16 +6,16 @@
 
     <groupId>io.github.chatsync</groupId>
     <artifactId>chatsync</artifactId>
-    <version>1.7.2</version>
+    <version>1.7.3</version>
 
     <!--
       Artifacts after `mvn clean package`:
 
-      1) target/chatsync-1.7.2.jar
+      1) target/chatsync-1.7.3.jar
          → Paper, Purpur, Leaf, Pufferfish, Folia*
          Adventure is provided by the server. Small JAR.
 
-      2) target/chatsync-1.7.2-arclight.jar
+      2) target/chatsync-1.7.3-arclight.jar
          → Arclight (Forge/NeoForge/Fabric hybrid), Mohist, Magma,
            plain Spigot/CraftBukkit (no Adventure on the server)
          Adventure API is shaded into the JAR.

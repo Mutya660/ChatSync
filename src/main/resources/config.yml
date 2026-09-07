@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════
-#  ChatSync 1.7.2 — Configuration
+#  ChatSync 1.7.3 — Configuration
 #  Modrinth: https://modrinth.com/plugin/chatsync
 #  Github:   https://github.com/Mutya660/ChatSync
 #
@@ -15,14 +15,16 @@
 # No per-client auto-detection — set it here only.
 #
 # Built-in codes:
-#   en (English, default), ru, de, fr, es, pt, pl, it,
-#   uk, zh, ja, tr, nl, cs
+#   en (English, default)
+#   ru (Russian)
+#   de (German)
+#   fr (French)
 #
 # If a key is missing in the chosen language file, English is used.
 language: "en"
 
 # Internal. Do not change — used to merge new keys on upgrade.
-config-version: 4
+config-version: 5
 
 # ── Compatibility ─────────────────────────────────────────────
 # ChatSync runs on Paper/Purpur and on hybrid servers (Arclight).

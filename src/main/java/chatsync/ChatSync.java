@@ -89,18 +89,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
 
     public TeamManager getTeamManager() { return teamManager; }
 
-    private static final List<String> SUPPORTED_LANGS = List.of(
-            "en", "ru", "de", "fr", "es", "pt", "pl", "it", "uk", "zh", "ja", "tr", "nl", "cs"
-    );
-
-    private static final Map<String, String> LOCALE_MAP = Map.ofEntries(
-        Map.entry("en_us", "en"), Map.entry("en_gb", "en"),
-        Map.entry("en_au", "en"), Map.entry("en_ca", "en"), Map.entry("en_nz", "en"),
-        Map.entry("ru_ru", "ru"),
-        Map.entry("de_de", "de"), Map.entry("de_at", "de"), Map.entry("de_ch", "de"),
-        Map.entry("fr_fr", "fr"), Map.entry("fr_ca", "fr"),
-        Map.entry("fr_be", "fr"), Map.entry("fr_ch", "fr")
-    );
+    private static final List<String> SUPPORTED_LANGS = List.of("en", "ru", "de", "fr");
 
     /** Ожидающая подтверждения заявка на очистку чата. target == null означает "очистить всем". */
     private record PendingClear(UUID target, long expiresAt) {}
@@ -114,7 +103,7 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
      * without overwriting user values. Bumps config-version when done.
      */
     private void mergeConfigDefaults() {
-        final int CURRENT = 4;
+        final int CURRENT = 5;
         int ver = getConfig().getInt("config-version", 0);
         java.io.InputStream in = getResource("config.yml");
         if (in == null) return;
@@ -561,11 +550,6 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
     //  Chat
     // ──────────────────────────────────────────────────────────────
 
-    /**
-     * Shared chat pipeline for Paper AsyncChatEvent and Spigot/Arclight AsyncPlayerChatEvent.
-     * Called from PaperChatListener / LegacyChatListener after the source event is cancelled.
-     */
-
     private void registerChatListener() {
         if (getConfig().getBoolean("compatibility.log_platform", true)) {
             getLogger().info("Server platform: " + ServerCompat.describe());
@@ -589,6 +573,10 @@ public class ChatSync extends JavaPlugin implements Listener, CommandExecutor, T
         }
     }
 
+    /**
+     * Shared chat pipeline for Paper AsyncChatEvent and Spigot/Arclight AsyncPlayerChatEvent.
+     * Called from PaperChatListener / LegacyChatListener after the source event is cancelled.
+     */
     public void processChatMessage(Player sender, String rawMessage) {
         if (sender == null || rawMessage == null) return;
 
